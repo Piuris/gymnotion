@@ -124,6 +124,11 @@ window.fetch = async (url, opts) => {
   await send('Page.navigate', { url: BASE + '/index.html' });
   await sleep(1600);
 
+  /* Zera a configuração de propósito: o teste não pode depender do que estiver
+     em js/firebase-config.js, e nunca deve falar com o projeto real. */
+  await ev("FIREBASE.apiKey = ''; FIREBASE.projectId = ''; cloudEsquecer(); 'ok'");
+  await ev("popToRoot(); currentScreen().refresh();"); await sleep(300);
+
   console.log('sem configuração:');
   ck(await ev('cloudConfigurado() === false'), 'nuvem desligada quando as chaves estão vazias');
   await ev("TAB = 'perfil'; popToRoot(); currentScreen().refresh();"); await sleep(400);
@@ -146,6 +151,29 @@ window.fetch = async (url, opts) => {
     === 'Esse e-mail já tem conta. Use "Entrar".', 'e-mail já cadastrado');
   ck(await ev("cloudEntrar('a@b.com', 'errada', false).then(() => 'sem erro', e => e.message)")
     === 'E-mail ou senha incorretos.', 'senha errada');
+
+  const semRegras = await ev(`(async () => {
+    const f = window.fetch;
+    window.fetch = async () => new Response(
+      JSON.stringify({ error: { status: 'PERMISSION_DENIED', message: 'Missing or insufficient permissions.' } }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } });
+    CLOUD.refreshToken = 'r'; CLOUD.uid = 'u'; CLOUD.idToken = 't'; CLOUD.expiraEm = Date.now() + 1e6;
+    const msg = await cloudEnviar().then(() => 'sem erro', e => e.message);
+    window.fetch = f; cloudEsquecer();
+    return msg;
+  })()`);
+  ck(semRegras.includes('Publique as regras'),
+    'regras nao publicadas viram instrucao, nao jargao');
+
+  const semRede = await ev(`(async () => {
+    const f = window.fetch;
+    window.fetch = async () => { throw new TypeError('Failed to fetch'); };
+    const msg = await cloudEntrar('a@b.com', 'segredo123', false).then(() => 'sem erro', e => e.message);
+    window.fetch = f;
+    return msg;
+  })()`);
+  ck(semRede.includes('Sem conexao') || semRede.includes('Sem conex'),
+    'falha de rede vira aviso tranquilo');
 
   console.log('\nentrar:');
   await ev("cloudEntrar('eu@exemplo.com', 'segredo123', false)");

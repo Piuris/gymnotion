@@ -56,16 +56,31 @@ const ERROS = {
 };
 
 function traduzErro(msg) {
-  const chave = String(msg || '').split(' :')[0].trim();
-  return ERROS[chave] || ('Falha na nuvem: ' + (msg || 'erro desconhecido'));
+  const texto = String(msg || '');
+  const chave = texto.split(' :')[0].trim();
+  if (ERROS[chave]) return ERROS[chave];
+  /* O Firestore recusa tudo até as regras de firestore.rules serem publicadas;
+     a mensagem crua ("Missing or insufficient permissions") não diz o que fazer. */
+  if (/insufficient permissions|PERMISSION_DENIED/i.test(texto)) {
+    return 'O banco recusou o acesso. Publique as regras de firestore.rules no console do Firebase.';
+  }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(texto)) {
+    return 'Sem conexão. Seus treinos estão salvos no aparelho; tente enviar depois.';
+  }
+  return 'Falha na nuvem: ' + (texto || 'erro desconhecido');
 }
 
 async function postJSON(url, corpo, headers) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
-    body: JSON.stringify(corpo),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+      body: JSON.stringify(corpo),
+    });
+  } catch (e) {
+    throw new Error(traduzErro(e.message));
+  }
   const dados = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(traduzErro(dados.error && dados.error.message));
   return dados;
