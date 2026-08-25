@@ -140,3 +140,8 @@ jobs.forEach(([name, size, opts]) => {
   fs.writeFileSync(path.join(out, name), png);
   console.log(name, size + 'x' + size, (png.length / 1024).toFixed(1) + ' KB');
 });
+
+console.log('');
+console.log('Lembre de subir o ?v= em index.html, manifest.webmanifest e sw.js:');
+console.log('o Safari guarda o apple-touch-icon por muito tempo e ignora Cache-Control,');
+console.log('entao so uma URL nova faz o iPhone buscar o desenho atualizado.');

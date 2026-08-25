@@ -1,19 +1,19 @@
 /* GymNotion — cache offline */
-const CACHE = 'gymnotion-v4';
+const CACHE = 'gymnotion-v5';
 
 const ASSETS = [
   './',
   './index.html',
-  './manifest.webmanifest',
+  './manifest.webmanifest?v=2',
   './css/style.css',
   './js/exercises.js',
   './js/exercise-images.js',
   './js/store.js',
   './js/ui.js',
   './js/app.js',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
+  './icons/icon-180.png?v=2',
+  './icons/icon-192.png?v=2',
+  './icons/icon-512.png?v=2',
 ];
 
 /* Cada recurso é guardado por conta própria: com addAll(), um único arquivo

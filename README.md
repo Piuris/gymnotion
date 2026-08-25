@@ -162,7 +162,7 @@ método MET depende de peso, tempo e intensidade.
 ## Manutenção
 
 ```bash
-node tools/make-icons.js                 # regerar ícones
+node tools/make-icons.js                 # regerar ícones (suba o ?v= depois)
 node tools/fetch-images.js               # rebaixar e reconverter as fotos
 node tools/seed.js                       # gerar dados de teste em __seed.html
 python -m http.server 8099 &             # servidor local
@@ -181,6 +181,15 @@ Os dois saem com código diferente de zero se qualquer erro ou aviso aparecer no
 console. O `flow-test.js` ainda verifica o comportamento: cria um treino do zero,
 busca exercícios, anota 60 kg x 10, conclui o treino e confere que o volume, a
 sequência de dias e o `localStorage` bateram.
+
+## Trocar o ícone
+
+O desenho e as cores estão em [tools/make-icons.js](tools/make-icons.js)
+(`BG_A`, `BG_B` e `GLYPH`). Depois de rodar `node tools/make-icons.js`, **suba o
+`?v=` em três lugares**: [index.html](index.html), [manifest.webmanifest](manifest.webmanifest)
+e a lista `ASSETS` do [sw.js](sw.js). O Safari guarda o `apple-touch-icon` por
+muito tempo e ignora `Cache-Control`, então trocar o arquivo sem trocar a URL faz
+o iPhone continuar exibindo o ícone antigo ao adicionar à tela de início.
 
 ## Limites conhecidos
 
