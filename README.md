@@ -94,6 +94,12 @@ node tools/shots.js ./__shots            # capturar as telas e checar erros
 node tools/flow-test.js ./__shots        # percurso completo, com verificações
 ```
 
+Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
+de propósito: o `CacheStorage` acrescenta cerca de 100 caracteres ao caminho do
+perfil e, numa pasta funda, o Windows estoura o limite de 260 — toda escrita em
+cache passa a falhar com *"Entry already exists"* e o service worker parece
+quebrado sem estar. Se for mudar a pasta do perfil, mantenha o caminho curto.
+
 Os dois saem com código diferente de zero se qualquer erro ou aviso aparecer no
 console. O `flow-test.js` ainda verifica o comportamento: cria um treino do zero,
 busca exercícios, anota 60 kg x 10, conclui o treino e confere que o volume, a

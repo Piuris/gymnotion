@@ -4,6 +4,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const OUT = process.argv[2] || path.join(__dirname, '..', '__shots');
 const BASE = (process.env.GYM_URL || 'http://127.0.0.1:8099').replace(/\/$/, '');
@@ -14,6 +15,12 @@ const CHROME = [
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
 ].find((p) => fs.existsSync(p));
 
+/* O CacheStorage do Chrome acrescenta ~100 caracteres ao caminho do perfil.
+   Num diretório fundo o Windows estoura o limite de 260 e TODA escrita em
+   cache falha com "Entry already exists" — o que faz o service worker
+   parecer quebrado. Por isso o perfil fica num caminho curto. */
+const PROFILE = path.join(os.tmpdir(), 'gymnotion-chrome');
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
@@ -22,7 +29,7 @@ async function main() {
   const chrome = spawn(CHROME, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--mute-audio',
     '--no-first-run', '--no-default-browser-check',
-    '--user-data-dir=' + path.join(OUT, '.profile'),
+    '--user-data-dir=' + PROFILE,
     '--remote-debugging-port=' + PORT,
     '--window-size=390,844',
     'about:blank',
