@@ -55,8 +55,13 @@ function encodePNG(width, height, rgba) {
 
 /* ---------- desenho ---------- */
 
-const BG_A = [0xFF, 0x6B, 0x2C];   // laranja claro (topo)
-const BG_B = [0xE8, 0x3F, 0x0A];   // laranja escuro (base)
+/* Preto fosco: gradiente quase imperceptível, só o suficiente para o ícone não
+   ficar chapado na tela de início. Um degradê forte leria como brilho. */
+const BG_A = [0x1C, 0x1C, 0x1E];   // topo
+const BG_B = [0x0D, 0x0D, 0x0F];   // base
+
+/* Roxo do app (o mesmo da paleta de cores de treino em js/store.js) */
+const GLYPH = [0xA0, 0x20, 0xF0];
 
 /* retângulo arredondado: 1 dentro, 0 fora */
 function insideRounded(x, y, size, radius) {
@@ -67,7 +72,7 @@ function insideRounded(x, y, size, radius) {
   return dx * dx + dy * dy <= r * r;
 }
 
-/* halter branco centrado, em coordenadas 0..1 */
+/* halter centrado, em coordenadas 0..1 */
 function insideDumbbell(u, v, scale) {
   const x = (u - 0.5) / scale;
   const y = (v - 0.5) / scale;
@@ -105,9 +110,9 @@ function render(size, opts) {
         Math.round(BG_A[2] + (BG_B[2] - BG_A[2]) * t),
       ];
       const col = [
-        Math.round(bg[0] + (255 - bg[0]) * g),
-        Math.round(bg[1] + (255 - bg[1]) * g),
-        Math.round(bg[2] + (255 - bg[2]) * g),
+        Math.round(bg[0] + (GLYPH[0] - bg[0]) * g),
+        Math.round(bg[1] + (GLYPH[1] - bg[1]) * g),
+        Math.round(bg[2] + (GLYPH[2] - bg[2]) * g),
       ];
 
       const i = (y * size + x) * 4;
