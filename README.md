@@ -59,16 +59,42 @@ registra (não é HTTPS), mas a interface toda funciona.
 | [index.html](index.html) | Casca do app e metatags do modo standalone do iOS |
 | [css/style.css](css/style.css) | Tema escuro inteiro, com o acento dinâmico |
 | [js/exercises.js](js/exercises.js) | ~130 exercícios em pt-BR, por grupo muscular |
+| [js/exercise-images.js](js/exercise-images.js) | GERADO: quais exercícios têm foto |
+| [img/](img/) | 122 fotos de exercício, 192×192 WebP (~660 KB no total) |
 | [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas |
 | [js/ui.js](js/ui.js) | Ícones, navegação em pilha, gráficos, folhas modais |
 | [js/app.js](js/app.js) | As telas |
 | [sw.js](sw.js) | Cache offline (rede primeiro, cache como reserva) |
 | [tools/make-icons.js](tools/make-icons.js) | Gera os PNGs do ícone sem dependências |
+| [tools/image-map.json](tools/image-map.json) | Liga cada exercício pt-BR ao nome no banco de fotos |
+| [tools/fetch-images.js](tools/fetch-images.js) | Baixa, corta e converte as fotos para WebP |
 | [tools/seed.js](tools/seed.js) | Cria `__seed.html` com dados de demonstração |
 | [tools/shots.js](tools/shots.js) | Percorre as telas no Chrome headless e salva PNGs |
 | [tools/flow-test.js](tools/flow-test.js) | Teste de fumaça do percurso completo, de app vazio a treino salvo |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
+
+## As fotos dos exercícios
+
+Cada exercício mostra uma foto da execução, na biblioteca, na lista do treino e
+no topo da tela de séries. São **122 dos 124 exercícios** (faltam *Hollow Hold* e
+*Burpee*, que caem no ícone do grupo muscular).
+
+As fotos vêm do [free-exercise-db](https://github.com/yuhonas/free-exercise-db),
+que está sob **Unlicense** — domínio público, sem exigência de crédito. Ainda
+assim fica aqui o crédito, porque é justo. O `tools/fetch-images.js` baixa o
+original, corta no quadrado central, reduz para 192×192 e grava em WebP: dá
+cerca de **5,4 KB por foto, 660 KB no total**. Nada é buscado em servidor de
+terceiros em tempo de uso — tudo mora no repositório e funciona offline.
+
+O casamento entre o nome em português e o nome em inglês do banco está em
+[tools/image-map.json](tools/image-map.json), feito à mão e conferido contra os
+873 nomes reais do catálogo. Para trocar a foto de um exercício, mude o nome
+inglês nesse arquivo e rode `node tools/fetch-images.js` de novo.
+
+Escolhi esse banco em vez do [wger](https://wger.de) (que tem o traço técnico de
+ilustração) porque o wger só cobria **23 dos 124** exercícios desta lista, e suas
+imagens são CC-BY-SA — o que obrigaria o app a herdar a mesma licença.
 
 ## O que dá para fazer
 
@@ -81,6 +107,7 @@ Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
 - Histórico com calorias, volume, séries e repetições; sequência de dias treinados.
 - Exportar e importar backup em `.json` (aba *Perfil*).
+- Ver a foto da execução de cada exercício.
 
 As abas *Amigos* e *Nutrição* estão como espaço reservado.
 
@@ -88,6 +115,7 @@ As abas *Amigos* e *Nutrição* estão como espaço reservado.
 
 ```bash
 node tools/make-icons.js                 # regerar ícones
+node tools/fetch-images.js               # rebaixar e reconverter as fotos
 node tools/seed.js                       # gerar dados de teste em __seed.html
 python -m http.server 8099 &             # servidor local
 node tools/shots.js ./__shots            # capturar as telas e checar erros
@@ -112,5 +140,5 @@ sequência de dias e o `localStorage` bateram.
   vale exportar o backup de vez em quando.
 - As calorias são estimativa grosseira (tempo de treino ajustado pelo peso
   corporal, mais uma parcela do volume levantado), não medição.
-- As miniaturas dos exercícios são ícones por grupo muscular, não ilustrações
-  de execução.
+- As fotos são genéricas: mostram o movimento, não necessariamente o aparelho da
+  sua academia.

@@ -510,7 +510,7 @@ function openWorkout(workoutId, mode) {
 
       const row = h(`<div class="ex-item">
         <button class="check${checkCls}" data-act="check">${icon('check')}</button>
-        <div class="thumb round">${svgFill(ICONS[w.icon] || ICONS.halter)}</div>
+        ${exThumb(e.exId, e.grupo, 'round')}
         <div class="name">${esc(e.nome)}${e.equip && e.equip !== 'Sem equipamento' ? ` <span style="color:var(--txt-2)">(${esc(e.equip)})</span>` : ''}</div>
         ${MODE === 'edit' ? '' : `<button class="kebab" data-act="menu">${icon('dots')}</button>`}
         ${icon('chev').replace('<svg', '<svg class="chev"')}
@@ -702,7 +702,7 @@ function openExercise(workoutId, uid, inSession) {
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
       <div class="title${tituloEx.length > 22 ? ' long' : ''}">${esc(tituloEx)}</div>
-      <div class="thumb round">${svgFill(ICONS[w.icon] || ICONS.halter)}</div>
+      ${exThumb(e.exId, e.grupo, 'round')}
     </div>`);
     acts(nav, { back: () => popScreen() });
     el.appendChild(nav);
@@ -856,7 +856,7 @@ function openLibrary(workoutId, onDone) {
       const sel = escolhas[ex.id] || (escolhas[ex.id] = { equip: ex.equip, sets: 3 });
       const row = h(`<div class="exrow">
         <div class="exrow-top">
-          <div class="thumb">${svgFill(ICONS[grupoIcon(ex.grupo)] || ICONS.halter)}</div>
+          ${exThumb(ex.id, ex.grupo)}
           <div class="exrow-name"><b>${esc(ex.nome)}</b><span>${esc(ex.grupo)}</span></div>
           <button class="add-circle" data-act="add">+</button>
         </div>
@@ -1018,7 +1018,17 @@ function boot() {
   }, { passive: false });
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => { });
+    navigator.serviceWorker.register('sw.js').then(() => {
+      /* pede ao service worker que guarde as fotos depois que o app abriu,
+         para elas estarem disponíveis offline na academia */
+      navigator.serviceWorker.ready.then((reg) => {
+        if (!reg.active || typeof EX_IMG === 'undefined') return;
+        reg.active.postMessage({
+          tipo: 'guardar-fotos',
+          fotos: Array.from(EX_IMG, (slug) => 'img/' + slug + '.webp'),
+        });
+      });
+    }).catch(() => { });
   }
 }
 

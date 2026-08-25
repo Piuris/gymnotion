@@ -187,8 +187,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   overflow: hidden;
 }
 .thumb svg { width: 30px; height: 30px; fill: var(--accent); }
-.thumb.round { border-radius: 50%; width: 44px; height: 44px; flex-basis: 44px; border: 1px solid var(--line); }
-.thumb.round svg { width: 24px; height: 24px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb.round { border-radius: 50%; width: 40px; height: 40px; flex-basis: 40px; border: 1px solid var(--line); }
+.thumb.round svg { width: 22px; height: 22px; }
 
 .exrow-name { flex: 1; min-width: 0; }
 .exrow-name b { display: block; font-size: 19px; font-weight: 600; letter-spacing: -.3px; }
@@ -219,7 +220,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .exrow-opts .opt:first-child { flex: 1.2; }
 .opt > svg.lead { width: 17px; height: 17px; flex: 0 0 17px; fill: var(--accent); }
-.opt label { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt label { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt .caret { width: 13px; height: 13px; flex: 0 0 13px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; }
 .opt select {
   position: absolute; inset: 0;
@@ -279,8 +280,10 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   font-size: 19px; font-weight: 700; letter-spacing: -.4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.ex-item .name span { font-size: .82em; }
+
 .kebab {
-  width: 28px; height: 28px; flex: 0 0 28px;
+  width: 24px; height: 24px; flex: 0 0 24px;
   display: flex; align-items: center; justify-content: center;
   color: var(--txt-2);
 }
@@ -449,13 +452,13 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .timer.paused { opacity: .5; }
 
 .ex-item {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 11px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
 }
 .ex-item .name {
   flex: 1; min-width: 0;
-  font-size: 17px; font-weight: 500; letter-spacing: -.2px;
+  font-size: 15.5px; font-weight: 500; letter-spacing: -.2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ex-item .chev { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: var(--txt); stroke-width: 2.4; stroke-linecap: round; }

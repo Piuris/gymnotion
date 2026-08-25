@@ -5,8 +5,13 @@ const path = require('path');
 const day = 86400000;
 const now = Date.parse('2026-08-24T21:00:00');
 
+/* mesmo slug usado em js/exercises.js, para as fotos casarem */
+const slug = (s) => s.toLowerCase()
+  .normalize('NFD').replace(new RegExp('[\u0300-\u036f]', 'g'), '')
+  .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
 const mk = (nome, exs) => exs.map((e, i) => ({
-  uid: 'we' + nome + i, exId: 'ex_' + i, nome: e[0], grupo: e[1], equip: 'Máquina', notas: '',
+  uid: 'we' + nome + i, exId: 'ex_' + slug(e[0]), nome: e[0], grupo: e[1], equip: 'Máquina', notas: '',
   sets: [1, 2, 3].map(() => ({ peso: e[2], reps: e[3], desc: 1, done: true })),
 }));
 

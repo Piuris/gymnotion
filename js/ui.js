@@ -38,6 +38,20 @@ const I = {
 
 const icon = (k) => I[k] || '';
 
+/* ---------- miniatura do exercício ---------- */
+
+/* Foto do exercício quando existe (img/<slug>.webp), senão o ícone do grupo
+   muscular. O slug é o id do exercício sem o prefixo "ex_"; exercícios criados
+   por você (prefixo "my_") não têm foto e caem no ícone. */
+function exThumb(exId, grupo, classe) {
+  const slug = String(exId || '').replace(/^ex_/, '');
+  const temFoto = typeof EX_IMG !== 'undefined' && EX_IMG.has(slug);
+  const dentro = temFoto
+    ? `<img src="img/${slug}.webp" alt="" loading="lazy" decoding="async"/>`
+    : svgFill(ICONS[grupoIcon(grupo)] || ICONS.halter);
+  return `<div class="thumb${classe ? ' ' + classe : ''}">${dentro}</div>`;
+}
+
 /* ---------- acento dinâmico ---------- */
 
 function hexToRgb(hex) {

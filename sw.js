@@ -1,5 +1,5 @@
 /* GymNotion — cache offline */
-const CACHE = 'gymnotion-v2';
+const CACHE = 'gymnotion-v3';
 
 const ASSETS = [
   './',
@@ -7,6 +7,7 @@ const ASSETS = [
   './manifest.webmanifest',
   './css/style.css',
   './js/exercises.js',
+  './js/exercise-images.js',
   './js/store.js',
   './js/ui.js',
   './js/app.js',
@@ -32,6 +33,25 @@ self.addEventListener('install', (e) => {
     }));
     if (falhas.length) console.warn('[sw] não foi possível guardar:', falhas.join(', '));
     await self.skipWaiting();
+  })());
+});
+
+/* As ~120 fotos dos exercícios (cerca de 660 KB) são guardadas depois que o app
+   já está de pé, sem segurar a instalação. Assim a primeira abertura é rápida e
+   as fotos ficam disponíveis offline pouco depois. */
+self.addEventListener('message', (e) => {
+  if (!e.data || e.data.tipo !== 'guardar-fotos' || !Array.isArray(e.data.fotos)) return;
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    let novas = 0;
+    for (const url of e.data.fotos) {
+      try {
+        if (await cache.match(url)) continue;
+        const res = await fetch(url);
+        if (res.ok) { await cache.put(url, res); novas += 1; }
+      } catch (err) { /* tenta de novo na próxima abertura */ }
+    }
+    if (novas) console.log('[sw] fotos guardadas para uso offline:', novas);
   })());
 });
 
