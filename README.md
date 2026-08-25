@@ -52,6 +52,61 @@ python -m http.server 8099
 e acesse `http://<ip-do-pc>:8099` pelo celular. Nesse modo o service worker não
 registra (não é HTTPS), mas a interface toda funciona.
 
+## Backup na nuvem (Firebase)
+
+Opcional e desligado por padrão. Sem configurar, o app funciona exatamente como
+antes: tudo local, sem conta, sem rede. Com configurado, o estado inteiro vai
+para o Firestore ao concluir cada treino, e você recupera tudo entrando com a
+mesma conta em outro aparelho.
+
+**Não usa o SDK do Firebase.** O SDK modular pesaria 300–400 KB e exigiria
+empacotador ou script de CDN — que quebraria o funcionamento offline. Para
+backup, a API REST faz o mesmo com zero dependência: veja [js/cloud.js](js/cloud.js).
+
+O estado é compactado com gzip antes de subir (cerca de 10x menor), porque um
+documento do Firestore tem teto de 1 MiB e alguns anos de treino chegariam perto
+disso sem compactar.
+
+### Como ligar
+
+1. Em <https://console.firebase.google.com>, crie um projeto. Pode recusar o
+   Google Analytics. O plano **Spark** é gratuito e não pede cartão.
+2. **Authentication → Get started → Sign-in method → Email/Password → Ativar.**
+   Só esse: login por Google usa popup ou redirecionamento, e os dois se
+   comportam mal em PWA no Safari.
+3. **Firestore Database → Criar banco de dados** → modo de produção → escolha a
+   região (`southamerica-east1` para São Paulo).
+4. **Engrenagem → Configurações do projeto → Seus apps → ícone da Web (`</>`)**,
+   registre o app e copie `apiKey` e `projectId`.
+5. Cole os dois em [js/firebase-config.js](js/firebase-config.js).
+6. Publique as regras de segurança — sem isso o banco fica aberto:
+   ```bash
+   npm i -g firebase-tools
+   firebase login
+   # troque o id do projeto em .firebaserc
+   firebase deploy --only firestore:rules
+   ```
+7. No app: **Perfil → Entrar ou criar conta**.
+
+### Hospedar no próprio Firebase
+
+Faz diferença: se um dia você trocar o login por Google, o domínio
+`<projeto>.firebaseapp.com` é o único que **não** sofre com o bloqueio de
+armazenamento de terceiros do Safari. Também dispensa repositório público.
+
+```bash
+firebase deploy --only hosting
+```
+
+O [firebase.json](firebase.json) já está pronto — inclusive mandando `sw.js` e
+`index.html` sem cache, para as atualizações chegarem no aparelho.
+
+### Sobre a apiKey ser pública
+
+É assim mesmo: a chave da Web identifica o projeto, não autoriza acesso. Quem
+protege os dados são as regras em [firestore.rules](firestore.rules), que só
+deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
+
 ## Estrutura
 
 | Arquivo | O que faz |
@@ -62,9 +117,12 @@ registra (não é HTTPS), mas a interface toda funciona.
 | [js/exercise-images.js](js/exercise-images.js) | GERADO: quais exercícios têm foto |
 | [img/](img/) | 122 fotos de exercício, 192×192 WebP (~660 KB no total) |
 | [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas |
+| [js/cloud.js](js/cloud.js) | Backup na nuvem pela API REST do Firebase |
+| [js/firebase-config.js](js/firebase-config.js) | Suas chaves do Firebase (vazio = nuvem desligada) |
 | [js/ui.js](js/ui.js) | Ícones, navegação em pilha, gráficos, folhas modais |
 | [js/app.js](js/app.js) | As telas |
 | [sw.js](sw.js) | Cache offline (rede primeiro, cache como reserva) |
+| [firebase.json](firebase.json) / [firestore.rules](firestore.rules) | Hospedagem e regras de segurança |
 | [tools/make-icons.js](tools/make-icons.js) | Gera os PNGs do ícone sem dependências |
 | [tools/image-map.json](tools/image-map.json) | Liga cada exercício pt-BR ao nome no banco de fotos |
 | [tools/fetch-images.js](tools/fetch-images.js) | Baixa, corta e converte as fotos para WebP |
@@ -72,6 +130,7 @@ registra (não é HTTPS), mas a interface toda funciona.
 | [tools/shots.js](tools/shots.js) | Percorre as telas no Chrome headless e salva PNGs |
 | [tools/flow-test.js](tools/flow-test.js) | Teste de fumaça do percurso completo, de app vazio a treino salvo |
 | [tools/features-test.js](tools/features-test.js) | Testa tipos de série, última execução, séries por grupo, recorde, correção e backup |
+| [tools/cloud-test.js](tools/cloud-test.js) | Testa o backup na nuvem contra um servidor falso, sem tocar num projeto real |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -149,6 +208,8 @@ do grupo muscular, sem quebrar nada.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
 - Histórico com calorias, volume, séries e repetições; sequência de dias treinados.
 - Exportar e importar backup em `.json` (aba *Perfil*).
+- Guardar uma cópia na nuvem e restaurá-la em outro aparelho, se o Firebase
+  estiver configurado.
 - Ver a foto da execução de cada exercício.
 
 A aba *Nutrição* está como espaço reservado.
@@ -169,6 +230,7 @@ python -m http.server 8099 &             # servidor local
 node tools/shots.js ./__shots            # capturar as telas e checar erros
 node tools/flow-test.js ./__shots        # percurso completo, com verificações
 node tools/features-test.js ./__shots    # recursos avançados, com verificações
+node tools/cloud-test.js ./__shots       # backup na nuvem, com Firebase simulado
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)

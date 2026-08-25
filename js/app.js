@@ -294,6 +294,26 @@ function renderPerfil(el, screen) {
       S.settings.restDefault = Number(String(v).replace(',', '.')) || 1; saveNow(); screen.refresh();
     }), 'Preenche o descanso de cada série nova'));
 
+  /* ---- nuvem ---- */
+  if (cloudConfigurado()) {
+    scroll.appendChild(h('<div class="section-title">Conta</div>'));
+    if (cloudLogado()) {
+      const quando = CLOUD.ultimoEnvio ? fmtDate(CLOUD.ultimoEnvio) + ' às '
+        + new Date(CLOUD.ultimoEnvio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : 'ainda não enviado';
+      scroll.appendChild(row('Sair da conta', '', () => confirmSheet('Sair da conta?',
+        'Os treinos continuam neste aparelho. A cópia na nuvem também continua lá.',
+        'Sair', () => { cloudEsquecer(); screen.refresh(); toast('Você saiu da conta'); }),
+        CLOUD.email));
+      scroll.appendChild(row('Enviar para a nuvem', '', () => enviarNuvem(screen), 'Último envio: ' + quando));
+      scroll.appendChild(row('Restaurar da nuvem', '', () => restaurarNuvem(screen),
+        'Substitui o que está neste aparelho'));
+    } else {
+      scroll.appendChild(row('Entrar ou criar conta', '', () => telaLogin(screen),
+        'Guarda uma cópia dos treinos fora do aparelho'));
+    }
+  }
+
   scroll.appendChild(h('<div class="section-title">Dados</div>'));
   const pendentes = treinosDesdeBackup();
   scroll.appendChild(row('Exportar backup', '.json', () => doExport(),
@@ -305,7 +325,10 @@ function renderPerfil(el, screen) {
   del.querySelector('.name').style.color = '#FF453A';
   scroll.appendChild(del);
 
-  scroll.appendChild(h(`<div class="hint" style="padding-top:24px">GymNotion • dados guardados apenas neste aparelho.<br/>Adicione à Tela de Início para abrir em tela cheia.</div>`));
+  const naNuvem = cloudConfigurado() && cloudLogado();
+  scroll.appendChild(h(`<div class="hint" style="padding-top:24px">GymNotion • ${naNuvem
+    ? 'treinos neste aparelho, com cópia na sua conta.'
+    : 'dados guardados apenas neste aparelho.'}<br/>Adicione à Tela de Início para abrir em tela cheia.</div>`));
   el.appendChild(scroll);
 }
 
@@ -323,11 +346,97 @@ function doExport() {
   toast('Backup gerado');
 }
 
+/* ---------- nuvem ---------- */
+
+function telaLogin(screen) {
+  const box = h(`<div>
+    <h3>Backup na nuvem</h3>
+    <p class="desc">Uma conta guarda seus treinos fora do aparelho. Serve só para isso: nada é compartilhado com ninguém.</p>
+    <input class="text-input" id="cl-email" type="email" inputmode="email" autocomplete="username"
+      autocapitalize="none" autocorrect="off" placeholder="E-mail"/>
+    <input class="text-input" id="cl-senha" type="password" autocomplete="current-password"
+      placeholder="Senha (mínimo 6 caracteres)"/>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="criar">Criar conta</button>
+      <button class="pill-btn" data-x="entrar">Entrar</button>
+    </div></div>`);
+  const r = openSheet(box, { center: true });
+  const email = box.querySelector('#cl-email');
+  const senha = box.querySelector('#cl-senha');
+  setTimeout(() => email.focus(), 250);
+
+  const ir = async (criar) => {
+    if (!email.value.trim() || !senha.value) { toast('Preencha e-mail e senha'); return; }
+    box.querySelectorAll('.pill-btn').forEach((b) => { b.disabled = true; });
+    try {
+      await cloudEntrar(email.value, senha.value, criar);
+      r.close();
+      screen.refresh();
+      toast(criar ? 'Conta criada' : 'Conectado');
+      /* conta existente costuma ter backup: oferece trazer de volta */
+      if (!criar) setTimeout(() => ofertaRestaurar(screen), 500);
+      else cloudEnviarEmSegundoPlano();
+    } catch (e) {
+      toast(e.message);
+      box.querySelectorAll('.pill-btn').forEach((b) => { b.disabled = false; });
+    }
+  };
+  box.querySelector('[data-x="criar"]').addEventListener('click', () => ir(true));
+  box.querySelector('[data-x="entrar"]').addEventListener('click', () => ir(false));
+  senha.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ir(false); });
+}
+
+/* Depois de entrar num aparelho novo, pergunta se quer puxar o que está lá. */
+async function ofertaRestaurar(screen) {
+  let remoto;
+  try { remoto = await cloudBaixar(); } catch (e) { return; }
+  if (!remoto) return;
+  const local = S.sessions.length;
+  confirmSheet('Restaurar da nuvem?',
+    'Há um backup de ' + fmtDate(remoto.atualizadoEm) + ' na sua conta. Restaurar substitui os '
+    + local + ' treino(s) deste aparelho.',
+    'Restaurar', () => aplicarRestauracao(remoto.texto, screen));
+}
+
+async function enviarNuvem(screen) {
+  toast('Enviando...');
+  try {
+    const r = await cloudEnviar();
+    marcarBackupFeito();
+    screen.refresh();
+    toast('Enviado (' + Math.round(r.bytes / 1024) + ' KB)');
+  } catch (e) { toast(e.message); }
+}
+
+async function restaurarNuvem(screen) {
+  toast('Buscando...');
+  let remoto;
+  try { remoto = await cloudBaixar(); } catch (e) { toast(e.message); return; }
+  if (!remoto) { toast('Nenhum backup na sua conta ainda'); return; }
+  confirmSheet('Restaurar da nuvem?',
+    'Backup de ' + fmtDate(remoto.atualizadoEm) + '. Tudo que está neste aparelho será substituído.',
+    'Restaurar', () => aplicarRestauracao(remoto.texto, screen));
+}
+
+function aplicarRestauracao(texto) {
+  try {
+    importJSON(texto);
+    popToRoot();
+    currentScreen().refresh();
+    toast('Restaurado da nuvem');
+  } catch (e) {
+    toast('Backup da nuvem ilegível');
+  }
+}
+
 /* Os treinos existem só neste aparelho: sem conta e sem servidor, o backup é a
    única cópia. Cutuca a cada 10 treinos, no máximo uma vez por semana. */
 const BACKUP_A_CADA = 10;
 
 function lembrarBackup() {
+  /* com a nuvem em dia, o backup em arquivo vira redundância: não incomoda */
+  if (cloudConfigurado() && cloudLogado()
+    && Date.now() - CLOUD.ultimoEnvio < 7 * 86400000) return;
   const pendentes = treinosDesdeBackup();
   if (pendentes < BACKUP_A_CADA) return;
   const avisado = S.settings.backupAvisado || 0;
@@ -708,6 +817,7 @@ function finishFlow(screen) {
     r.close();
     const s = finishSession();
     REST = null;
+    cloudEnviarEmSegundoPlano();
     setTimeout(() => {
       popToRoot(); currentScreen().refresh();
       if (s) openSessionDetail(s.id);

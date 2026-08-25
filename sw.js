@@ -1,5 +1,5 @@
 /* GymNotion — cache offline */
-const CACHE = 'gymnotion-v5';
+const CACHE = 'gymnotion-v6';
 
 const ASSETS = [
   './',
@@ -8,7 +8,9 @@ const ASSETS = [
   './css/style.css',
   './js/exercises.js',
   './js/exercise-images.js',
+  './js/firebase-config.js',
   './js/store.js',
+  './js/cloud.js',
   './js/ui.js',
   './js/app.js',
   './icons/icon-180.png?v=2',
