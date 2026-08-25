@@ -62,6 +62,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await send('Runtime.enable'); await send('Page.enable');
   await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
+  /* Sem isso o documento fica sem foco no headless e .focus() muda o
+     activeElement sem disparar o evento focus. */
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 
   const ev = async (expr) => {

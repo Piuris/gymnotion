@@ -82,6 +82,9 @@ async function main() {
      cache HTTP: sem desligar isso, o teste roda contra o deploy anterior. */
   await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
+  /* Sem isso o documento fica sem foco no headless e .focus() muda o
+     activeElement sem disparar o evento focus. */
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Emulation.setDeviceMetricsOverride',
     { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 

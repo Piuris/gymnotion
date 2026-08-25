@@ -360,6 +360,19 @@ function doExport() {
   toast('Backup gerado');
 }
 
+/* Anotar carga é o sinal de que o treino começou: quem registra peso ou
+   repetição está treinando, então o cronômetro não deveria depender de um
+   toque a mais em "Iniciar". Devolve true se há sessão deste treino rodando. */
+function iniciarAoAnotar(workoutId) {
+  if (S.active) return S.active.workoutId === workoutId;
+  startSession(workoutId);
+  ajustarTravaTela();
+  const pai = stack[stack.length - 2];
+  if (pai) pai.refresh();
+  toast('Treino iniciado');
+  return true;
+}
+
 /* Troca só o aparelho: mesmo movimento, mesmas séries, e a foto acompanha.
    É o caso de chegar na academia e a máquina do costume estar ocupada. */
 function trocarEquipamento(e, aoMudar) {
@@ -749,7 +762,10 @@ function openWorkout(workoutId, mode) {
   pushScreen((el, screen) => {
     const w = getWorkout(workoutId);
     if (!w) { popScreen(); return; }
-    const inSession = MODE === 'session' && S.active && S.active.workoutId === workoutId;
+    /* Sai do estado, e não só do MODE: a sessão pode ter começado ao anotar uma
+       carga dentro da tela do exercício. Em edição a lista continua sendo o
+       molde do treino. */
+    const inSession = !!(S.active && S.active.workoutId === workoutId) && MODE !== 'edit';
     const src = inSession ? S.active.exercises : w.exercises;
     setAccent(w.color, el);
 
@@ -812,8 +828,12 @@ function openWorkout(workoutId, mode) {
             const marcar = !all;
             e.sets.forEach((s) => { s.done = marcar; });
             save();
+          } else if (!S.active && iniciarAoAnotar(workoutId)) {
+            const alvo = S.active.exercises.find((x) => x.uid === e.uid);
+            if (alvo) alvo.sets.forEach((s) => { s.done = true; });
+            saveNow();
           } else {
-            toast('Inicie o treino para marcar');
+            toast('Há outro treino em andamento');
             return;
           }
           screen.refresh();
@@ -992,7 +1012,8 @@ function restBar(screen) {
 function openExercise(workoutId, uid, inSession) {
   pushScreen((el, screen) => {
     const w = getWorkout(workoutId);
-    const live = inSession && S.active && S.active.workoutId === workoutId;
+    /* sai do estado, não do parâmetro: a sessão pode começar com a tela aberta */
+    const live = !!(S.active && S.active.workoutId === workoutId);
     const src = live ? S.active.exercises : (w ? w.exercises : []);
     const e = src.find((x) => x.uid === uid);
     if (!w || !e) { popScreen(); return; }
@@ -1074,22 +1095,41 @@ function openExercise(workoutId, uid, inSession) {
         <button class="kebab" data-act="menu">${icon('dots')}</button>
       </div>`);
 
+      /* A sessão pode começar com a tela já aberta, e aí `st` passa a apontar
+         para o molde do treino em vez da série da sessão. Resolver o alvo na
+         hora da escrita evita reconstruir a tela — o que no iPhone fecharia e
+         reabriria o teclado no meio da digitação. */
+      const alvoSet = () => {
+        const lista = (S.active && S.active.workoutId === workoutId) ? S.active.exercises : src;
+        const ex = lista.find((x) => x.uid === e.uid);
+        return (ex && ex.sets[i]) || st;
+      };
+
       on(row, 'input[data-f]', 'change', (ev) => {
         const f = ev.target.dataset.f;
-        st[f] = Number(String(ev.target.value).replace(',', '.')) || 0;
+        alvoSet()[f] = Number(String(ev.target.value).replace(',', '.')) || 0;
         save();
       });
-      on(row, 'input[data-f]', 'focus', (ev) => ev.target.select());
+      on(row, 'input[data-f]', 'focus', (ev) => {
+        ev.target.select();
+        const campo = ev.target.dataset.f;
+        if (live || S.active || (campo !== 'peso' && campo !== 'reps')) return;
+        /* nada é reconstruído aqui: o cursor e o teclado ficam onde estão, e
+           o que for digitado já cai na sessão por causa de alvoSet() */
+        iniciarAoAnotar(workoutId);
+      });
 
       acts(row, {
         done: () => {
-          st.done = !st.done;
+          if (!live && !S.active) iniciarAoAnotar(workoutId);
+          const marcado = alvoSet();
+          marcado.done = !marcado.done;
           haptic(); save();
-          if (st.done) {
-            if (valida) checarRecorde(e, st);
-            if (live && st.desc > 0) {
+          if (marcado.done) {
+            if (valida) checarRecorde(e, marcado);
+            if (S.active && marcado.desc > 0) {
               const parent = stack[stack.length - 2];
-              REST = { endsAt: Date.now() + Math.round(st.desc * 60) * 1000, label: e.nome };
+              REST = { endsAt: Date.now() + Math.round(marcado.desc * 60) * 1000, label: e.nome };
               if (parent) parent.refresh();
             }
           }
@@ -1192,11 +1232,25 @@ function openLibrary(workoutId, onDone, opts) {
     el.appendChild(nav);
 
     /* busca */
-    const search = h(`<div class="search">${icon('search')}<input placeholder="Buscar exercício..." value="${esc(query)}"/></div>`);
+    const search = h(`<div class="search">
+      ${icon('search')}
+      <input placeholder="Buscar exercício..." value="${esc(query)}"/>
+      <button class="search-limpar${query ? '' : ' oculto'}" aria-label="Limpar busca">${icon('fechar')}</button>
+    </div>`);
     const input = search.querySelector('input');
+    const limpar = search.querySelector('.search-limpar');
+    const sincronizar = () => limpar.classList.toggle('oculto', !input.value);
     input.addEventListener('input', () => {
       query = input.value;
+      sincronizar();
       renderList();
+    });
+    limpar.addEventListener('click', () => {
+      input.value = '';
+      query = '';
+      sincronizar();
+      renderList();
+      input.focus();
     });
     el.appendChild(search);
 
@@ -1434,7 +1488,14 @@ function openSessionDetail(id) {
         on(row, 'input[data-f]', 'change', (ev) => {
           st[ev.target.dataset.f] = Number(String(ev.target.value).replace(',', '.')) || 0;
         });
-        on(row, 'input[data-f]', 'focus', (ev) => ev.target.select());
+        on(row, 'input[data-f]', 'focus', (ev) => {
+        ev.target.select();
+        const campo = ev.target.dataset.f;
+        if (live || S.active || (campo !== 'peso' && campo !== 'reps')) return;
+        /* nada é reconstruído aqui: o cursor e o teclado ficam onde estão, e
+           o que for digitado já cai na sessão por causa de alvoSet() */
+        iniciarAoAnotar(workoutId);
+      });
         acts(row, {
           tipo: () => escolherTipo(st, () => screen.refresh()),
           remover: () => { e.sets.splice(i, 1); screen.refresh(); },

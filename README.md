@@ -134,6 +134,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/theme-test.js](tools/theme-test.js) | Testa a tela de login e os temas, e fotografa os cinco |
 | [tools/gym-test.js](tools/gym-test.js) | Testa tela acesa, substituir exercício, reordenar e as análises |
 | [tools/catalog-test.js](tools/catalog-test.js) | Testa o catálogo, a foto por aparelho, a migração e a cor neutra |
+| [tools/logging-test.js](tools/logging-test.js) | Testa limpar a busca e o início automático do treino ao anotar |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -223,6 +224,9 @@ do grupo muscular, sem quebrar nada.
 - Montar treinos com nome, cor e ícone próprios (as pastas da tela *Treinos*).
 - Adicionar exercícios da biblioteca escolhendo equipamento e número de séries,
   ou criar exercícios seus.
+- **Anotar carga inicia o treino**: tocar no campo de peso ou repetições, ou
+  marcar uma série, liga o cronômetro sozinho — quem registra carga está
+  treinando. O botão *Iniciar* continua ali para quem quiser começar antes.
 - Iniciar o treino: cronômetro, marcar séries feitas, temporizador de descanso
   com aviso sonoro ao terminar. **A tela fica acesa enquanto o treino roda**
   (Wake Lock, Safari 16.4+), e é liberada ao pausar ou concluir.
@@ -273,6 +277,7 @@ node tools/cloud-test.js ./__shots       # backup na nuvem, com Firebase simulad
 node tools/theme-test.js ./__shots       # login e temas, com fotos de cada tema
 node tools/gym-test.js ./__shots         # trio da academia e análises
 node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migração
+node tools/logging-test.js ./__shots     # busca e início automático
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -303,6 +308,22 @@ sumiria, então esse tema reserva uma faixa escura na altura da barra de status.
 
 Para adicionar um tema: crie o bloco no CSS e acrescente uma entrada em `TEMAS`
 (em [js/store.js](js/store.js)). Para remover, apague os dois.
+
+## Início automático ao anotar
+
+Tocar no campo de peso ou de repetições de um exercício, quando não há treino
+rodando, inicia a sessão. A sutileza está em **não reconstruir a tela** nesse
+momento: no iPhone isso fecharia e reabriria o teclado no meio da digitação. Em
+vez disso, a série de destino é resolvida na hora da escrita (`alvoSet` em
+[js/app.js](js/app.js)) — se a sessão começou com a tela aberta, o valor cai na
+sessão em vez do molde do treino, sem nada piscar.
+
+Não inicia sozinho em dois casos: tocar no campo de **descanso** (não é registro
+de esforço) e quando **outro treino** já está em andamento.
+
+Nota para quem for testar: o Chrome headless não dispara o evento `focus` quando
+o documento não tem foco — `.focus()` muda o `activeElement` em silêncio. Os
+utilitários usam `Emulation.setFocusEmulationEnabled` por causa disso.
 
 ## Trocar o ícone
 

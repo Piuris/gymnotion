@@ -32,6 +32,7 @@ const I = {
   target: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M11 3h2v9.2l3.6-3.6L18 10l-6 6-6-6 1.4-1.4L11 12.2zM4 19h16v2H4z"/></svg>',
   upload: '<svg viewBox="0 0 24 24"><path d="M12 3l6 6-1.4 1.4L13 6.8V16h-2V6.8L7.4 10.4 6 9zM4 19h16v2H4z"/></svg>',
+  fechar: '<svg viewBox="0 0 24 24"><path d="M12 10.6 7.4 6 6 7.4l4.6 4.6L6 16.6 7.4 18l4.6-4.6 4.6 4.6 1.4-1.4-4.6-4.6L18 7.4 16.6 6z"/></svg>',
   arrastar: '<svg viewBox="0 0 24 24"><path d="M4 7.5h16v2H4zM4 14.5h16v2H4z"/></svg>',
   info: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v2h-2zm0 4h2v7h-2z"/></svg>',
 };

@@ -244,7 +244,19 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   padding: 0 16px;
 }
 .search svg { width: 20px; height: 20px; fill: none; stroke: var(--txt-2); stroke-width: 2.2; }
-.search input { flex: 1; background: none; border: 0; outline: none; font-size: 17px; }
+.search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 17px; }
+
+.search-limpar {
+  width: 30px; height: 30px; flex: 0 0 30px;
+  margin-right: -4px;
+  border-radius: 50%;
+  background: var(--fill-2);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .15s, transform .12s;
+}
+.search-limpar svg { width: 15px; height: 15px; fill: var(--txt-2); stroke: none; }
+.search-limpar:active { transform: scale(.88); }
+.search-limpar.oculto { display: none; }
 
 .chips {
   display: flex; gap: 10px;
