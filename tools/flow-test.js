@@ -75,6 +75,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await send('Runtime.enable');
   await send('Page.enable');
+  /* O GitHub Pages manda max-age=600 e o fetch do service worker passa pelo
+     cache HTTP: sem desligar isso, o teste roda contra o deploy anterior. */
+  await send('Network.enable');
+  await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setDeviceMetricsOverride',
     { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 
