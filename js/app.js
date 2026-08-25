@@ -109,7 +109,13 @@ function renderTreinos(el, screen) {
 
   /* histórico */
   if (!S.sessions.length) {
-    scroll.appendChild(h(`<div class="empty">${icon('chart')}<b>Nenhum treino registrado</b>Toque no botão laranja para montar um treino e começar a anotar suas cargas.</div>`));
+    scroll.appendChild(h(`<div class="empty">${icon('chart')}<b>Nenhum treino registrado</b>Toque no botão colorido para montar um treino e começar a anotar suas cargas.</div>`));
+    /* aparelho novo: o caminho de volta precisa estar à vista */
+    if (cloudConfigurado() && !cloudLogado()) {
+      const volta = h(`<button class="pill-btn soft" style="margin:0 auto">Já tenho conta — restaurar treinos</button>`);
+      volta.addEventListener('click', () => telaLogin(screen));
+      scroll.appendChild(volta);
+    }
   } else {
     scroll.appendChild(h('<div class="section-title">Registros</div>'));
     S.sessions.slice(0, 40).forEach((s) => scroll.appendChild(sessionCard(s, screen)));
@@ -283,6 +289,9 @@ function renderPerfil(el, screen) {
     return r;
   };
 
+  scroll.appendChild(h('<div class="section-title">Aparência</div>'));
+  scroll.appendChild(row('Tema', temaAtual().nome, () => telaTemas(screen), temaAtual().desc));
+
   scroll.appendChild(h('<div class="section-title">Ajustes</div>'));
   scroll.appendChild(row('Peso corporal', S.settings.bodyweight + ' kg', () =>
     promptSheet('Peso corporal (kg)', String(S.settings.bodyweight),
@@ -346,44 +355,125 @@ function doExport() {
   toast('Backup gerado');
 }
 
+/* ---------- aparência ---------- */
+
+function telaTemas(paiScreen) {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    const nav = h(`<div class="nav">
+      <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
+      <div class="title">Tema</div>
+      <div style="width:44px"></div>
+    </div>`);
+    acts(nav, { back: () => { paiScreen.refresh(); popScreen(); } });
+    el.appendChild(nav);
+
+    const scroll = h('<div class="scroll"></div>');
+    scroll.appendChild(h('<div class="hint" style="padding:0 16px 14px">Toque para ver na hora. A cor de cada treino continua mandando nos botões e gráficos.</div>'));
+
+    TEMAS.forEach((t) => {
+      const on = S.settings.tema === t.id;
+      const linha = h(`<button class="tema-row${on ? ' on' : ''}">
+        <span class="tema-amostra" style="background:${t.amostra[0]}">
+          <i style="background:${t.amostra[1]}"></i>
+          <u style="background:var(--accent)"></u>
+        </span>
+        <span class="tema-txt"><b>${esc(t.nome)}</b><i>${esc(t.desc)}</i></span>
+        ${on ? icon('check').replace('<svg', '<svg class="tema-ok"') : ''}
+      </button>`);
+      linha.addEventListener('click', () => {
+        S.settings.tema = t.id;
+        saveNow();
+        aplicarTema(t.id);
+        haptic();
+        screen.refresh();
+      });
+      scroll.appendChild(linha);
+    });
+
+    if (S.settings.tema === 'claro') {
+      scroll.appendChild(h('<div class="hint" style="padding:16px">No iPhone, o relógio e a bateria são desenhados em branco pelo sistema e isso não muda depois de instalado. Por isso o tema claro reserva uma faixa escura no topo.</div>'));
+    }
+
+    el.appendChild(scroll);
+  }, { name: 'temas' });
+}
+
 /* ---------- nuvem ---------- */
 
-function telaLogin(screen) {
-  const box = h(`<div>
-    <h3>Backup na nuvem</h3>
-    <p class="desc">Uma conta guarda seus treinos fora do aparelho. Serve só para isso: nada é compartilhado com ninguém.</p>
-    <input class="text-input" id="cl-email" type="email" inputmode="email" autocomplete="username"
-      autocapitalize="none" autocorrect="off" placeholder="E-mail"/>
-    <input class="text-input" id="cl-senha" type="password" autocomplete="current-password"
-      placeholder="Senha (mínimo 6 caracteres)"/>
-    <div class="sheet-actions">
-      <button class="pill-btn grey" data-x="criar">Criar conta</button>
-      <button class="pill-btn" data-x="entrar">Entrar</button>
-    </div></div>`);
-  const r = openSheet(box, { center: true });
-  const email = box.querySelector('#cl-email');
-  const senha = box.querySelector('#cl-senha');
-  setTimeout(() => email.focus(), 250);
+/* Tela de login. O app não exige conta: quem não quiser continua usando tudo
+   offline, então a saída "Agora não" é tão visível quanto o botão principal. */
+function telaLogin(paiScreen, aoEntrar) {
+  let criando = false;
 
-  const ir = async (criar) => {
-    if (!email.value.trim() || !senha.value) { toast('Preencha e-mail e senha'); return; }
-    box.querySelectorAll('.pill-btn').forEach((b) => { b.disabled = true; });
-    try {
-      await cloudEntrar(email.value, senha.value, criar);
-      r.close();
-      screen.refresh();
-      toast(criar ? 'Conta criada' : 'Conectado');
-      /* conta existente costuma ter backup: oferece trazer de volta */
-      if (!criar) setTimeout(() => ofertaRestaurar(screen), 500);
-      else cloudEnviarEmSegundoPlano();
-    } catch (e) {
-      toast(e.message);
-      box.querySelectorAll('.pill-btn').forEach((b) => { b.disabled = false; });
-    }
-  };
-  box.querySelector('[data-x="criar"]').addEventListener('click', () => ir(true));
-  box.querySelector('[data-x="entrar"]').addEventListener('click', () => ir(false));
-  senha.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') ir(false); });
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    const nav = h(`<div class="nav">
+      <button class="icon-btn stroke" data-act="back">${icon('down')}</button>
+      <div class="title"></div>
+      <div style="width:44px"></div>
+    </div>`);
+    acts(nav, { back: () => popScreen() });
+    el.appendChild(nav);
+
+    const scroll = h('<div class="scroll"></div>');
+    scroll.appendChild(h(`<div class="login">
+      <img class="login-logo" src="icons/icon-192.png?v=3" alt=""/>
+      <h1>${criando ? 'Criar conta' : 'Entrar'}</h1>
+      <p>${criando
+        ? 'Uma conta guarda seus treinos fora do aparelho. Serve só para isso: nada é compartilhado com ninguém.'
+        : 'Entre para trazer de volta os treinos guardados na sua conta.'}</p>
+
+      <input class="login-campo" id="lg-email" type="email" inputmode="email"
+        autocomplete="username" autocapitalize="none" autocorrect="off"
+        placeholder="E-mail" value="${esc(CLOUD.email || '')}"/>
+      <input class="login-campo" id="lg-senha" type="password"
+        autocomplete="${criando ? 'new-password' : 'current-password'}"
+        placeholder="${criando ? 'Senha (mínimo 6 caracteres)' : 'Senha'}"/>
+
+      <button class="pill-btn login-principal" data-act="ok">${criando ? 'Criar conta' : 'Entrar'}</button>
+      <button class="login-alternar" data-act="alternar">${criando
+        ? 'Já tenho conta'
+        : 'Ainda não tenho conta'}</button>
+
+      <div class="login-rodape">
+        <button data-act="pular">Agora não</button>
+        <span>Você pode usar o app inteiro sem conta. Os treinos ficam no aparelho.</span>
+      </div>
+    </div>`));
+    el.appendChild(scroll);
+
+    const email = scroll.querySelector('#lg-email');
+    const senha = scroll.querySelector('#lg-senha');
+    const principal = scroll.querySelector('[data-act="ok"]');
+
+    const enviar = async () => {
+      if (!email.value.trim() || !senha.value) { toast('Preencha e-mail e senha'); return; }
+      principal.disabled = true;
+      principal.textContent = criando ? 'Criando...' : 'Entrando...';
+      try {
+        await cloudEntrar(email.value, senha.value, criando);
+        haptic();
+        popScreen();
+        if (paiScreen) paiScreen.refresh();
+        toast(criando ? 'Conta criada' : 'Conectado');
+        if (criando) cloudEnviarEmSegundoPlano();
+        else setTimeout(() => ofertaRestaurar(paiScreen), 500);
+        if (aoEntrar) aoEntrar();
+      } catch (e) {
+        toast(e.message);
+        principal.disabled = false;
+        principal.textContent = criando ? 'Criar conta' : 'Entrar';
+      }
+    };
+
+    acts(scroll, {
+      ok: enviar,
+      alternar: () => { criando = !criando; screen.refresh(); },
+      pular: () => popScreen(),
+    });
+    senha.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') enviar(); });
+  }, { mode: 'sheet', name: 'login' });
 }
 
 /* Depois de entrar num aparelho novo, pergunta se quer puxar o que está lá. */
@@ -1286,6 +1376,7 @@ function openSessionDetail(id) {
    ========================================================= */
 
 function boot() {
+  aplicarTema(S.settings.tema);
   replaceRoot(buildRoot, 'root');
 
   clearInterval(TICK);

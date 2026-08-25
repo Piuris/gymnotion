@@ -1,147 +1,196 @@
-/* Gera os ícones PNG do app sem dependências externas. */
-const zlib = require('zlib');
+/* Gera os ícones do app a partir de icons/icone.jpeg.
+ *
+ * Uso: node tools/make-icons.js
+ *
+ * A arte vem com margem preta em volta do quadrado arredondado. O iOS aplica a
+ * própria máscara arredondada por cima, então usar a imagem inteira deixaria o
+ * desenho pequeno dentro de uma moldura. Por isso o gerador detecta o retângulo
+ * do desenho e recorta até ele.
+ *
+ * Usa o canvas de um Chrome headless para decodificar o JPEG e exportar PNG,
+ * evitando qualquer dependência de processamento de imagem.
+ */
+
+const { spawn } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const http = require('http');
 
-/* ---------- codificador PNG mínimo ---------- */
+const RAIZ = path.join(__dirname, '..');
+const DIR = path.join(RAIZ, 'icons');
+const ORIGEM = 'icone.jpeg';
+const PERFIL = path.join(os.tmpdir(), 'gymnotion-chrome-icones');
+const PORTA_HTTP = 8124;
+const PORTA_CDP = 9345;
 
-const CRC_TABLE = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c;
-  }
-  return t;
-})();
+/* Fundo usado para completar a versão "maskable" do Android, que precisa de
+   margem de segurança: o mesmo preto fosco do tema. */
+const FUNDO = '#0D0D0F';
 
-function crc32(buf) {
-  let c = 0xFFFFFFFF;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
+const CHROME = [
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  '/usr/bin/google-chrome',
+].find((p) => fs.existsSync(p));
 
-function chunk(type, data) {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length, 0);
-  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(body), 0);
-  return Buffer.concat([len, body, crc]);
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function encodePNG(width, height, rgba) {
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8;    // bits por canal
-  ihdr[9] = 6;    // RGBA
-  ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+const TIPOS = { '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.png': 'image/png' };
 
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0; // filtro "none"
-    rgba.copy(raw, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
+(async () => {
+  if (!CHROME) throw new Error('Chrome não encontrado');
+  if (!fs.existsSync(path.join(DIR, ORIGEM))) {
+    throw new Error('Coloque a arte em icons/' + ORIGEM);
   }
 
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
+  const servidor = http.createServer((req, res) => {
+    const nome = decodeURIComponent(req.url.replace(/^\//, '').split('?')[0]);
+    const arq = path.join(DIR, nome);
+    const tipo = TIPOS[path.extname(nome).toLowerCase()];
+    if (tipo && fs.existsSync(arq)) {
+      res.writeHead(200, { 'Content-Type': tipo });
+      fs.createReadStream(arq).pipe(res);
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<!DOCTYPE html><meta charset="utf-8"><title>icones</title>');
+    }
+  });
+  await new Promise((r) => servidor.listen(PORTA_HTTP, '127.0.0.1', r));
 
-/* ---------- desenho ---------- */
+  const chrome = spawn(CHROME, [
+    '--headless=new', '--disable-gpu', '--mute-audio', '--no-first-run',
+    '--user-data-dir=' + PERFIL, '--remote-debugging-port=' + PORTA_CDP, 'about:blank',
+  ], { stdio: 'ignore' });
 
-/* Preto fosco: gradiente quase imperceptível, só o suficiente para o ícone não
-   ficar chapado na tela de início. Um degradê forte leria como brilho. */
-const BG_A = [0x1C, 0x1C, 0x1E];   // topo
-const BG_B = [0x0D, 0x0D, 0x0F];   // base
+  let alvo = null;
+  for (let i = 0; i < 40 && !alvo; i++) {
+    await sleep(250);
+    try {
+      const lista = await (await fetch(`http://127.0.0.1:${PORTA_CDP}/json/list`)).json();
+      alvo = lista.find((t) => t.type === 'page');
+    } catch (e) { /* subindo */ }
+  }
+  if (!alvo) throw new Error('Chrome não respondeu ao CDP');
 
-/* Roxo do app (o mesmo da paleta de cores de treino em js/store.js) */
-const GLYPH = [0xA0, 0x20, 0xF0];
+  const ws = new WebSocket(alvo.webSocketDebuggerUrl);
+  await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+  let id = 0;
+  const pend = new Map();
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.id && pend.has(m.id)) {
+      const p = pend.get(m.id); pend.delete(m.id);
+      m.error ? p.reject(new Error(JSON.stringify(m.error))) : p.resolve(m.result);
+    }
+  };
+  const send = (metodo, params) => new Promise((resolve, reject) => {
+    const i = ++id; pend.set(i, { resolve, reject });
+    ws.send(JSON.stringify({ id: i, method: metodo, params: params || {} }));
+  });
+  const ev = async (expr) => {
+    const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
+    if (r.exceptionDetails) {
+      const d = r.exceptionDetails;
+      throw new Error((d.exception && d.exception.description) || d.text);
+    }
+    return r.result && r.result.value;
+  };
 
-/* retângulo arredondado: 1 dentro, 0 fora */
-function insideRounded(x, y, size, radius) {
-  const r = radius;
-  const cx = Math.min(Math.max(x, r), size - r);
-  const cy = Math.min(Math.max(y, r), size - r);
-  const dx = x - cx, dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
-}
+  await send('Page.enable'); await send('Runtime.enable');
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORTA_HTTP}/` });
+  await sleep(800);
 
-/* halter centrado, em coordenadas 0..1 */
-function insideDumbbell(u, v, scale) {
-  const x = (u - 0.5) / scale;
-  const y = (v - 0.5) / scale;
-  const bar = Math.abs(x) <= 0.30 && Math.abs(y) <= 0.055;
-  const plate = Math.abs(Math.abs(x) - 0.335) <= 0.055 && Math.abs(y) <= 0.20;
-  const cap = Math.abs(Math.abs(x) - 0.445) <= 0.045 && Math.abs(y) <= 0.115;
-  return bar || plate || cap;
-}
+  /* carrega a arte e acha o retângulo do desenho */
+  const caixa = await ev(`(async () => {
+    const img = new Image();
+    img.src = '/${ORIGEM}';
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
 
-function render(size, opts) {
-  const o = Object.assign({ radius: 0.225, glyph: 0.62, bleed: false }, opts || {});
-  const buf = Buffer.alloc(size * size * 4);
-  const radius = o.bleed ? 0 : size * o.radius;
-  const SS = 3; // supersampling
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let cover = 0, glyph = 0;
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          const px = x + (sx + 0.5) / SS;
-          const py = y + (sy + 0.5) / SS;
-          if (o.bleed || insideRounded(px, py, size, radius)) cover++;
-          if (insideDumbbell(px / size, py / size, o.glyph)) glyph++;
+    /* a margem é preta; o desenho e seu brilho são mais claros */
+    const LIMITE = 14;
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        const i = (y * c.width + x) * 4;
+        const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        if (lum > LIMITE) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
         }
       }
-      const n = SS * SS;
-      const a = cover / n;
-      const g = glyph / n;
-
-      const t = y / size;
-      const bg = [
-        Math.round(BG_A[0] + (BG_B[0] - BG_A[0]) * t),
-        Math.round(BG_A[1] + (BG_B[1] - BG_A[1]) * t),
-        Math.round(BG_A[2] + (BG_B[2] - BG_A[2]) * t),
-      ];
-      const col = [
-        Math.round(bg[0] + (GLYPH[0] - bg[0]) * g),
-        Math.round(bg[1] + (GLYPH[1] - bg[1]) * g),
-        Math.round(bg[2] + (GLYPH[2] - bg[2]) * g),
-      ];
-
-      const i = (y * size + x) * 4;
-      buf[i] = col[0]; buf[i + 1] = col[1]; buf[i + 2] = col[2];
-      buf[i + 3] = Math.round(a * 255);
     }
+    window.__img = img;
+    return { w: img.width, h: img.height, x0, y0, x1, y1 };
+  })()`);
+
+  /* recorte quadrado centrado no desenho */
+  const largura = caixa.x1 - caixa.x0 + 1;
+  const altura = caixa.y1 - caixa.y0 + 1;
+  const lado = Math.min(caixa.w, caixa.h, Math.max(largura, altura));
+  const cx = (caixa.x0 + caixa.x1) / 2;
+  const cy = (caixa.y0 + caixa.y1) / 2;
+  const sx = Math.max(0, Math.min(caixa.w - lado, Math.round(cx - lado / 2)));
+  const sy = Math.max(0, Math.min(caixa.h - lado, Math.round(cy - lado / 2)));
+
+  console.log('origem: %dx%d', caixa.w, caixa.h);
+  console.log('desenho: %dx%d a partir de (%d, %d)', largura, altura, caixa.x0, caixa.y0);
+  console.log('recorte: %d x %d em (%d, %d)', lado, lado, sx, sy);
+
+  const gerar = async (tamanho, escala, tipo, qualidade) => ev(`(async () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = ${tamanho};
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.fillStyle = '${FUNDO}';
+    g.fillRect(0, 0, ${tamanho}, ${tamanho});
+    const destino = Math.round(${tamanho} * ${escala});
+    const margem = Math.round((${tamanho} - destino) / 2);
+    g.drawImage(window.__img, ${sx}, ${sy}, ${lado}, ${lado}, margem, margem, destino, destino);
+    return c.toDataURL('${tipo}', ${qualidade});
+  })()`);
+
+  /* O Android recorta a "maskable" num círculo: o desenho precisa caber na zona
+     segura de 80%. As demais o iOS mascara sozinho, então vão inteiras.
+
+     A arte tem gradiente, que o PNG comprime mal (o 512 saía com 179 KB). O
+     apple-touch-icon fica em PNG por segurança; os tamanhos grandes, que só o
+     manifest usa, vão em WebP — lido por Safari 14+ e Chrome. */
+  const jobs = [
+    ['icon-180.png', 180, 1, 'image/png', 1],
+    ['icon-192.png', 192, 1, 'image/png', 1],
+    ['icon-512.webp', 512, 1, 'image/webp', 0.9],
+    ['icon-512-maskable.webp', 512, 0.72, 'image/webp', 0.9],
+  ];
+
+  let total = 0;
+  for (const [nome, tamanho, escala, tipo, qualidade] of jobs) {
+    const dataUrl = await gerar(tamanho, escala, tipo, qualidade);
+    if (!dataUrl.startsWith('data:' + tipo)) throw new Error(tipo + ' não suportado');
+    const buf = Buffer.from(dataUrl.split(',')[1], 'base64');
+    fs.writeFileSync(path.join(DIR, nome), buf);
+    total += buf.length;
+    console.log('%s  %dx%d  %s KB', nome, tamanho, tamanho, (buf.length / 1024).toFixed(1));
   }
-  return encodePNG(size, size, buf);
-}
+  console.log('total: %s KB', (total / 1024).toFixed(1));
 
-/* ---------- saída ---------- */
+  ['icon-512.png', 'icon-512-maskable.png'].forEach((velho) => {
+    const alvo = path.join(DIR, velho);
+    if (fs.existsSync(alvo)) { fs.unlinkSync(alvo); console.log('removido: ' + velho); }
+  });
 
-const out = path.join(__dirname, '..', 'icons');
-fs.mkdirSync(out, { recursive: true });
+  ws.close(); chrome.kill(); servidor.close();
 
-const jobs = [
-  ['icon-180.png', 180, {}],
-  ['icon-192.png', 192, {}],
-  ['icon-512.png', 512, {}],
-  ['icon-512-maskable.png', 512, { bleed: true, glyph: 0.46 }],
-];
-
-jobs.forEach(([name, size, opts]) => {
-  const png = render(size, opts);
-  fs.writeFileSync(path.join(out, name), png);
-  console.log(name, size + 'x' + size, (png.length / 1024).toFixed(1) + ' KB');
-});
-
-console.log('');
-console.log('Lembre de subir o ?v= em index.html, manifest.webmanifest e sw.js:');
-console.log('o Safari guarda o apple-touch-icon por muito tempo e ignora Cache-Control,');
-console.log('entao so uma URL nova faz o iPhone buscar o desenho atualizado.');
+  console.log('');
+  console.log('Lembre de subir o ?v= em index.html, manifest.webmanifest e sw.js:');
+  console.log('o Safari guarda o apple-touch-icon por muito tempo e ignora Cache-Control,');
+  console.log('entao so uma URL nova faz o iPhone buscar o desenho atualizado.');
+  process.exit(0);
+})().catch((e) => { console.error('FALHOU:', e.message); process.exit(1); });

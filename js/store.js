@@ -45,12 +45,21 @@ const tipoSet = (s) => (s && s.tipo) || 'v';
 const ehValida = (s) => tipoSet(s) === 'v';
 const infoTipo = (id) => SET_TIPOS.find((t) => t.id === id) || SET_TIPOS[0];
 
+/* Temas disponíveis. O `amostra` é só para o quadradinho da tela de escolha. */
+const TEMAS = [
+  { id: 'preto', nome: 'Preto', desc: 'Preto puro, o padrão', amostra: ['#000000', '#121212'] },
+  { id: 'grafite', nome: 'Grafite', desc: 'Cinza escuro, menos contraste', amostra: ['#141416', '#2A2A2E'] },
+  { id: 'meia-noite', nome: 'Meia-noite', desc: 'Azul-marinho profundo', amostra: ['#080B14', '#17203A'] },
+  { id: 'sepia', nome: 'Sépia', desc: 'Marrom quente, à noite cansa menos', amostra: ['#14100C', '#2C241B'] },
+  { id: 'claro', nome: 'Claro', desc: 'Fundo claro, para academia iluminada', amostra: ['#F2F2F7', '#FFFFFF'] },
+];
+
 const DEFAULT_STATE = {
   version: 1,
   workouts: [],
   sessions: [],
   customExercises: [],
-  settings: { unit: 'kg', restDefault: 1, bodyweight: 75, lastBackup: 0, backupAvisado: 0 },
+  settings: { unit: 'kg', restDefault: 1, bodyweight: 75, lastBackup: 0, backupAvisado: 0, tema: 'preto' },
   active: null,
 };
 

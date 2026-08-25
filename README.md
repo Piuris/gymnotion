@@ -123,7 +123,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [js/app.js](js/app.js) | As telas |
 | [sw.js](sw.js) | Cache offline (rede primeiro, cache como reserva) |
 | [firebase.json](firebase.json) / [firestore.rules](firestore.rules) | Hospedagem e regras de segurança |
-| [tools/make-icons.js](tools/make-icons.js) | Gera os PNGs do ícone sem dependências |
+| [tools/make-icons.js](tools/make-icons.js) | Recorta `icons/icone.jpeg` e gera os ícones do app |
 | [tools/image-map.json](tools/image-map.json) | Liga cada exercício pt-BR ao nome no banco de fotos |
 | [tools/fetch-images.js](tools/fetch-images.js) | Baixa, corta e converte as fotos para WebP |
 | [tools/seed.js](tools/seed.js) | Cria `__seed.html` com dados de demonstração |
@@ -131,6 +131,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/flow-test.js](tools/flow-test.js) | Teste de fumaça do percurso completo, de app vazio a treino salvo |
 | [tools/features-test.js](tools/features-test.js) | Testa tipos de série, última execução, séries por grupo, recorde, correção e backup |
 | [tools/cloud-test.js](tools/cloud-test.js) | Testa o backup na nuvem contra um servidor falso, sem tocar num projeto real |
+| [tools/theme-test.js](tools/theme-test.js) | Testa a tela de login e os temas, e fotografa os cinco |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -207,6 +208,7 @@ do grupo muscular, sem quebrar nada.
 - Corrigir um treino já salvo em vez de só apagar; os números são recalculados.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
 - Histórico com calorias, volume, séries e repetições; sequência de dias treinados.
+- Escolher entre cinco temas (aba *Perfil → Tema*), do preto puro ao claro.
 - Exportar e importar backup em `.json` (aba *Perfil*).
 - Guardar uma cópia na nuvem e restaurá-la em outro aparelho, se o Firebase
   estiver configurado.
@@ -231,6 +233,7 @@ node tools/shots.js ./__shots            # capturar as telas e checar erros
 node tools/flow-test.js ./__shots        # percurso completo, com verificações
 node tools/features-test.js ./__shots    # recursos avançados, com verificações
 node tools/cloud-test.js ./__shots       # backup na nuvem, com Firebase simulado
+node tools/theme-test.js ./__shots       # login e temas, com fotos de cada tema
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -244,11 +247,33 @@ console. O `flow-test.js` ainda verifica o comportamento: cria um treino do zero
 busca exercícios, anota 60 kg x 10, conclui o treino e confere que o volume, a
 sequência de dias e o `localStorage` bateram.
 
+## Temas
+
+Cinco: **Preto** (padrão), **Grafite**, **Meia-noite**, **Sépia** e **Claro**. O
+tema muda só a base — fundo, cartões e texto. A cor de cada treino continua
+mandando em botões, cronômetro, anéis, gráficos e marcadores, em qualquer tema.
+
+Cada tema é um bloco `:root[data-tema="..."]` em [css/style.css](css/style.css)
+que redefine as variáveis de base. As camadas neutras (`--fill-1` a
+`--fill-forte`) são brancos translúcidos nos temas escuros e **pretos**
+translúcidos no claro — senão sumiriam sobre fundo claro.
+
+O tema claro tem uma limitação do iOS: o app é instalado com a barra de status
+translúcida e texto branco, e isso não muda depois. Sobre fundo claro o relógio
+sumiria, então esse tema reserva uma faixa escura na altura da barra de status.
+
+Para adicionar um tema: crie o bloco no CSS e acrescente uma entrada em `TEMAS`
+(em [js/store.js](js/store.js)). Para remover, apague os dois.
+
 ## Trocar o ícone
 
-O desenho e as cores estão em [tools/make-icons.js](tools/make-icons.js)
-(`BG_A`, `BG_B` e `GLYPH`). Depois de rodar `node tools/make-icons.js`, **suba o
-`?v=` em três lugares**: [index.html](index.html), [manifest.webmanifest](manifest.webmanifest)
+A arte fica em `icons/icone.jpeg`. O gerador detecta o retângulo do desenho e
+recorta a margem preta em volta — o iOS aplica a própria máscara arredondada, e
+sem o recorte o desenho ficaria pequeno dentro de uma moldura dupla. O
+`apple-touch-icon` sai em PNG; os tamanhos grandes, que só o manifest usa, saem
+em WebP, porque a arte tem gradiente e o PNG de 512 pesava 179 KB contra 12 KB.
+
+Depois de rodar `node tools/make-icons.js`, **suba o `?v=` em três lugares**: [index.html](index.html), [manifest.webmanifest](manifest.webmanifest)
 e a lista `ASSETS` do [sw.js](sw.js). O Safari guarda o `apple-touch-icon` por
 muito tempo e ignora `Cache-Control`, então trocar o arquivo sem trocar a URL faz
 o iPhone continuar exibindo o ícone antigo ao adicionar à tela de início.

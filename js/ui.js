@@ -75,11 +75,23 @@ function setAccent(hex, target) {
   el.style.setProperty('--accent-g', g);
   el.style.setProperty('--accent-b', b);
   el.style.setProperty('--on-accent', luminance(hex) > 0.45 ? '#000' : '#fff');
-  if (!target) {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', '#000000');
-  }
 }
+
+/* ---------- tema ---------- */
+
+/* Troca só a base (fundo, cartões, texto). A cor do treino continua mandando
+   em botões, gráficos e marcadores, em qualquer tema. */
+function aplicarTema(id) {
+  const t = TEMAS.find((x) => x.id === id) || TEMAS[0];
+  if (t.id === 'preto') delete document.documentElement.dataset.tema;
+  else document.documentElement.dataset.tema = t.id;
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t.amostra[0]);
+  return t;
+}
+
+const temaAtual = () => TEMAS.find((x) => x.id === S.settings.tema) || TEMAS[0];
 
 /* cor de acento "de contexto": último treino registrado, senão laranja */
 function contextAccent() {
