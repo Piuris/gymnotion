@@ -32,12 +32,25 @@ const ICONS = {
 
 const ICON_KEYS = Object.keys(ICONS);
 
+/* Tipos de série. Só a válida entra em volume, calorias, séries, repetições,
+   recordes e no gráfico de evolução — as demais são preparação. */
+const SET_TIPOS = [
+  { id: 'v', curto: '',  nome: 'Série válida', desc: 'Conta nas estatísticas' },
+  { id: 'a', curto: 'A', nome: 'Aquecimento',  desc: 'Carga leve antes das válidas' },
+  { id: 'f', curto: 'F', nome: 'Feeder',       desc: 'Séries curtas de ativação' },
+  { id: 'p', curto: 'P', nome: 'PAP',          desc: 'Potencialização pós-ativação' },
+];
+
+const tipoSet = (s) => (s && s.tipo) || 'v';
+const ehValida = (s) => tipoSet(s) === 'v';
+const infoTipo = (id) => SET_TIPOS.find((t) => t.id === id) || SET_TIPOS[0];
+
 const DEFAULT_STATE = {
   version: 1,
   workouts: [],
   sessions: [],
   customExercises: [],
-  settings: { unit: 'kg', restDefault: 1, bodyweight: 75 },
+  settings: { unit: 'kg', restDefault: 1, bodyweight: 75, lastBackup: 0, backupAvisado: 0 },
   active: null,
 };
 
@@ -138,7 +151,7 @@ function makeWorkoutExercise(ex, nSets, equip) {
     grupo: ex.grupo,
     equip: equip || ex.equip,
     notas: '',
-    sets: Array.from({ length: nSets || 1 }, () => ({ peso: 0, reps: 0, desc: rest, done: false })),
+    sets: Array.from({ length: nSets || 1 }, () => ({ peso: 0, reps: 0, desc: rest, tipo: 'v', done: false })),
   };
 }
 
@@ -198,7 +211,7 @@ function sessionStats(exercises, durationSec, bodyweight) {
   let volume = 0, sets = 0, reps = 0;
   exercises.forEach((e) => {
     e.sets.forEach((s) => {
-      if (!s.done) return;
+      if (!s.done || !ehValida(s)) return;
       sets += 1;
       reps += Number(s.reps) || 0;
       volume += (Number(s.peso) || 0) * (Number(s.reps) || 0);
@@ -237,7 +250,7 @@ function finishSession() {
     a.exercises.forEach((ae) => {
       const target = w.exercises.find((x) => x.uid === ae.uid);
       if (!target) return;
-      target.sets = ae.sets.map((s) => ({ peso: s.peso, reps: s.reps, desc: s.desc, done: false }));
+      target.sets = ae.sets.map((s) => ({ peso: s.peso, reps: s.reps, desc: s.desc, tipo: tipoSet(s), done: false }));
       target.notas = ae.notas;
     });
   }
@@ -278,6 +291,7 @@ function exerciseHistory(exId) {
       if (e.exId !== exId) return;
       let volume = 0, best = 0, topPeso = 0, topReps = 0;
       e.sets.forEach((st) => {
+        if (!ehValida(st)) return;
         const p = Number(st.peso) || 0, r = Number(st.reps) || 0;
         volume += p * r;
         const rm = p * (1 + r / 30);
@@ -292,6 +306,91 @@ function exerciseHistory(exId) {
 function lastPerformance(exId) {
   const h = exerciseHistory(exId);
   return h.length ? h[h.length - 1] : null;
+}
+
+/* Última execução de um exercício, série a série (só as válidas), para
+   preencher a linha da série com o que foi feito da última vez. */
+function ultimaExecucao(exId, ignorarId) {
+  for (const sess of S.sessions) {
+    if (ignorarId && sess.id === ignorarId) continue;
+    const e = sess.exercises.find((x) => x.exId === exId);
+    if (!e) continue;
+    const validas = e.sets.filter(ehValida);
+    if (!validas.length) continue;
+    return { date: sess.date, sets: validas };
+  }
+  return null;
+}
+
+/* Melhor carga estimada (1RM de Epley) já registrada para o exercício. */
+function melhorRM(exId, ignorarId) {
+  let melhor = 0;
+  S.sessions.forEach((sess) => {
+    if (ignorarId && sess.id === ignorarId) return;
+    sess.exercises.forEach((e) => {
+      if (e.exId !== exId) return;
+      e.sets.forEach((st) => {
+        if (!ehValida(st)) return;
+        const p = Number(st.peso) || 0, r = Number(st.reps) || 0;
+        if (p > 0 && r > 0) melhor = Math.max(melhor, p * (1 + r / 30));
+      });
+    });
+  });
+  return melhor;
+}
+
+/* Domingo 00:00 da semana de um instante. */
+function inicioDaSemana(ts) {
+  const d = new Date(ts == null ? Date.now() : ts);
+  d.setDate(d.getDate() - d.getDay());
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/* Séries válidas por grupo muscular num intervalo. A faixa usada como
+   referência (10 a 20 séries semanais por grupo) é a citada com mais
+   frequência na literatura de hipertrofia. */
+const SERIES_MIN = 10;
+const SERIES_MAX = 20;
+
+function seriesPorGrupo(desde, ate) {
+  const fim = ate == null ? Infinity : ate;
+  const contagem = {};
+  S.sessions.forEach((sess) => {
+    if (sess.date < desde || sess.date > fim) return;
+    sess.exercises.forEach((e) => {
+      const g = e.grupo || 'Outros';
+      const n = e.sets.filter(ehValida).length;
+      if (n) contagem[g] = (contagem[g] || 0) + n;
+    });
+  });
+  return Object.entries(contagem)
+    .map(([grupo, series]) => ({ grupo, series }))
+    .sort((a, b) => b.series - a.series);
+}
+
+/* Recalcula os números de um registro depois de editado à mão. */
+function recalcSession(sess) {
+  const st = sessionStats(
+    sess.exercises.map((e) => ({ sets: e.sets.map((x) => ({ ...x, done: true })) })),
+    sess.durationSec, S.settings.bodyweight
+  );
+  Object.assign(sess, st);
+  return sess;
+}
+
+/* ---------- backup ---------- */
+
+/* Quantos treinos foram registrados desde o último backup exportado. */
+function treinosDesdeBackup() {
+  const t = S.settings.lastBackup || 0;
+  return S.sessions.filter((s) => s.date > t).length;
+}
+
+function marcarBackupFeito() {
+  S.settings.lastBackup = Date.now();
+  S.settings.backupAvisado = Date.now();
+  saveNow();
 }
 
 /* ---------- import / export ---------- */

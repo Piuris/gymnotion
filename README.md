@@ -71,6 +71,7 @@ registra (não é HTTPS), mas a interface toda funciona.
 | [tools/seed.js](tools/seed.js) | Cria `__seed.html` com dados de demonstração |
 | [tools/shots.js](tools/shots.js) | Percorre as telas no Chrome headless e salva PNGs |
 | [tools/flow-test.js](tools/flow-test.js) | Teste de fumaça do percurso completo, de app vazio a treino salvo |
+| [tools/features-test.js](tools/features-test.js) | Testa tipos de série, última execução, séries por grupo, recorde, correção e backup |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -136,6 +137,15 @@ do grupo muscular, sem quebrar nada.
 - Iniciar o treino: cronômetro, marcar séries feitas, temporizador de descanso
   com aviso sonoro ao terminar.
 - Anotar peso, repetições e descanso por série, além de observações por exercício.
+- Classificar cada série: **válida**, **aquecimento**, **feeder** ou **PAP**. Só a
+  válida entra em volume, calorias, séries, repetições, recordes e no gráfico de
+  evolução — as outras ficam no histórico como preparação.
+- Ver o que você fez naquele exercício no treino anterior, série a série, como
+  sugestão dentro do campo, com um botão para preencher tudo de uma vez.
+- Acompanhar as **séries por grupo muscular na semana**, com a faixa de 10 a 20
+  séries marcada na barra (aba *Resumo*).
+- Receber aviso na hora em que uma série supera seu melhor 1RM estimado.
+- Corrigir um treino já salvo em vez de só apagar; os números são recalculados.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
 - Histórico com calorias, volume, séries e repetições; sequência de dias treinados.
 - Exportar e importar backup em `.json` (aba *Perfil*).
@@ -144,7 +154,10 @@ do grupo muscular, sem quebrar nada.
 A aba *Nutrição* está como espaço reservado.
 
 O **peso corporal** (aba *Perfil*) serve só para escalar a estimativa de calorias
-em `sessionStats` — nada mais depende dele.
+em `sessionStats` — nada mais depende dele. A conta equivale a cerca de 3,8 METs,
+próxima do valor de 3,5 que o [Compendium of Physical Activities](https://cdn-links.lww.com/permalink/mss/a/mss_43_8_2011_06_13_ainsworth_202093_sdc1.pdf)
+atribui a musculação de 8–15 repetições. Altura, sexo e idade não entram: o
+método MET depende de peso, tempo e intensidade.
 
 ## Manutenção
 
@@ -155,6 +168,7 @@ node tools/seed.js                       # gerar dados de teste em __seed.html
 python -m http.server 8099 &             # servidor local
 node tools/shots.js ./__shots            # capturar as telas e checar erros
 node tools/flow-test.js ./__shots        # percurso completo, com verificações
+node tools/features-test.js ./__shots    # recursos avançados, com verificações
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -170,9 +184,13 @@ sequência de dias e o `localStorage` bateram.
 
 ## Limites conhecidos
 
-- Os dados vivem no `localStorage` do Safari daquele iPhone. Se o app ficar
-  meses sem ser aberto, o iOS pode limpar o armazenamento de sites — por isso
-  vale exportar o backup de vez em quando.
+- Os dados vivem só naquele iPhone: não há conta nem servidor. Trocar de
+  aparelho, perdê-lo, limpar os dados de site no Safari ou remover o app da tela
+  de início apaga tudo — por isso o backup existe. A regra dos 7 dias do iOS
+  (ITP), que apaga `localStorage` de sites parados, **não** se aplica: a Apple
+  isenta apps adicionados à tela de início ([WebKit](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/)).
+- O app instalado tem armazenamento separado do Safari. Anotar pelo navegador e
+  depois abrir pelo ícone mostra dados diferentes — use sempre pelo ícone.
 - As calorias são estimativa grosseira (tempo de treino ajustado pelo peso
   corporal, mais uma parcela do volume levantado), não medição.
 - As fotos são genéricas: mostram o movimento, não necessariamente o aparelho da

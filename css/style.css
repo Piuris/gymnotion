@@ -552,6 +552,90 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .notes::placeholder { color: #2E2E30; }
 
+/* ---------- tipo da série ---------- */
+
+/* Marcador à esquerda da série: número da série válida, ou a letra do tipo
+   (A aquecimento, F feeder, P PAP). Séries não-válidas ficam apagadas porque
+   não entram em volume, calorias, recordes nem no gráfico. */
+.set-tipo {
+  width: 26px; height: 26px; flex: 0 0 26px;
+  border-radius: 8px;
+  background: var(--a15);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: transform .12s;
+}
+.set-tipo:active { transform: scale(.9); }
+.set-tipo.aux { background: rgba(255, 255, 255, .07); color: var(--txt-2); }
+
+.set-row.aux .field input { color: var(--txt-2); }
+.set-row.aux .field { background: #0E0E10; }
+.ex-item.aux .name { color: var(--txt-2); }
+
+/* ---------- o que foi feito da última vez ---------- */
+
+.prev-bar {
+  width: calc(100% - 32px);
+  margin: 0 16px 4px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--card);
+  display: flex; align-items: center; gap: 12px;
+  text-align: left;
+}
+.prev-bar span {
+  flex: 1; min-width: 0;
+  font-size: 14px; color: var(--txt-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prev-bar span b { color: var(--txt); font-weight: 600; margin-right: 6px; }
+.prev-bar em {
+  flex: 0 0 auto; font-style: normal;
+  font-size: 15px; font-weight: 700; color: var(--accent);
+}
+.prev-bar:active { background: var(--card-2); }
+
+/* ---------- séries por grupo muscular ---------- */
+
+.grupos { padding: 0 16px 8px; }
+
+.grupo-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0;
+}
+.grupo-nome {
+  width: 96px; flex: 0 0 96px;
+  font-size: 15px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.grupo-barra {
+  flex: 1; min-width: 0;
+  height: 10px; border-radius: 5px;
+  background: rgba(255, 255, 255, .08);
+  position: relative; overflow: hidden;
+}
+.grupo-barra i {
+  display: block; height: 100%; border-radius: 5px;
+  background: var(--accent);
+}
+.grupo-barra i.baixo { background: var(--txt-3); }
+.grupo-barra i.alto { background: #FFC300; }
+/* marcas dos limites da faixa de referência */
+.grupo-barra u {
+  position: absolute; top: 0; bottom: 0;
+  width: 1px; background: rgba(255, 255, 255, .35);
+}
+.grupo-n {
+  width: 30px; flex: 0 0 30px; text-align: right;
+  font-size: 15px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.grupo-n.baixo { color: var(--txt-3); }
+.grupo-n.ok { color: var(--accent); }
+.grupo-n.alto { color: #FFC300; }
+
 /* ---------- editor de treino ---------- */
 
 .editor-tools {

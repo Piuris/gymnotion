@@ -213,10 +213,37 @@ function renderInicio(el) {
     : `<div class="chart-empty">${icon('chart')}Sem dados ainda</div>`}</div>`);
   scroll.appendChild(chart);
 
+  /* séries por grupo muscular na semana */
+  const desde = inicioDaSemana();
+  const porGrupo = seriesPorGrupo(desde);
+  scroll.appendChild(h('<div class="section-title">Séries por grupo nesta semana</div>'));
+  if (!porGrupo.length) {
+    scroll.appendChild(h('<div class="hint" style="padding-bottom:12px">Nenhum treino registrado nesta semana ainda.</div>'));
+  } else {
+    scroll.appendChild(h(`<div class="hint" style="padding-bottom:10px">Só séries válidas. A faixa de ${SERIES_MIN} a ${SERIES_MAX} séries semanais por grupo é a referência mais citada para hipertrofia.</div>`));
+    const caixa = h('<div class="grupos"></div>');
+    const teto = Math.max(SERIES_MAX, ...porGrupo.map((g) => g.series));
+    porGrupo.forEach((g) => {
+      const nivel = g.series < SERIES_MIN ? 'baixo' : (g.series > SERIES_MAX ? 'alto' : 'ok');
+      const rotulo = { baixo: 'abaixo da faixa', ok: 'na faixa', alto: 'acima da faixa' }[nivel];
+      caixa.appendChild(h(`<div class="grupo-row">
+        <div class="grupo-nome">${esc(g.grupo)}</div>
+        <div class="grupo-barra">
+          <i style="width:${(g.series / teto) * 100}%" class="${nivel}"></i>
+          <u style="left:${(SERIES_MIN / teto) * 100}%"></u>
+          <u style="left:${(SERIES_MAX / teto) * 100}%"></u>
+        </div>
+        <div class="grupo-n ${nivel}" title="${rotulo}">${g.series}</div>
+      </div>`));
+    });
+    scroll.appendChild(caixa);
+  }
+
   /* recordes por exercício */
   const recordes = {};
   S.sessions.forEach((s) => s.exercises.forEach((e) => {
     e.sets.forEach((st) => {
+      if (!ehValida(st)) return;          // aquecimento, feeder e PAP não viram recorde
       const p = Number(st.peso) || 0;
       if (!p) return;
       if (!recordes[e.exId] || p > recordes[e.exId].peso) {
@@ -268,7 +295,11 @@ function renderPerfil(el, screen) {
     }), 'Preenche o descanso de cada série nova'));
 
   scroll.appendChild(h('<div class="section-title">Dados</div>'));
-  scroll.appendChild(row('Exportar backup', '.json', () => doExport()));
+  const pendentes = treinosDesdeBackup();
+  scroll.appendChild(row('Exportar backup', '.json', () => doExport(),
+    S.settings.lastBackup
+      ? (pendentes ? `${pendentes} treino(s) desde o último, em ${fmtDate(S.settings.lastBackup)}` : `Em dia — último em ${fmtDate(S.settings.lastBackup)}`)
+      : 'Nunca feito. Salve no iCloud Drive para sair do aparelho'));
   scroll.appendChild(row('Importar backup', '', () => doImport(screen)));
   const del = row('Apagar tudo', '', () => confirmSheet('Apagar tudo?', 'Treinos, registros e exercícios personalizados serão perdidos. Faça um backup antes.', 'Apagar tudo', () => { resetAll(); popToRoot(); currentScreen().refresh(); toast('Tudo apagado'); }));
   del.querySelector('.name').style.color = '#FF453A';
@@ -288,7 +319,37 @@ function doExport() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+  marcarBackupFeito();
   toast('Backup gerado');
+}
+
+/* Os treinos existem só neste aparelho: sem conta e sem servidor, o backup é a
+   única cópia. Cutuca a cada 10 treinos, no máximo uma vez por semana. */
+const BACKUP_A_CADA = 10;
+
+function lembrarBackup() {
+  const pendentes = treinosDesdeBackup();
+  if (pendentes < BACKUP_A_CADA) return;
+  const avisado = S.settings.backupAvisado || 0;
+  if (Date.now() - avisado < 7 * 86400000) return;
+
+  S.settings.backupAvisado = Date.now();
+  saveNow();
+
+  const nunca = !S.settings.lastBackup;
+  const box = h(`<div>
+    <h3>Guardar uma cópia?</h3>
+    <p class="desc">${nunca
+      ? `Você já registrou ${pendentes} treinos e ainda não tem backup.`
+      : `${pendentes} treinos desde o último backup.`}
+      Seus dados existem só neste iPhone — trocar de aparelho ou limpar os dados do Safari apaga tudo. Salve o arquivo no iCloud Drive.</p>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="depois">Depois</button>
+      <button class="pill-btn" data-x="agora">Exportar</button>
+    </div></div>`);
+  const r = openSheet(box, { center: true });
+  box.querySelector('[data-x="depois"]').addEventListener('click', r.close);
+  box.querySelector('[data-x="agora"]').addEventListener('click', () => { r.close(); setTimeout(doExport, 150); });
 }
 
 function doImport(screen) {
@@ -647,7 +708,11 @@ function finishFlow(screen) {
     r.close();
     const s = finishSession();
     REST = null;
-    setTimeout(() => { popToRoot(); currentScreen().refresh(); if (s) openSessionDetail(s.id); }, 160);
+    setTimeout(() => {
+      popToRoot(); currentScreen().refresh();
+      if (s) openSessionDetail(s.id);
+      setTimeout(lembrarBackup, 900);
+    }, 160);
   });
 }
 
@@ -723,18 +788,51 @@ function openExercise(workoutId, uid, inSession) {
         ${last ? `Último: ${fmtWeight(last.topPeso)} kg × ${last.topReps}` : 'Registre 2 treinos para ver a evolução'}</div></div>`));
     }
 
+    /* o que foi feito da última vez, série válida a série válida */
+    const anterior = ultimaExecucao(e.exId);
+    if (anterior) {
+      const resumo = anterior.sets
+        .map((x) => `${fmtWeight(x.peso)}×${x.reps}`).join('  ·  ');
+      const barra = h(`<button class="prev-bar">
+        <span><b>${esc(fmtDate(anterior.date))}</b> ${esc(resumo)}</span>
+        <em>Usar</em>
+      </button>`);
+      barra.addEventListener('click', () => {
+        let n = 0;
+        const validas = e.sets.filter(ehValida);
+        validas.forEach((alvo, k) => {
+          const ref = anterior.sets[k];
+          if (!ref) return;
+          alvo.peso = ref.peso; alvo.reps = ref.reps; n += 1;
+        });
+        if (!n) { toast('Nenhuma série válida para preencher'); return; }
+        haptic(); save(); screen.refresh();
+        toast('Preenchido com o treino anterior');
+      });
+      scroll.appendChild(barra);
+    }
+
     /* cabeçalho das colunas */
     scroll.appendChild(h(`<div class="sets-head">
       <div class="sp"></div><div class="h">Peso</div><div class="h">Reps</div><div class="h">Descanso</div><div class="sp-end"></div>
     </div>`));
 
     /* séries */
+    let nValida = 0;
     e.sets.forEach((st, i) => {
-      const row = h(`<div class="set-row${st.done ? ' done' : ''}">
+      const tipo = tipoSet(st);
+      const valida = tipo === 'v';
+      if (valida) nValida += 1;
+      /* referência: a n-ésima série válida do treino anterior */
+      const ref = valida && anterior ? anterior.sets[nValida - 1] : null;
+      const marca = valida ? String(nValida) : infoTipo(tipo).curto;
+
+      const row = h(`<div class="set-row${st.done ? ' done' : ''}${valida ? '' : ' aux'}">
         <button class="check sm${st.done ? ' on' : ''}" data-act="done">${icon('check')}</button>
-        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || 0}" data-f="peso"/><u>kg</u></div>
-        <div class="field"><input type="number" inputmode="numeric" value="${st.reps || 0}" data-f="reps"/></div>
-        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.desc || 0}" data-f="desc"/><u>m</u></div>
+        <button class="set-tipo${valida ? '' : ' aux'}" data-act="tipo">${esc(marca)}</button>
+        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="${ref ? fmtWeight(ref.peso) : '0'}" data-f="peso"/><u>kg</u></div>
+        <div class="field"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="${ref ? ref.reps : '0'}" data-f="reps"/></div>
+        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.desc || ''}" placeholder="${S.settings.restDefault}" data-f="desc"/><u>m</u></div>
         <button class="kebab" data-act="menu">${icon('dots')}</button>
       </div>`);
 
@@ -749,16 +847,24 @@ function openExercise(workoutId, uid, inSession) {
         done: () => {
           st.done = !st.done;
           haptic(); save();
-          if (st.done && live && st.desc > 0) {
-            const parent = stack[stack.length - 2];
-            REST = { endsAt: Date.now() + Math.round(st.desc * 60) * 1000, label: e.nome };
-            if (parent) parent.refresh();
+          if (st.done) {
+            if (valida) checarRecorde(e, st);
+            if (live && st.desc > 0) {
+              const parent = stack[stack.length - 2];
+              REST = { endsAt: Date.now() + Math.round(st.desc * 60) * 1000, label: e.nome };
+              if (parent) parent.refresh();
+            }
           }
           screen.refresh();
         },
-        menu: () => actionSheet('Série ' + (i + 1), [
+        tipo: () => escolherTipo(st, () => { save(); screen.refresh(); }),
+        menu: () => actionSheet(valida ? 'Série ' + nValida : infoTipo(tipo).nome, [
+          { label: 'Tipo da série', icon: 'repeat', onClick: () => escolherTipo(st, () => { save(); screen.refresh(); }) },
           { label: 'Duplicar série', icon: 'copy', onClick: () => { e.sets.splice(i + 1, 0, { ...st, done: false }); save(); screen.refresh(); } },
-          { label: 'Repetir da última vez', icon: 'repeat', onClick: () => { const l = lastPerformance(e.exId); if (l) { st.peso = l.topPeso; st.reps = l.topReps; save(); screen.refresh(); } else toast('Sem histórico'); } },
+          { label: 'Repetir da última vez', icon: 'upload', onClick: () => {
+            if (!ref) { toast('Sem histórico para esta série'); return; }
+            st.peso = ref.peso; st.reps = ref.reps; save(); screen.refresh();
+          } },
           { label: 'Remover série', icon: 'trash', danger: true, onClick: () => { e.sets.splice(i, 1); save(); screen.refresh(); } },
         ]),
       });
@@ -770,8 +876,9 @@ function openExercise(workoutId, uid, inSession) {
       <span class="add-circle filled">+</span><span class="name" style="text-align:left">Adicionar Série</span></button>`);
     add.addEventListener('click', () => {
       const ult = e.sets[e.sets.length - 1];
-      e.sets.push(ult ? { peso: ult.peso, reps: ult.reps, desc: ult.desc, done: false }
-        : { peso: 0, reps: 0, desc: S.settings.restDefault, done: false });
+      e.sets.push(ult
+        ? { peso: ult.peso, reps: ult.reps, desc: ult.desc, tipo: tipoSet(ult), done: false }
+        : { peso: 0, reps: 0, desc: S.settings.restDefault, tipo: 'v', done: false });
       save(); haptic(); screen.refresh();
     });
     scroll.appendChild(add);
@@ -784,6 +891,39 @@ function openExercise(workoutId, uid, inSession) {
     el.appendChild(scroll);
     if (REST) el.appendChild(restBar(screen));
   }, { name: 'exercise' });
+}
+
+/* Folha para escolher o tipo da série. */
+function escolherTipo(st, aoMudar) {
+  const atual = tipoSet(st);
+  const box = h('<div><h3>Tipo da série</h3></div>');
+  let ov;
+  SET_TIPOS.forEach((t) => {
+    const b = h(`<button class="sheet-item">
+      <span class="set-tipo${t.id === 'v' ? '' : ' aux'}" style="pointer-events:none">${esc(t.curto || '•')}</span>
+      <span style="flex:1">${esc(t.nome)}<i style="display:block;font-style:normal;font-size:13px;color:var(--txt-3)">${esc(t.desc)}</i></span>
+      ${t.id === atual ? icon('check').replace('<svg', '<svg style="fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"') : ''}
+    </button>`);
+    b.addEventListener('click', () => {
+      st.tipo = t.id; haptic();
+      ov.close();
+      setTimeout(aoMudar, 120);
+    });
+    box.appendChild(b);
+  });
+  ov = openSheet(box);
+}
+
+/* Avisa na hora quando a série bate o melhor 1RM estimado do exercício. */
+function checarRecorde(e, st) {
+  const peso = Number(st.peso) || 0;
+  const reps = Number(st.reps) || 0;
+  if (peso <= 0 || reps <= 0) return;
+  const anterior = melhorRM(e.exId);
+  if (anterior <= 0) return;                 // sem histórico: nada a bater
+  const agora = peso * (1 + reps / 30);
+  if (agora <= anterior * 1.001) return;     // margem para erro de arredondamento
+  toast('Recorde em ' + e.nome + ' — ' + fmtWeight(peso) + ' kg × ' + reps);
 }
 
 /* =========================================================
@@ -944,6 +1084,8 @@ function novoExercicio(screen) {
    ========================================================= */
 
 function openSessionDetail(id) {
+  let editando = false;
+
   pushScreen((el, screen) => {
     const s = S.sessions.find((x) => x.id === id);
     if (!s) { popScreen(); return; }
@@ -952,11 +1094,20 @@ function openSessionDetail(id) {
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
       <div class="title">${esc(s.name)}</div>
-      <button class="icon-btn" data-act="menu">${icon('dots')}</button>
+      ${editando
+        ? `<button class="pill-btn sm" data-act="salvar">Salvar</button>`
+        : `<button class="icon-btn" data-act="menu">${icon('dots')}</button>`}
     </div>`);
     acts(nav, {
-      back: () => popScreen(),
+      back: () => { if (editando) { editando = false; screen.refresh(); } else popScreen(); },
+      salvar: () => {
+        s.exercises = s.exercises.filter((e) => e.sets.length);
+        recalcSession(s); saveNow();
+        editando = false; screen.refresh();
+        toast('Registro atualizado');
+      },
       menu: () => actionSheet(s.name, [
+        { label: 'Corrigir este registro', icon: 'pencil', onClick: () => { editando = true; screen.refresh(); } },
         { label: 'Repetir este treino', icon: 'repeat', onClick: () => { const w = getWorkout(s.workoutId); if (!w) { toast('Treino não existe mais'); return; } startSession(w.id); popScreen(); setTimeout(() => openWorkout(w.id, 'session'), 200); } },
         { label: 'Apagar registro', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar registro?', '', 'Apagar', () => { S.sessions = S.sessions.filter((x) => x.id !== id); saveNow(); popScreen(); }) },
       ]),
@@ -975,16 +1126,45 @@ function openSessionDetail(id) {
       ring('Repetições', String(s.reps), 1, '');
     scroll.appendChild(box);
 
+    if (editando) {
+      scroll.appendChild(h('<div class="hint" style="padding:0 16px 12px">Ajuste peso e repetições. As estatísticas são recalculadas ao salvar.</div>'));
+    }
+
     s.exercises.forEach((e) => {
       scroll.appendChild(h(`<div class="section-title" style="color:var(--txt)">${esc(e.nome)}</div>`));
+      let nv = 0;
       e.sets.forEach((st, i) => {
-        scroll.appendChild(h(`<div class="ex-item" style="padding:10px 16px">
-          <div style="width:26px;color:var(--txt-2)">${i + 1}</div>
-          <div class="name">${fmtWeight(st.peso)} kg × ${st.reps}</div>
-          <div style="color:var(--txt-2);font-size:15px">${fmtWeight(st.peso * st.reps)} kg</div>
-        </div>`));
+        const tipo = tipoSet(st);
+        const valida = tipo === 'v';
+        if (valida) nv += 1;
+        const marca = valida ? String(nv) : infoTipo(tipo).curto;
+
+        if (!editando) {
+          scroll.appendChild(h(`<div class="ex-item${valida ? '' : ' aux'}" style="padding:10px 16px">
+            <div class="set-tipo${valida ? '' : ' aux'}" style="pointer-events:none">${esc(marca)}</div>
+            <div class="name">${fmtWeight(st.peso)} kg × ${st.reps}</div>
+            <div style="color:var(--txt-2);font-size:15px">${valida ? fmtWeight(st.peso * st.reps) + ' kg' : esc(infoTipo(tipo).nome)}</div>
+          </div>`));
+          return;
+        }
+
+        const row = h(`<div class="set-row${valida ? '' : ' aux'}">
+          <button class="set-tipo${valida ? '' : ' aux'}" data-act="tipo">${esc(marca)}</button>
+          <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="0" data-f="peso"/><u>kg</u></div>
+          <div class="field"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="0" data-f="reps"/></div>
+          <button class="kebab" data-act="remover">${icon('trash')}</button>
+        </div>`);
+        on(row, 'input[data-f]', 'change', (ev) => {
+          st[ev.target.dataset.f] = Number(String(ev.target.value).replace(',', '.')) || 0;
+        });
+        on(row, 'input[data-f]', 'focus', (ev) => ev.target.select());
+        acts(row, {
+          tipo: () => escolherTipo(st, () => screen.refresh()),
+          remover: () => { e.sets.splice(i, 1); screen.refresh(); },
+        });
+        scroll.appendChild(row);
       });
-      if (e.notas) scroll.appendChild(h(`<div class="hint" style="padding:8px 16px 4px">${esc(e.notas)}</div>`));
+      if (e.notas && !editando) scroll.appendChild(h(`<div class="hint" style="padding:8px 16px 4px">${esc(e.notas)}</div>`));
     });
 
     el.appendChild(scroll);
