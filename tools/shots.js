@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const OUT = process.argv[2] || path.join(__dirname, '..', '__shots');
-const BASE = 'http://127.0.0.1:8099';
+const BASE = (process.env.GYM_URL || 'http://127.0.0.1:8099').replace(/\/$/, '');
 const PORT = 9333;
 
 const CHROME = [

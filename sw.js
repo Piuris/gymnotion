@@ -1,5 +1,5 @@
 /* GymNotion — cache offline */
-const CACHE = 'gymnotion-v1';
+const CACHE = 'gymnotion-v2';
 
 const ASSETS = [
   './',
@@ -15,13 +15,24 @@ const ASSETS = [
   './icons/icon-512.png',
 ];
 
+/* Cada recurso é guardado por conta própria: com addAll(), um único arquivo
+   que falhe descarta o lote inteiro e o app fica sem nada em cache. */
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-      .catch(() => self.skipWaiting())
-  );
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    const falhas = [];
+    await Promise.all(ASSETS.map(async (url) => {
+      try {
+        const res = await fetch(new Request(url, { cache: 'reload' }));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        await cache.put(url, res);
+      } catch (err) {
+        falhas.push(url + ' (' + err.message + ')');
+      }
+    }));
+    if (falhas.length) console.warn('[sw] não foi possível guardar:', falhas.join(', '));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
