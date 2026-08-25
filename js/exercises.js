@@ -1,155 +1,149 @@
-/* Biblioteca de exercícios (pt-BR) */
+/* Biblioteca de exercícios (pt-BR).
+ *
+ * Cada entrada é um MOVIMENTO, não uma combinação de movimento e aparelho.
+ * "Supino Reto" é um só; barra, halteres, máquina e Smith são variações que o
+ * usuário escolhe no seletor — e a foto acompanha a escolha.
+ *
+ * O primeiro equipamento da lista é o padrão do movimento.
+ */
+
 const GRUPOS = ['Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Glúteos', 'Panturrilha', 'Antebraço', 'Cardio'];
 
-const EQUIPAMENTOS = ['Sem equipamento', 'Barra', 'Halteres', 'Máquina', 'Cabo', 'Smith', 'Kettlebell', 'Anilha', 'Elástico', 'Barra fixa', 'Banco'];
+const EQUIPAMENTOS = ['Peso corporal', 'Barra', 'Halteres', 'Máquina', 'Cabo', 'Smith', 'Kettlebell', 'Anilha', 'Elástico', 'Barra fixa', 'Banco'];
 
-/* [nome, grupo, equipamento padrão] */
+/* [nome, grupo, [equipamentos, o primeiro é o padrão]] */
 const EX_RAW = [
-  // Abdômen
-  ['Abdominal', 'Abdômen', 'Sem equipamento'],
-  ['Abdominal Bicicleta', 'Abdômen', 'Sem equipamento'],
-  ['Abdominal Canivete', 'Abdômen', 'Sem equipamento'],
-  ['Abdominal com Peso', 'Abdômen', 'Halteres'],
-  ['Abdominal Infra', 'Abdômen', 'Sem equipamento'],
-  ['Abdominal Oblíquo', 'Abdômen', 'Sem equipamento'],
-  ['Abdominal na Máquina', 'Abdômen', 'Máquina'],
-  ['Abdominal no Cabo', 'Abdômen', 'Cabo'],
-  ['Elevação de Pernas', 'Abdômen', 'Sem equipamento'],
-  ['Elevação de Pernas Suspenso', 'Abdômen', 'Barra fixa'],
-  ['Prancha', 'Abdômen', 'Sem equipamento'],
-  ['Prancha Lateral', 'Abdômen', 'Sem equipamento'],
-  ['Rotação Russa', 'Abdômen', 'Anilha'],
-  ['Roda Abdominal', 'Abdômen', 'Sem equipamento'],
-  ['Escalador', 'Abdômen', 'Sem equipamento'],
-  ['Dead Bug', 'Abdômen', 'Sem equipamento'],
-  ['Hollow Hold', 'Abdômen', 'Sem equipamento'],
+  // ---------- Peito ----------
+  ['Supino Reto', 'Peito', ['Barra', 'Halteres', 'Máquina', 'Smith']],
+  ['Supino Inclinado', 'Peito', ['Barra', 'Halteres', 'Máquina', 'Smith']],
+  ['Supino Declinado', 'Peito', ['Barra', 'Halteres', 'Máquina']],
+  ['Supino Fechado', 'Peito', ['Barra', 'Halteres', 'Smith']],
+  ['Crucifixo Reto', 'Peito', ['Halteres', 'Máquina', 'Cabo']],
+  ['Crucifixo Inclinado', 'Peito', ['Halteres', 'Cabo']],
+  ['Crossover', 'Peito', ['Cabo']],
+  ['Crossover Baixo', 'Peito', ['Cabo']],
+  ['Pullover', 'Peito', ['Halteres', 'Cabo', 'Barra']],
+  ['Flexão de Braço', 'Peito', ['Peso corporal']],
+  ['Flexão Inclinada', 'Peito', ['Peso corporal']],
+  ['Flexão Diamante', 'Peito', ['Peso corporal']],
+  ['Mergulho', 'Peito', ['Peso corporal', 'Máquina']],
 
-  // Peito
-  ['Supino Reto', 'Peito', 'Barra'],
-  ['Supino Reto com Halteres', 'Peito', 'Halteres'],
-  ['Supino Inclinado', 'Peito', 'Barra'],
-  ['Supino Inclinado com Halteres', 'Peito', 'Halteres'],
-  ['Supino Declinado', 'Peito', 'Barra'],
-  ['Supino na Máquina', 'Peito', 'Máquina'],
-  ['Supino no Smith', 'Peito', 'Smith'],
-  ['Crucifixo Reto', 'Peito', 'Halteres'],
-  ['Crucifixo Inclinado', 'Peito', 'Halteres'],
-  ['Crucifixo na Máquina', 'Peito', 'Máquina'],
-  ['Crossover', 'Peito', 'Cabo'],
-  ['Crossover Baixo', 'Peito', 'Cabo'],
-  ['Flexão de Braço', 'Peito', 'Sem equipamento'],
-  ['Flexão Inclinada', 'Peito', 'Sem equipamento'],
-  ['Mergulho (Paralelas)', 'Peito', 'Sem equipamento'],
-  ['Pullover', 'Peito', 'Halteres'],
+  // ---------- Costas ----------
+  ['Puxada Frontal', 'Costas', ['Máquina', 'Cabo']],
+  ['Puxada Aberta', 'Costas', ['Máquina', 'Cabo']],
+  ['Puxada Supinada', 'Costas', ['Máquina', 'Cabo']],
+  ['Puxada Triângulo', 'Costas', ['Máquina', 'Cabo']],
+  ['Puxada Unilateral', 'Costas', ['Cabo', 'Máquina']],
+  ['Barra Fixa', 'Costas', ['Barra fixa', 'Máquina']],
+  ['Barra Fixa Supinada', 'Costas', ['Barra fixa']],
+  ['Remada Sentada', 'Costas', ['Máquina', 'Cabo']],
+  ['Remada Baixa', 'Costas', ['Cabo', 'Máquina']],
+  ['Remada Curvada', 'Costas', ['Barra', 'Halteres', 'Smith', 'Máquina']],
+  ['Remada Unilateral', 'Costas', ['Halteres', 'Cabo', 'Máquina']],
+  ['Remada Cavalinho', 'Costas', ['Barra', 'Máquina']],
+  ['Remada Pronada', 'Costas', ['Barra', 'Máquina']],
+  ['Pulldown Reto', 'Costas', ['Cabo']],
+  ['Levantamento Terra', 'Costas', ['Barra', 'Halteres', 'Smith']],
+  ['Terra Romeno', 'Costas', ['Barra', 'Halteres', 'Smith']],
+  ['Hiperextensão Lombar', 'Costas', ['Máquina', 'Peso corporal', 'Anilha']],
+  ['Good Morning', 'Costas', ['Barra', 'Smith']],
+  ['Encolhimento', 'Costas', ['Halteres', 'Barra', 'Máquina', 'Smith', 'Cabo']],
 
-  // Costas
-  ['Puxada Frontal', 'Costas', 'Máquina'],
-  ['Puxada Aberta', 'Costas', 'Máquina'],
-  ['Puxada Supinada', 'Costas', 'Máquina'],
-  ['Puxada Triângulo', 'Costas', 'Máquina'],
-  ['Barra Fixa', 'Costas', 'Barra fixa'],
-  ['Barra Fixa Supinada', 'Costas', 'Barra fixa'],
-  ['Remada Sentada', 'Costas', 'Máquina'],
-  ['Remada Curvada', 'Costas', 'Barra'],
-  ['Remada Unilateral', 'Costas', 'Halteres'],
-  ['Remada Cavalinho', 'Costas', 'Barra'],
-  ['Remada Baixa', 'Costas', 'Cabo'],
-  ['Remada na Máquina', 'Costas', 'Máquina'],
-  ['Levantamento Terra', 'Costas', 'Barra'],
-  ['Terra Romeno', 'Costas', 'Barra'],
-  ['Pulldown Reto', 'Costas', 'Cabo'],
-  ['Encolhimento', 'Costas', 'Halteres'],
-  ['Encolhimento com Barra', 'Costas', 'Barra'],
-  ['Hiperextensão Lombar', 'Costas', 'Máquina'],
-  ['Good Morning', 'Costas', 'Barra'],
+  // ---------- Ombros ----------
+  ['Desenvolvimento', 'Ombros', ['Halteres', 'Barra', 'Máquina', 'Smith']],
+  ['Desenvolvimento Arnold', 'Ombros', ['Halteres']],
+  ['Elevação Lateral', 'Ombros', ['Halteres', 'Cabo', 'Máquina', 'Elástico']],
+  ['Elevação Lateral Inclinada', 'Ombros', ['Halteres', 'Cabo']],
+  ['Elevação Frontal', 'Ombros', ['Halteres', 'Anilha', 'Cabo', 'Barra']],
+  ['Crucifixo Invertido', 'Ombros', ['Máquina', 'Halteres', 'Cabo']],
+  ['Face Pull', 'Ombros', ['Cabo', 'Elástico']],
+  ['Remada Alta', 'Ombros', ['Barra', 'Halteres', 'Cabo', 'Smith']],
 
-  // Ombros
-  ['Desenvolvimento com Halteres', 'Ombros', 'Halteres'],
-  ['Desenvolvimento com Barra', 'Ombros', 'Barra'],
-  ['Desenvolvimento Arnold', 'Ombros', 'Halteres'],
-  ['Desenvolvimento na Máquina', 'Ombros', 'Máquina'],
-  ['Elevação Lateral', 'Ombros', 'Halteres'],
-  ['Elevação Lateral no Cabo', 'Ombros', 'Cabo'],
-  ['Elevação Lateral na Máquina', 'Ombros', 'Máquina'],
-  ['Elevação Frontal', 'Ombros', 'Halteres'],
-  ['Elevação Frontal com Anilha', 'Ombros', 'Anilha'],
-  ['Crucifixo Invertido', 'Ombros', 'Máquina'],
-  ['Crucifixo Invertido com Halteres', 'Ombros', 'Halteres'],
-  ['Face Pull', 'Ombros', 'Cabo'],
-  ['Remada Alta', 'Ombros', 'Barra'],
+  // ---------- Bíceps ----------
+  ['Rosca Direta', 'Bíceps', ['Barra', 'Halteres', 'Cabo', 'Máquina']],
+  ['Rosca Alternada', 'Bíceps', ['Halteres']],
+  ['Rosca Martelo', 'Bíceps', ['Halteres', 'Cabo']],
+  ['Rosca Scott', 'Bíceps', ['Máquina', 'Barra', 'Halteres', 'Cabo']],
+  ['Rosca Concentrada', 'Bíceps', ['Halteres', 'Cabo']],
+  ['Rosca Inversa', 'Bíceps', ['Barra', 'Cabo', 'Halteres']],
+  ['Rosca Spider', 'Bíceps', ['Halteres', 'Barra']],
+  ['Rosca 21', 'Bíceps', ['Barra', 'Halteres']],
 
-  // Bíceps
-  ['Rosca Direta', 'Bíceps', 'Barra'],
-  ['Rosca Direta com Halteres', 'Bíceps', 'Halteres'],
-  ['Rosca Alternada', 'Bíceps', 'Halteres'],
-  ['Rosca Martelo', 'Bíceps', 'Halteres'],
-  ['Rosca Scott', 'Bíceps', 'Máquina'],
-  ['Rosca Scott com Barra W', 'Bíceps', 'Barra'],
-  ['Rosca Concentrada', 'Bíceps', 'Halteres'],
-  ['Rosca no Cabo', 'Bíceps', 'Cabo'],
-  ['Rosca Inversa', 'Bíceps', 'Barra'],
-  ['Rosca 21', 'Bíceps', 'Barra'],
+  // ---------- Tríceps ----------
+  ['Tríceps na Polia', 'Tríceps', ['Cabo']],
+  ['Tríceps Corda', 'Tríceps', ['Cabo']],
+  ['Tríceps Unilateral', 'Tríceps', ['Cabo', 'Halteres']],
+  ['Tríceps Testa', 'Tríceps', ['Barra', 'Halteres', 'Cabo']],
+  ['Tríceps Francês', 'Tríceps', ['Halteres', 'Barra', 'Cabo']],
+  ['Tríceps Coice', 'Tríceps', ['Halteres', 'Cabo']],
+  ['Tríceps Banco', 'Tríceps', ['Peso corporal', 'Banco']],
+  ['Tríceps na Máquina', 'Tríceps', ['Máquina']],
+  ['Mergulho nas Paralelas', 'Tríceps', ['Peso corporal', 'Máquina']],
 
-  // Tríceps
-  ['Tríceps Corda', 'Tríceps', 'Cabo'],
-  ['Tríceps Barra', 'Tríceps', 'Cabo'],
-  ['Tríceps Testa', 'Tríceps', 'Barra'],
-  ['Tríceps Francês', 'Tríceps', 'Halteres'],
-  ['Tríceps Coice', 'Tríceps', 'Halteres'],
-  ['Tríceps Banco', 'Tríceps', 'Sem equipamento'],
-  ['Tríceps na Máquina', 'Tríceps', 'Máquina'],
-  ['Mergulho nas Paralelas', 'Tríceps', 'Sem equipamento'],
-  ['Supino Fechado', 'Tríceps', 'Barra'],
+  // ---------- Pernas ----------
+  ['Agachamento Livre', 'Pernas', ['Barra', 'Halteres', 'Smith', 'Kettlebell']],
+  ['Agachamento Frontal', 'Pernas', ['Barra', 'Smith']],
+  ['Agachamento Hack', 'Pernas', ['Máquina']],
+  ['Agachamento Búlgaro', 'Pernas', ['Halteres', 'Barra', 'Smith', 'Peso corporal']],
+  ['Agachamento Sumô', 'Pernas', ['Halteres', 'Barra', 'Kettlebell']],
+  ['Agachamento Sissy', 'Pernas', ['Peso corporal', 'Máquina']],
+  ['Leg Press', 'Pernas', ['Máquina']],
+  ['Leg Press Horizontal', 'Pernas', ['Máquina']],
+  ['Cadeira Extensora', 'Pernas', ['Máquina']],
+  ['Cadeira Flexora', 'Pernas', ['Máquina']],
+  ['Mesa Flexora', 'Pernas', ['Máquina']],
+  ['Flexora em Pé', 'Pernas', ['Máquina', 'Cabo']],
+  ['Cadeira Adutora', 'Pernas', ['Máquina']],
+  ['Cadeira Abdutora', 'Pernas', ['Máquina']],
+  ['Afundo', 'Pernas', ['Halteres', 'Barra', 'Smith', 'Peso corporal']],
+  ['Passada', 'Pernas', ['Halteres', 'Barra', 'Peso corporal']],
+  ['Subida no Banco', 'Pernas', ['Halteres', 'Barra', 'Peso corporal']],
+  ['Stiff', 'Pernas', ['Barra', 'Halteres', 'Smith']],
+  ['Levantamento Terra Sumô', 'Pernas', ['Barra', 'Halteres']],
 
-  // Pernas
-  ['Agachamento Livre', 'Pernas', 'Barra'],
-  ['Agachamento Hack', 'Pernas', 'Máquina'],
-  ['Agachamento Frontal', 'Pernas', 'Barra'],
-  ['Agachamento no Smith', 'Pernas', 'Smith'],
-  ['Agachamento Búlgaro', 'Pernas', 'Halteres'],
-  ['Agachamento Sumô', 'Pernas', 'Halteres'],
-  ['Leg Press', 'Pernas', 'Máquina'],
-  ['Leg Press Horizontal', 'Pernas', 'Máquina'],
-  ['Cadeira Extensora', 'Pernas', 'Máquina'],
-  ['Cadeira Flexora', 'Pernas', 'Máquina'],
-  ['Mesa Flexora', 'Pernas', 'Máquina'],
-  ['Flexora em Pé', 'Pernas', 'Máquina'],
-  ['Cadeira Adutora', 'Pernas', 'Máquina'],
-  ['Cadeira Abdutora', 'Pernas', 'Máquina'],
-  ['Afundo', 'Pernas', 'Halteres'],
-  ['Passada', 'Pernas', 'Halteres'],
-  ['Stiff', 'Pernas', 'Barra'],
-  ['Levantamento Terra Sumô', 'Pernas', 'Barra'],
-  ['Subida no Banco', 'Pernas', 'Halteres'],
+  // ---------- Glúteos ----------
+  ['Elevação Pélvica', 'Glúteos', ['Barra', 'Máquina', 'Halteres', 'Peso corporal']],
+  ['Coice', 'Glúteos', ['Cabo', 'Máquina', 'Peso corporal', 'Elástico']],
+  ['Abdução de Quadril', 'Glúteos', ['Máquina', 'Cabo', 'Elástico']],
+  ['Ponte de Glúteo', 'Glúteos', ['Peso corporal', 'Barra', 'Halteres']],
 
-  // Glúteos
-  ['Elevação Pélvica', 'Glúteos', 'Barra'],
-  ['Elevação Pélvica na Máquina', 'Glúteos', 'Máquina'],
-  ['Coice no Cabo', 'Glúteos', 'Cabo'],
-  ['Coice na Máquina', 'Glúteos', 'Máquina'],
-  ['Abdução de Quadril', 'Glúteos', 'Máquina'],
-  ['Ponte de Glúteo', 'Glúteos', 'Sem equipamento'],
+  // ---------- Panturrilha ----------
+  ['Panturrilha em Pé', 'Panturrilha', ['Máquina', 'Smith', 'Halteres', 'Peso corporal']],
+  ['Panturrilha Sentado', 'Panturrilha', ['Máquina']],
+  ['Panturrilha no Leg Press', 'Panturrilha', ['Máquina']],
 
-  // Panturrilha
-  ['Panturrilha em Pé', 'Panturrilha', 'Máquina'],
-  ['Panturrilha Sentado', 'Panturrilha', 'Máquina'],
-  ['Panturrilha no Leg Press', 'Panturrilha', 'Máquina'],
-  ['Panturrilha no Smith', 'Panturrilha', 'Smith'],
+  // ---------- Abdômen ----------
+  ['Abdominal', 'Abdômen', ['Peso corporal', 'Anilha', 'Máquina']],
+  ['Abdominal na Polia', 'Abdômen', ['Cabo']],
+  ['Abdominal Máquina', 'Abdômen', ['Máquina']],
+  ['Abdominal Bicicleta', 'Abdômen', ['Peso corporal']],
+  ['Abdominal Canivete', 'Abdômen', ['Peso corporal']],
+  ['Abdominal Infra', 'Abdômen', ['Peso corporal', 'Banco']],
+  ['Abdominal Oblíquo', 'Abdômen', ['Peso corporal', 'Anilha']],
+  ['Abdominal Remador', 'Abdômen', ['Peso corporal']],
+  ['Elevação de Pernas', 'Abdômen', ['Peso corporal', 'Banco']],
+  ['Elevação de Pernas Suspenso', 'Abdômen', ['Barra fixa', 'Máquina']],
+  ['Prancha', 'Abdômen', ['Peso corporal']],
+  ['Prancha Lateral', 'Abdômen', ['Peso corporal']],
+  ['Rotação Russa', 'Abdômen', ['Anilha', 'Peso corporal', 'Kettlebell']],
+  ['Roda Abdominal', 'Abdômen', ['Peso corporal']],
+  ['Escalador', 'Abdômen', ['Peso corporal']],
+  ['Dead Bug', 'Abdômen', ['Peso corporal']],
 
-  // Antebraço
-  ['Rosca de Punho', 'Antebraço', 'Barra'],
-  ['Rosca de Punho Inversa', 'Antebraço', 'Barra'],
-  ['Farmer Walk', 'Antebraço', 'Halteres'],
+  // ---------- Antebraço ----------
+  ['Rosca de Punho', 'Antebraço', ['Barra', 'Halteres', 'Cabo']],
+  ['Rosca de Punho Inversa', 'Antebraço', ['Barra', 'Halteres']],
+  ['Farmer Walk', 'Antebraço', ['Halteres', 'Kettlebell']],
 
-  // Cardio
-  ['Esteira', 'Cardio', 'Máquina'],
-  ['Bicicleta Ergométrica', 'Cardio', 'Máquina'],
-  ['Elíptico', 'Cardio', 'Máquina'],
-  ['Escada', 'Cardio', 'Máquina'],
-  ['Remo Ergômetro', 'Cardio', 'Máquina'],
-  ['Corda Naval', 'Cardio', 'Sem equipamento'],
-  ['Pular Corda', 'Cardio', 'Sem equipamento'],
-  ['Burpee', 'Cardio', 'Sem equipamento'],
+  // ---------- Cardio ----------
+  ['Esteira', 'Cardio', ['Máquina']],
+  ['Bicicleta Ergométrica', 'Cardio', ['Máquina']],
+  ['Elíptico', 'Cardio', ['Máquina']],
+  ['Escada', 'Cardio', ['Máquina']],
+  ['Remo Ergômetro', 'Cardio', ['Máquina']],
+  ['Corda Naval', 'Cardio', ['Peso corporal']],
+  ['Pular Corda', 'Cardio', ['Peso corporal']],
+  ['Burpee', 'Cardio', ['Peso corporal']],
 ];
 
 function slugify(s) {
@@ -159,7 +153,17 @@ function slugify(s) {
     .replace(/^_+|_+$/g, '');
 }
 
-const EXERCISES = EX_RAW.map(([nome, grupo, equip]) => ({
+const EXERCISES = EX_RAW.map(([nome, grupo, equips]) => ({
   id: 'ex_' + slugify(nome),
-  nome, grupo, equip, custom: false,
+  nome,
+  grupo,
+  equips,
+  equip: equips[0],
+  custom: false,
 }));
+
+/* Equipamentos de um exercício, com folga para os personalizados. */
+function equipsDe(ex) {
+  if (ex && ex.equips && ex.equips.length) return ex.equips;
+  return EQUIPAMENTOS;
+}

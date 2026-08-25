@@ -46,22 +46,87 @@ const ehValida = (s) => tipoSet(s) === 'v';
 const infoTipo = (id) => SET_TIPOS.find((t) => t.id === id) || SET_TIPOS[0];
 
 /* Temas disponíveis. O `amostra` é só para o quadradinho da tela de escolha. */
+/* `neutro` é a cor dos detalhes fora do treino. Branco nos temas escuros;
+   no claro precisa escurecer, senão o botão sumiria no fundo. */
 const TEMAS = [
-  { id: 'preto', nome: 'Preto', desc: 'Preto puro, o padrão', amostra: ['#000000', '#121212'] },
-  { id: 'grafite', nome: 'Grafite', desc: 'Cinza escuro, menos contraste', amostra: ['#141416', '#2A2A2E'] },
-  { id: 'meia-noite', nome: 'Meia-noite', desc: 'Azul-marinho profundo', amostra: ['#080B14', '#17203A'] },
-  { id: 'sepia', nome: 'Sépia', desc: 'Marrom quente, à noite cansa menos', amostra: ['#14100C', '#2C241B'] },
-  { id: 'claro', nome: 'Claro', desc: 'Fundo claro, para academia iluminada', amostra: ['#F2F2F7', '#FFFFFF'] },
+  { id: 'preto', nome: 'Preto', desc: 'Preto puro, o padrão', amostra: ['#000000', '#121212'], neutro: '#FFFFFF' },
+  { id: 'grafite', nome: 'Grafite', desc: 'Cinza escuro, menos contraste', amostra: ['#141416', '#2A2A2E'], neutro: '#FFFFFF' },
+  { id: 'meia-noite', nome: 'Meia-noite', desc: 'Azul-marinho profundo', amostra: ['#080B14', '#17203A'], neutro: '#FFFFFF' },
+  { id: 'sepia', nome: 'Sépia', desc: 'Marrom quente, à noite cansa menos', amostra: ['#14100C', '#2C241B'], neutro: '#F5EDE2' },
+  { id: 'claro', nome: 'Claro', desc: 'Fundo claro, para academia iluminada', amostra: ['#F2F2F7', '#FFFFFF'], neutro: '#1C1C1E' },
 ];
 
 const DEFAULT_STATE = {
-  version: 1,
+  version: 2,
   workouts: [],
   sessions: [],
   customExercises: [],
   settings: { unit: 'kg', restDefault: 1, bodyweight: 75, lastBackup: 0, backupAvisado: 0, tema: 'preto' },
   active: null,
 };
+
+/* ---------- migração v1 -> v2 ----------
+   Na v1 cada combinação de movimento e aparelho era um exercício separado
+   ("Supino Reto com Halteres"). Na v2 há um movimento só e o aparelho é uma
+   variação, então os registros antigos precisam ser reapontados. */
+
+const MIGRACAO_V2 = {
+  ex_supino_reto_com_halteres: ['ex_supino_reto', 'Halteres'],
+  ex_supino_inclinado_com_halteres: ['ex_supino_inclinado', 'Halteres'],
+  ex_supino_na_maquina: ['ex_supino_reto', 'Máquina'],
+  ex_supino_no_smith: ['ex_supino_reto', 'Smith'],
+  ex_crucifixo_na_maquina: ['ex_crucifixo_reto', 'Máquina'],
+  ex_mergulho_paralelas: ['ex_mergulho', 'Peso corporal'],
+  ex_remada_na_maquina: ['ex_remada_sentada', 'Máquina'],
+  ex_encolhimento_com_barra: ['ex_encolhimento', 'Barra'],
+  ex_desenvolvimento_com_halteres: ['ex_desenvolvimento', 'Halteres'],
+  ex_desenvolvimento_com_barra: ['ex_desenvolvimento', 'Barra'],
+  ex_desenvolvimento_na_maquina: ['ex_desenvolvimento', 'Máquina'],
+  ex_elevacao_lateral_no_cabo: ['ex_elevacao_lateral', 'Cabo'],
+  ex_elevacao_lateral_na_maquina: ['ex_elevacao_lateral', 'Máquina'],
+  ex_elevacao_frontal_com_anilha: ['ex_elevacao_frontal', 'Anilha'],
+  ex_crucifixo_invertido_com_halteres: ['ex_crucifixo_invertido', 'Halteres'],
+  ex_rosca_direta_com_halteres: ['ex_rosca_direta', 'Halteres'],
+  ex_rosca_no_cabo: ['ex_rosca_direta', 'Cabo'],
+  ex_rosca_scott_com_barra_w: ['ex_rosca_scott', 'Barra'],
+  ex_triceps_barra: ['ex_triceps_na_polia', 'Cabo'],
+  ex_abdominal_com_peso: ['ex_abdominal', 'Anilha'],
+  ex_abdominal_na_maquina: ['ex_abdominal_maquina', 'Máquina'],
+  ex_abdominal_no_cabo: ['ex_abdominal_na_polia', 'Cabo'],
+  ex_agachamento_no_smith: ['ex_agachamento_livre', 'Smith'],
+  ex_elevacao_pelvica_na_maquina: ['ex_elevacao_pelvica', 'Máquina'],
+  ex_coice_no_cabo: ['ex_coice', 'Cabo'],
+  ex_coice_na_maquina: ['ex_coice', 'Máquina'],
+  ex_panturrilha_no_smith: ['ex_panturrilha_em_pe', 'Smith'],
+  ex_hollow_hold: ['ex_prancha', 'Peso corporal'],
+};
+
+function migrarParaV2(estado) {
+  if ((estado.version || 1) >= 2) return estado;
+
+  const arrumar = (e) => {
+    const destino = MIGRACAO_V2[e.exId];
+    if (destino) {
+      e.exId = destino[0];
+      e.equip = destino[1];
+    }
+    if (e.equip === 'Sem equipamento') e.equip = 'Peso corporal';
+    /* o nome guardado vira o do movimento; o aparelho já aparece ao lado */
+    const ex = EXERCISES.find((x) => x.id === e.exId);
+    if (ex) e.nome = ex.nome;
+    return e;
+  };
+
+  (estado.workouts || []).forEach((w) => (w.exercises || []).forEach(arrumar));
+  (estado.sessions || []).forEach((s) => (s.exercises || []).forEach(arrumar));
+  if (estado.active) (estado.active.exercises || []).forEach(arrumar);
+  (estado.customExercises || []).forEach((e) => {
+    if (e.equip === 'Sem equipamento') e.equip = 'Peso corporal';
+  });
+
+  estado.version = 2;
+  return estado;
+}
 
 const KEY = 'gymnotion.v1';
 
@@ -72,7 +137,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
-    return Object.assign(structuredClone(DEFAULT_STATE), parsed);
+    return migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), parsed));
   } catch (e) {
     console.warn('estado corrompido, recomeçando', e);
     return structuredClone(DEFAULT_STATE);
@@ -159,6 +224,7 @@ function makeWorkoutExercise(ex, nSets, equip) {
     nome: ex.nome,
     grupo: ex.grupo,
     equip: equip || ex.equip,
+    equips: ex.equips || null,
     notas: '',
     sets: Array.from({ length: nSets || 1 }, () => ({ peso: 0, reps: 0, desc: rest, tipo: 'v', done: false })),
   };
@@ -479,7 +545,7 @@ function exportJSON() {
 function importJSON(text) {
   const data = JSON.parse(text);
   if (!data || !Array.isArray(data.workouts)) throw new Error('Arquivo inválido');
-  S = Object.assign(structuredClone(DEFAULT_STATE), data);
+  S = migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), data));
   saveNow();
 }
 

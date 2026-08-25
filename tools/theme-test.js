@@ -121,7 +121,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); currentScreen().refresh();");
   await sleep(300);
   const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
-  ck(acento === 'rgb(160, 32, 240)', 'a cor do treino sobrevive ao tema claro (' + acento + ')');
+  ck(acento === 'rgb(28, 28, 30)',
+    'fora do treino o detalhe e neutro, e no tema claro ele escurece (veio ' + acento + ')');
+  await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(500);
+  const dentro = await ev("getComputedStyle(currentScreen().el.querySelector('.pill-btn')).backgroundColor");
+  ck(dentro === 'rgb(160, 32, 240)',
+    'dentro do treino a cor do treino manda, mesmo no tema claro (veio ' + dentro + ')');
+  await ev('popScreen();'); await sleep(400);
   const fundoClaro = await ev('getComputedStyle(document.body).backgroundColor');
   ck(fundoClaro === 'rgb(242, 242, 247)', 'tema claro aplica fundo claro (' + fundoClaro + ')');
   const txtClaro = await ev('getComputedStyle(document.body).color');

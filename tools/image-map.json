@@ -1,138 +1,397 @@
 {
-  "_comment": "Mapeia cada exercício do GymNotion (pt-BR) para o nome correspondente no free-exercise-db (domínio público). Valor null = sem imagem equivalente; o app cai no ícone do grupo muscular.",
-
-  "Abdominal": "Crunches",
-  "Abdominal Bicicleta": "Air Bike",
-  "Abdominal Canivete": "Jackknife Sit-Up",
-  "Abdominal com Peso": "Weighted Crunches",
-  "Abdominal Infra": "Flat Bench Lying Leg Raise",
-  "Abdominal Oblíquo": "Oblique Crunches",
-  "Abdominal na Máquina": "Cable Crunch",
-  "Abdominal no Cabo": "Cable Crunch",
-  "Elevação de Pernas": "Flat Bench Leg Pull-In",
-  "Elevação de Pernas Suspenso": "Hanging Leg Raise",
-  "Prancha": "Plank",
-  "Prancha Lateral": "Side Bridge",
-  "Rotação Russa": "Russian Twist",
-  "Roda Abdominal": "Ab Roller",
-  "Escalador": "Mountain Climbers",
-  "Dead Bug": "Dead Bug",
-  "Hollow Hold": null,
-
-  "Supino Reto": "Barbell Bench Press - Medium Grip",
-  "Supino Reto com Halteres": "Dumbbell Bench Press",
-  "Supino Inclinado": "Barbell Incline Bench Press - Medium Grip",
-  "Supino Inclinado com Halteres": "Incline Dumbbell Press",
-  "Supino Declinado": "Decline Barbell Bench Press",
-  "Supino na Máquina": "Machine Bench Press",
-  "Supino no Smith": "Smith Machine Bench Press",
-  "Crucifixo Reto": "Dumbbell Flyes",
-  "Crucifixo Inclinado": "Incline Dumbbell Flyes",
-  "Crucifixo na Máquina": "Butterfly",
-  "Crossover": "Cable Crossover",
-  "Crossover Baixo": "Low Cable Crossover",
-  "Flexão de Braço": "Pushups",
-  "Flexão Inclinada": "Incline Push-Up",
-  "Mergulho (Paralelas)": "Dips - Chest Version",
-  "Pullover": "Straight-Arm Dumbbell Pullover",
-
-  "Puxada Frontal": "Wide-Grip Lat Pulldown",
-  "Puxada Aberta": "Wide-Grip Rear Pull-Up",
-  "Puxada Supinada": "Close-Grip Front Lat Pulldown",
-  "Puxada Triângulo": "V-Bar Pulldown",
-  "Barra Fixa": "Pullups",
-  "Barra Fixa Supinada": "Chin-Up",
-  "Remada Sentada": "Seated Cable Rows",
-  "Remada Curvada": "Bent Over Barbell Row",
-  "Remada Unilateral": "One-Arm Dumbbell Row",
-  "Remada Cavalinho": "T-Bar Row with Handle",
-  "Remada Baixa": "Seated Cable Rows",
-  "Remada na Máquina": "Leverage High Row",
-  "Levantamento Terra": "Barbell Deadlift",
-  "Terra Romeno": "Romanian Deadlift",
-  "Pulldown Reto": "Straight-Arm Pulldown",
-  "Encolhimento": "Dumbbell Shrug",
-  "Encolhimento com Barra": "Barbell Shrug",
-  "Hiperextensão Lombar": "Hyperextensions (Back Extensions)",
-  "Good Morning": "Good Morning",
-
-  "Desenvolvimento com Halteres": "Dumbbell Shoulder Press",
-  "Desenvolvimento com Barra": "Standing Military Press",
-  "Desenvolvimento Arnold": "Arnold Dumbbell Press",
-  "Desenvolvimento na Máquina": "Machine Shoulder (Military) Press",
-  "Elevação Lateral": "Side Lateral Raise",
-  "Elevação Lateral no Cabo": "Cable Seated Lateral Raise",
-  "Elevação Lateral na Máquina": "Seated Side Lateral Raise",
-  "Elevação Frontal": "Front Dumbbell Raise",
-  "Elevação Frontal com Anilha": "Front Plate Raise",
-  "Crucifixo Invertido": "Reverse Machine Flyes",
-  "Crucifixo Invertido com Halteres": "Reverse Flyes",
-  "Face Pull": "Face Pull",
-  "Remada Alta": "Upright Barbell Row",
-
-  "Rosca Direta": "Barbell Curl",
-  "Rosca Direta com Halteres": "Dumbbell Bicep Curl",
-  "Rosca Alternada": "Alternate Incline Dumbbell Curl",
-  "Rosca Martelo": "Hammer Curls",
-  "Rosca Scott": "Preacher Curl",
-  "Rosca Scott com Barra W": "Preacher Curl",
-  "Rosca Concentrada": "Concentration Curls",
-  "Rosca no Cabo": "Standing Biceps Cable Curl",
-  "Rosca Inversa": "Reverse Barbell Curl",
-  "Rosca 21": "Barbell Curl",
-
-  "Tríceps Corda": "Triceps Pushdown - Rope Attachment",
-  "Tríceps Barra": "Triceps Pushdown",
-  "Tríceps Testa": "Lying Triceps Press",
-  "Tríceps Francês": "Standing Dumbbell Triceps Extension",
-  "Tríceps Coice": "Tricep Dumbbell Kickback",
-  "Tríceps Banco": "Bench Dips",
-  "Tríceps na Máquina": "Machine Triceps Extension",
-  "Mergulho nas Paralelas": "Dips - Triceps Version",
-  "Supino Fechado": "Close-Grip Barbell Bench Press",
-
-  "Agachamento Livre": "Barbell Squat",
-  "Agachamento Hack": "Hack Squat",
-  "Agachamento Frontal": "Front Barbell Squat",
-  "Agachamento no Smith": "Smith Machine Squat",
-  "Agachamento Búlgaro": "Split Squat with Dumbbells",
-  "Agachamento Sumô": "Plie Dumbbell Squat",
-  "Leg Press": "Leg Press",
-  "Leg Press Horizontal": "Leg Press",
-  "Cadeira Extensora": "Leg Extensions",
-  "Cadeira Flexora": "Seated Leg Curl",
-  "Mesa Flexora": "Lying Leg Curls",
-  "Flexora em Pé": "Standing Leg Curl",
-  "Cadeira Adutora": "Thigh Adductor",
-  "Cadeira Abdutora": "Thigh Abductor",
-  "Afundo": "Dumbbell Lunges",
-  "Passada": "Barbell Walking Lunge",
-  "Stiff": "Stiff-Legged Barbell Deadlift",
-  "Levantamento Terra Sumô": "Sumo Deadlift",
-  "Subida no Banco": "Dumbbell Step Ups",
-
-  "Elevação Pélvica": "Barbell Hip Thrust",
-  "Elevação Pélvica na Máquina": "Barbell Hip Thrust",
-  "Coice no Cabo": "Glute Kickback",
-  "Coice na Máquina": "Glute Kickback",
-  "Abdução de Quadril": "Thigh Abductor",
-  "Ponte de Glúteo": "Butt Lift (Bridge)",
-
-  "Panturrilha em Pé": "Standing Calf Raises",
-  "Panturrilha Sentado": "Seated Calf Raise",
-  "Panturrilha no Leg Press": "Calf Press On The Leg Press Machine",
-  "Panturrilha no Smith": "Smith Machine Calf Raise",
-
-  "Rosca de Punho": "Palms-Up Barbell Wrist Curl Over A Bench",
-  "Rosca de Punho Inversa": "Palms-Down Wrist Curl Over A Bench",
-  "Farmer Walk": "Farmer's Walk",
-
-  "Esteira": "Running, Treadmill",
-  "Bicicleta Ergométrica": "Bicycling, Stationary",
-  "Elíptico": "Elliptical Trainer",
-  "Escada": "Stairmaster",
-  "Remo Ergômetro": "Rowing, Stationary",
-  "Corda Naval": "Battling Ropes",
-  "Pular Corda": "Rope Jumping",
-  "Burpee": null
+  "_comment": "Foto de cada movimento no free-exercise-db (domínio público). 'padrao' é a foto usada quando o equipamento escolhido não tem uma própria; as demais chaves são nomes de equipamento e geram img/<slug>__<equipamento>.webp. null = sem foto, cai no ícone do grupo.",
+  "Supino Reto": {
+    "padrao": "Barbell Bench Press - Medium Grip",
+    "Halteres": "Dumbbell Bench Press",
+    "Máquina": "Machine Bench Press",
+    "Smith": "Smith Machine Bench Press"
+  },
+  "Supino Inclinado": {
+    "padrao": "Barbell Incline Bench Press - Medium Grip",
+    "Halteres": "Incline Dumbbell Press",
+    "Máquina": "Leverage Incline Chest Press",
+    "Smith": "Smith Machine Incline Bench Press"
+  },
+  "Supino Declinado": {
+    "padrao": "Decline Barbell Bench Press",
+    "Halteres": "Decline Dumbbell Bench Press",
+    "Máquina": "Leverage Decline Chest Press"
+  },
+  "Supino Fechado": {
+    "padrao": "Close-Grip Barbell Bench Press",
+    "Smith": "Smith Machine Close-Grip Bench Press"
+  },
+  "Crucifixo Reto": {
+    "padrao": "Dumbbell Flyes",
+    "Máquina": "Butterfly",
+    "Cabo": "Cable Crossover"
+  },
+  "Crucifixo Inclinado": {
+    "padrao": "Incline Dumbbell Flyes",
+    "Cabo": "Incline Cable Flye"
+  },
+  "Crossover": {
+    "padrao": "Cable Crossover"
+  },
+  "Crossover Baixo": {
+    "padrao": "Low Cable Crossover"
+  },
+  "Pullover": {
+    "padrao": "Straight-Arm Dumbbell Pullover",
+    "Cabo": "Straight-Arm Pulldown",
+    "Barra": "Bent-Arm Barbell Pullover"
+  },
+  "Flexão de Braço": {
+    "padrao": "Pushups"
+  },
+  "Flexão Inclinada": {
+    "padrao": "Incline Push-Up"
+  },
+  "Flexão Diamante": {
+    "padrao": "Close-Grip Push-Up off of a Dumbbell"
+  },
+  "Mergulho": {
+    "padrao": "Dips - Chest Version"
+  },
+  "Puxada Frontal": {
+    "padrao": "Wide-Grip Lat Pulldown"
+  },
+  "Puxada Aberta": {
+    "padrao": "Wide-Grip Rear Pull-Up"
+  },
+  "Puxada Supinada": {
+    "padrao": "Close-Grip Front Lat Pulldown"
+  },
+  "Puxada Triângulo": {
+    "padrao": "V-Bar Pulldown"
+  },
+  "Puxada Unilateral": {
+    "padrao": "One Arm Lat Pulldown"
+  },
+  "Barra Fixa": {
+    "padrao": "Pullups"
+  },
+  "Barra Fixa Supinada": {
+    "padrao": "Chin-Up"
+  },
+  "Remada Sentada": {
+    "padrao": "Seated Cable Rows"
+  },
+  "Remada Baixa": {
+    "padrao": "Seated Cable Rows"
+  },
+  "Remada Curvada": {
+    "padrao": "Bent Over Barbell Row",
+    "Halteres": "Bent Over Two-Dumbbell Row",
+    "Smith": "Smith Machine Bent Over Row",
+    "Máquina": "Leverage High Row"
+  },
+  "Remada Unilateral": {
+    "padrao": "One-Arm Dumbbell Row",
+    "Máquina": "Leverage Iso Row"
+  },
+  "Remada Cavalinho": {
+    "padrao": "T-Bar Row with Handle"
+  },
+  "Remada Pronada": {
+    "padrao": "Reverse Grip Bent-Over Rows"
+  },
+  "Pulldown Reto": {
+    "padrao": "Straight-Arm Pulldown"
+  },
+  "Levantamento Terra": {
+    "padrao": "Barbell Deadlift",
+    "Smith": "Smith Machine Stiff-Legged Deadlift"
+  },
+  "Terra Romeno": {
+    "padrao": "Romanian Deadlift",
+    "Halteres": "Stiff-Legged Dumbbell Deadlift"
+  },
+  "Hiperextensão Lombar": {
+    "padrao": "Hyperextensions (Back Extensions)"
+  },
+  "Good Morning": {
+    "padrao": "Good Morning"
+  },
+  "Encolhimento": {
+    "padrao": "Dumbbell Shrug",
+    "Barra": "Barbell Shrug",
+    "Máquina": "Leverage Shrug",
+    "Cabo": "Cable Shrugs"
+  },
+  "Desenvolvimento": {
+    "padrao": "Dumbbell Shoulder Press",
+    "Barra": "Standing Military Press",
+    "Máquina": "Machine Shoulder (Military) Press",
+    "Smith": "Smith Machine Overhead Shoulder Press"
+  },
+  "Desenvolvimento Arnold": {
+    "padrao": "Arnold Dumbbell Press"
+  },
+  "Elevação Lateral": {
+    "padrao": "Side Lateral Raise",
+    "Cabo": "Cable Seated Lateral Raise",
+    "Máquina": "Seated Side Lateral Raise",
+    "Elástico": "Lateral Raise - With Bands"
+  },
+  "Elevação Lateral Inclinada": {
+    "padrao": "One-Arm Incline Lateral Raise"
+  },
+  "Elevação Frontal": {
+    "padrao": "Front Dumbbell Raise",
+    "Anilha": "Front Plate Raise",
+    "Cabo": "Front Cable Raise"
+  },
+  "Crucifixo Invertido": {
+    "padrao": "Reverse Machine Flyes",
+    "Halteres": "Reverse Flyes",
+    "Cabo": "Seated Bent-Over Rear Delt Raise"
+  },
+  "Face Pull": {
+    "padrao": "Face Pull"
+  },
+  "Remada Alta": {
+    "padrao": "Upright Barbell Row",
+    "Halteres": "Upright Row - With Bands",
+    "Cabo": "Upright Cable Row",
+    "Smith": "Smith Machine Upright Row"
+  },
+  "Rosca Direta": {
+    "padrao": "Barbell Curl",
+    "Halteres": "Dumbbell Bicep Curl",
+    "Cabo": "Standing Biceps Cable Curl",
+    "Máquina": "Machine Bicep Curl"
+  },
+  "Rosca Alternada": {
+    "padrao": "Alternate Incline Dumbbell Curl"
+  },
+  "Rosca Martelo": {
+    "padrao": "Hammer Curls",
+    "Cabo": "Cable Hammer Curls - Rope Attachment"
+  },
+  "Rosca Scott": {
+    "padrao": "Preacher Curl",
+    "Halteres": "Two-Arm Dumbbell Preacher Curl",
+    "Cabo": "Cable Preacher Curl"
+  },
+  "Rosca Concentrada": {
+    "padrao": "Concentration Curls"
+  },
+  "Rosca Inversa": {
+    "padrao": "Reverse Barbell Curl",
+    "Cabo": "Reverse Cable Curl"
+  },
+  "Rosca Spider": {
+    "padrao": "Spider Curl"
+  },
+  "Rosca 21": {
+    "padrao": "Barbell Curl"
+  },
+  "Tríceps na Polia": {
+    "padrao": "Triceps Pushdown"
+  },
+  "Tríceps Corda": {
+    "padrao": "Triceps Pushdown - Rope Attachment"
+  },
+  "Tríceps Unilateral": {
+    "padrao": "Cable One Arm Tricep Extension"
+  },
+  "Tríceps Testa": {
+    "padrao": "Lying Triceps Press",
+    "Halteres": "Lying Dumbbell Tricep Extension",
+    "Cabo": "Cable Lying Triceps Extension"
+  },
+  "Tríceps Francês": {
+    "padrao": "Standing Dumbbell Triceps Extension",
+    "Barra": "Standing Overhead Barbell Triceps Extension",
+    "Cabo": "Cable Rope Overhead Triceps Extension"
+  },
+  "Tríceps Coice": {
+    "padrao": "Tricep Dumbbell Kickback"
+  },
+  "Tríceps Banco": {
+    "padrao": "Bench Dips"
+  },
+  "Tríceps na Máquina": {
+    "padrao": "Machine Triceps Extension"
+  },
+  "Mergulho nas Paralelas": {
+    "padrao": "Dips - Triceps Version"
+  },
+  "Agachamento Livre": {
+    "padrao": "Barbell Squat",
+    "Halteres": "Dumbbell Squat",
+    "Smith": "Smith Machine Squat",
+    "Kettlebell": "Goblet Squat"
+  },
+  "Agachamento Frontal": {
+    "padrao": "Front Barbell Squat"
+  },
+  "Agachamento Hack": {
+    "padrao": "Hack Squat"
+  },
+  "Agachamento Búlgaro": {
+    "padrao": "Split Squat with Dumbbells"
+  },
+  "Agachamento Sumô": {
+    "padrao": "Plie Dumbbell Squat",
+    "Barra": "Sumo Deadlift"
+  },
+  "Agachamento Sissy": {
+    "padrao": "Weighted Sissy Squat"
+  },
+  "Leg Press": {
+    "padrao": "Leg Press"
+  },
+  "Leg Press Horizontal": {
+    "padrao": "Leg Press"
+  },
+  "Cadeira Extensora": {
+    "padrao": "Leg Extensions"
+  },
+  "Cadeira Flexora": {
+    "padrao": "Seated Leg Curl"
+  },
+  "Mesa Flexora": {
+    "padrao": "Lying Leg Curls"
+  },
+  "Flexora em Pé": {
+    "padrao": "Standing Leg Curl"
+  },
+  "Cadeira Adutora": {
+    "padrao": "Thigh Adductor"
+  },
+  "Cadeira Abdutora": {
+    "padrao": "Thigh Abductor"
+  },
+  "Afundo": {
+    "padrao": "Dumbbell Lunges",
+    "Barra": "Barbell Lunge",
+    "Peso corporal": "Bodyweight Walking Lunge"
+  },
+  "Passada": {
+    "padrao": "Dumbbell Lunges",
+    "Barra": "Barbell Walking Lunge",
+    "Peso corporal": "Bodyweight Walking Lunge"
+  },
+  "Subida no Banco": {
+    "padrao": "Dumbbell Step Ups",
+    "Barra": "Barbell Step Ups"
+  },
+  "Stiff": {
+    "padrao": "Stiff-Legged Barbell Deadlift",
+    "Halteres": "Stiff-Legged Dumbbell Deadlift",
+    "Smith": "Smith Machine Stiff-Legged Deadlift"
+  },
+  "Levantamento Terra Sumô": {
+    "padrao": "Sumo Deadlift"
+  },
+  "Elevação Pélvica": {
+    "padrao": "Barbell Hip Thrust",
+    "Peso corporal": "Butt Lift (Bridge)"
+  },
+  "Coice": {
+    "padrao": "Glute Kickback"
+  },
+  "Abdução de Quadril": {
+    "padrao": "Thigh Abductor"
+  },
+  "Ponte de Glúteo": {
+    "padrao": "Butt Lift (Bridge)"
+  },
+  "Panturrilha em Pé": {
+    "padrao": "Standing Calf Raises",
+    "Smith": "Smith Machine Calf Raise",
+    "Halteres": "Standing Dumbbell Calf Raise"
+  },
+  "Panturrilha Sentado": {
+    "padrao": "Seated Calf Raise"
+  },
+  "Panturrilha no Leg Press": {
+    "padrao": "Calf Press On The Leg Press Machine"
+  },
+  "Abdominal": {
+    "padrao": "Crunches",
+    "Anilha": "Weighted Crunches",
+    "Máquina": "Ab Crunch Machine"
+  },
+  "Abdominal na Polia": {
+    "padrao": "Cable Crunch"
+  },
+  "Abdominal Máquina": {
+    "padrao": "Ab Crunch Machine"
+  },
+  "Abdominal Bicicleta": {
+    "padrao": "Air Bike"
+  },
+  "Abdominal Canivete": {
+    "padrao": "Jackknife Sit-Up"
+  },
+  "Abdominal Infra": {
+    "padrao": "Flat Bench Lying Leg Raise"
+  },
+  "Abdominal Oblíquo": {
+    "padrao": "Oblique Crunches"
+  },
+  "Abdominal Remador": {
+    "padrao": "Sit-Up"
+  },
+  "Elevação de Pernas": {
+    "padrao": "Flat Bench Leg Pull-In"
+  },
+  "Elevação de Pernas Suspenso": {
+    "padrao": "Hanging Leg Raise"
+  },
+  "Prancha": {
+    "padrao": "Plank"
+  },
+  "Prancha Lateral": {
+    "padrao": "Side Bridge"
+  },
+  "Rotação Russa": {
+    "padrao": "Russian Twist"
+  },
+  "Roda Abdominal": {
+    "padrao": "Ab Roller"
+  },
+  "Escalador": {
+    "padrao": "Mountain Climbers"
+  },
+  "Dead Bug": {
+    "padrao": "Dead Bug"
+  },
+  "Rosca de Punho": {
+    "padrao": "Palms-Up Barbell Wrist Curl Over A Bench",
+    "Cabo": "Cable Wrist Curl"
+  },
+  "Rosca de Punho Inversa": {
+    "padrao": "Palms-Down Wrist Curl Over A Bench"
+  },
+  "Farmer Walk": {
+    "padrao": "Farmer's Walk"
+  },
+  "Esteira": {
+    "padrao": "Running, Treadmill"
+  },
+  "Bicicleta Ergométrica": {
+    "padrao": "Bicycling, Stationary"
+  },
+  "Elíptico": {
+    "padrao": "Elliptical Trainer"
+  },
+  "Escada": {
+    "padrao": "Stairmaster"
+  },
+  "Remo Ergômetro": {
+    "padrao": "Rowing, Stationary"
+  },
+  "Corda Naval": {
+    "padrao": "Battling Ropes"
+  },
+  "Pular Corda": {
+    "padrao": "Rope Jumping"
+  },
+  "Burpee": {
+    "padrao": null
+  }
 }

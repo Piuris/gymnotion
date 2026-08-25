@@ -113,9 +113,9 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | --- | --- |
 | [index.html](index.html) | Casca do app e metatags do modo standalone do iOS |
 | [css/style.css](css/style.css) | Tema escuro inteiro, com o acento dinâmico |
-| [js/exercises.js](js/exercises.js) | ~130 exercícios em pt-BR, por grupo muscular |
+| [js/exercises.js](js/exercises.js) | 110 movimentos em pt-BR, cada um com suas variações de aparelho |
 | [js/exercise-images.js](js/exercise-images.js) | GERADO: quais exercícios têm foto |
-| [img/](img/) | 122 fotos de exercício, 192×192 WebP (~660 KB no total) |
+| [img/](img/) | 173 fotos, 192×192 WebP (~940 KB) — uma por variação de aparelho |
 | [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas |
 | [js/cloud.js](js/cloud.js) | Backup na nuvem pela API REST do Firebase |
 | [js/firebase-config.js](js/firebase-config.js) | Suas chaves do Firebase (vazio = nuvem desligada) |
@@ -133,8 +133,36 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/cloud-test.js](tools/cloud-test.js) | Testa o backup na nuvem contra um servidor falso, sem tocar num projeto real |
 | [tools/theme-test.js](tools/theme-test.js) | Testa a tela de login e os temas, e fotografa os cinco |
 | [tools/gym-test.js](tools/gym-test.js) | Testa tela acesa, substituir exercício, reordenar e as análises |
+| [tools/catalog-test.js](tools/catalog-test.js) | Testa o catálogo, a foto por aparelho, a migração e a cor neutra |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
+
+## Catálogo: movimento e variação
+
+Cada entrada é um **movimento**, não uma combinação de movimento e aparelho.
+"Supino Reto" é um só; barra, halteres, máquina e Smith são variações que o
+usuário escolhe no seletor — e **a foto acompanha a escolha**. São 110
+movimentos e mais de 230 combinações, contra 124 entradas achatadas antes.
+
+A foto é procurada em três níveis: `img/<movimento>__<aparelho>.webp`, depois
+`img/<movimento>.webp`, e por fim o ícone do grupo muscular. Assim uma variação
+sem foto própria mostra a do movimento em vez de nada — ou, pior, a de outro
+exercício.
+
+Dados de versões anteriores são migrados na abertura (`migrarParaV2` em
+[js/store.js](js/store.js)): os `exId` antigos como `ex_supino_reto_com_halteres`
+viram `ex_supino_reto` com `equip: 'Halteres'`, e as cargas anotadas continuam
+onde estavam.
+
+## Cor: neutro fora, cor do treino dentro
+
+Os detalhes do app — botão de ação, ícones, biblioteca, ajustes — são
+**neutros**. A cor de um treino aparece só onde pertence a ele: no cartão do
+treino, dentro do treino, no registro salvo e nos painéis de números e gráficos.
+Assim a cor significa sempre a mesma coisa, em vez de tingir a interface inteira.
+
+O neutro é branco nos temas escuros e escuro no tema Claro (campo `neutro` em
+`TEMAS`) — branco sobre fundo claro sumiria.
 
 ## As fotos dos exercícios
 
@@ -244,6 +272,7 @@ node tools/features-test.js ./__shots    # recursos avançados, com verificaçõ
 node tools/cloud-test.js ./__shots       # backup na nuvem, com Firebase simulado
 node tools/theme-test.js ./__shots       # login e temas, com fotos de cada tema
 node tools/gym-test.js ./__shots         # trio da academia e análises
+node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migração
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)

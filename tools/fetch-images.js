@@ -59,16 +59,21 @@ async function baixar(url) {
   const mapa = JSON.parse(fs.readFileSync(path.join(__dirname, 'image-map.json'), 'utf8'));
   delete mapa._comment;
 
+  /* Uma foto por variação: img/<movimento>.webp para a padrão e
+     img/<movimento>__<equipamento>.webp para as específicas. */
   const tarefas = [];
   const semImagem = [];
-  for (const [pt, en] of Object.entries(mapa)) {
-    if (!en) { semImagem.push(pt + ' (sem equivalente)'); continue; }
-    const ex = porNome.get(en);
-    if (!ex || !ex.images || !ex.images.length) {
-      semImagem.push(pt + ' -> "' + en + '" não encontrado');
-      continue;
+  for (const [pt, variantes] of Object.entries(mapa)) {
+    for (const [chave, en] of Object.entries(variantes)) {
+      if (!en) { semImagem.push(pt + ' (sem equivalente)'); continue; }
+      const ex = porNome.get(en);
+      if (!ex || !ex.images || !ex.images.length) {
+        semImagem.push(pt + ' [' + chave + '] -> "' + en + '" não encontrado');
+        continue;
+      }
+      const slug = slugify(pt) + (chave === 'padrao' ? '' : '__' + slugify(chave));
+      tarefas.push({ pt, chave, slug, url: FONTE + '/exercises/' + ex.images[0] });
     }
-    tarefas.push({ pt, slug: slugify(pt), url: FONTE + '/exercises/' + ex.images[0] });
   }
   console.log('com foto: %d | sem foto: %d', tarefas.length, semImagem.length);
   semImagem.forEach((s) => console.log('  - ' + s));
@@ -181,7 +186,8 @@ async function baixar(url) {
 
   /* ---- 5. lista para o app ---- */
   const saida = `/* GERADO por tools/fetch-images.js — não editar à mão.
-   Exercícios que possuem foto em img/<slug>.webp.
+   Chaves com "__" são variações por equipamento: <movimento>__<equipamento>.
+   Sem variação para o equipamento escolhido, o app cai na foto do movimento.
    Fotos: free-exercise-db (github.com/yuhonas/free-exercise-db), Unlicense. */
 const EX_IMG = new Set(${JSON.stringify(prontos.sort(), null, 0).replace(/","/g, '",\n  "').replace('["', '[\n  "').replace('"]', '"\n]')});
 `;

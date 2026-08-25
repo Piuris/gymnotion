@@ -94,7 +94,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ---------- montagem: 3 exercícios e dois treinos anteriores ---------- */
   await ev(`
     var w = newWorkout(); w.name = 'Push'; w.color = '#FF5A1E';
-    ['ex_supino_reto', 'ex_desenvolvimento_com_halteres', 'ex_triceps_corda']
+    ['ex_supino_reto', 'ex_desenvolvimento', 'ex_triceps_corda']
       .forEach(function (id) { addExerciseToWorkout(w.id, findExercise(id), 3); });
     saveNow(); 'ok';
   `);

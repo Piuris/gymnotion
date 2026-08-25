@@ -101,6 +101,7 @@ function renderTreinos(el, screen) {
     <div class="progress"><i style="width:${Math.min(100, (feitosSemana / meta) * 100)}%"></i></div>
     <div class="plan-foot"><span>Esta semana</span><span>${feitosSemana}/${meta}</span></div>
   </button>`);
+  setAccent(accentPainel(), plan.querySelector('.progress'));
   plan.addEventListener('click', () => openWorkoutsSheet());
   scroll.appendChild(plan);
 
@@ -109,13 +110,14 @@ function renderTreinos(el, screen) {
 
   /* histórico */
   if (!S.sessions.length) {
-    scroll.appendChild(h(`<div class="empty">${icon('chart')}<b>Nenhum treino registrado</b>Toque no botão colorido para montar um treino e começar a anotar suas cargas.</div>`));
-    /* aparelho novo: o caminho de volta precisa estar à vista */
+    /* aparelho novo: o caminho de volta precisa estar à vista, e acima do
+       estado vazio para não esbarrar no botão de ação */
     if (cloudConfigurado() && !cloudLogado()) {
-      const volta = h(`<button class="pill-btn soft" style="margin:0 auto">Já tenho conta — restaurar treinos</button>`);
+      const volta = h(`<button class="pill-btn soft" style="margin:8px 16px 4px;width:calc(100% - 32px)">Já tenho conta — restaurar treinos</button>`);
       volta.addEventListener('click', () => telaLogin(screen));
       scroll.appendChild(volta);
     }
+    scroll.appendChild(h(`<div class="empty">${icon('chart')}<b>Nenhum treino registrado</b>Toque no botão para montar um treino e começar a anotar suas cargas.</div>`));
   } else {
     scroll.appendChild(h('<div class="section-title">Registros</div>'));
     S.sessions.slice(0, 40).forEach((s) => scroll.appendChild(sessionCard(s, screen)));
@@ -158,6 +160,7 @@ function ringsBlock() {
   };
 
   const box = h('<div class="rings"></div>');
+  setAccent(accentPainel(), box);
   box.innerHTML =
     ring('Calorias', fmtNum(agg.calorias), agg.calorias / best('calorias'), sub('calorias')) +
     ring('Volume', fmtNum(agg.volume), agg.volume / best('volume'), sub('volume')) +
@@ -217,6 +220,7 @@ function renderInicio(el) {
   const chart = h(`<div class="chart-card">${ult.length
     ? sparkline(ult.map((s) => s.volume), { w: 320, h: 170, pad: 18, dots: true })
     : `<div class="chart-empty">${icon('chart')}Sem dados ainda</div>`}</div>`);
+  setAccent(accentPainel(), chart);
   scroll.appendChild(chart);
 
   /* séries por grupo muscular na semana */
@@ -228,6 +232,7 @@ function renderInicio(el) {
   } else {
     scroll.appendChild(h(`<div class="hint" style="padding-bottom:10px">Só séries válidas. A faixa de ${SERIES_MIN} a ${SERIES_MAX} séries semanais por grupo é a referência mais citada para hipertrofia.</div>`));
     const caixa = h('<div class="grupos"></div>');
+    setAccent(accentPainel(), caixa);
     const teto = Math.max(SERIES_MAX, ...porGrupo.map((g) => g.series));
     porGrupo.forEach((g) => {
       const nivel = g.series < SERIES_MIN ? 'baixo' : (g.series > SERIES_MAX ? 'alto' : 'ok');
@@ -353,6 +358,25 @@ function doExport() {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   marcarBackupFeito();
   toast('Backup gerado');
+}
+
+/* Troca só o aparelho: mesmo movimento, mesmas séries, e a foto acompanha.
+   É o caso de chegar na academia e a máquina do costume estar ocupada. */
+function trocarEquipamento(e, aoMudar) {
+  const ex = findExercise(e.exId);
+  const opcoes = (e.equips && e.equips.length) ? e.equips : equipsDe(ex);
+  const box = h(`<div><h3>${esc(e.nome)}</h3><p class="desc">Mesmo exercício, outro aparelho.</p></div>`);
+  let ov;
+  opcoes.forEach((q) => {
+    const b = h(`<button class="sheet-item">
+      ${exThumb(e.exId, e.grupo, q, 'round')}
+      <span style="flex:1">${esc(q)}</span>
+      ${q === e.equip ? icon('check').replace('<svg', '<svg style="fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"') : ''}
+    </button>`);
+    b.addEventListener('click', () => { e.equip = q; haptic(); ov.close(); setTimeout(aoMudar, 120); });
+    box.appendChild(b);
+  });
+  ov = openSheet(box);
 }
 
 /* ---------- aparência ---------- */
@@ -773,7 +797,7 @@ function openWorkout(workoutId, mode) {
         ${MODE === 'edit'
           ? `<button class="alca" data-alca>${icon('arrastar')}</button>`
           : `<button class="check${checkCls}" data-act="check">${icon('check')}</button>`}
-        ${exThumb(e.exId, e.grupo, 'round')}
+        ${exThumb(e.exId, e.grupo, e.equip, 'round')}
         <div class="name">${esc(e.nome)}${e.equip && e.equip !== 'Sem equipamento' ? ` <span style="color:var(--txt-2)">(${esc(e.equip)})</span>` : ''}</div>
         ${MODE === 'edit' ? '' : `<button class="kebab" data-act="menu">${icon('dots')}</button>`}
         ${icon('chev').replace('<svg', '<svg class="chev"')}
@@ -796,6 +820,7 @@ function openWorkout(workoutId, mode) {
         },
         menu: () => actionSheet(e.nome, [
           { label: 'Abrir séries', icon: 'chart', onClick: () => openExercise(workoutId, e.uid, inSession) },
+          { label: 'Trocar equipamento', icon: 'copy', onClick: () => trocarEquipamento(e, () => { saveNow(); screen.refresh(); }) },
           { label: 'Substituir exercício', icon: 'repeat', onClick: () => openLibrary(workoutId, () => screen.refresh(), { substituirUid: e.uid, nomeAtual: e.nome }) },
           { label: 'Mover para cima', icon: 'upload', onClick: () => { moveEx(src, idx, -1); save(); screen.refresh(); } },
           { label: 'Mover para baixo', icon: 'download', onClick: () => { moveEx(src, idx, 1); save(); screen.refresh(); } },
@@ -977,7 +1002,7 @@ function openExercise(workoutId, uid, inSession) {
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
       <div class="title${tituloEx.length > 22 ? ' long' : ''}">${esc(tituloEx)}</div>
-      ${exThumb(e.exId, e.grupo, 'round')}
+      ${exThumb(e.exId, e.grupo, e.equip, 'round')}
     </div>`);
     acts(nav, { back: () => popScreen() });
     el.appendChild(nav);
@@ -1152,7 +1177,8 @@ function openLibrary(workoutId, onDone, opts) {
 
   pushScreen((el, screen) => {
     const w = getWorkout(workoutId);
-    setAccent(w ? w.color : contextAccent(), el);
+    /* a biblioteca é catálogo, não treino: fica neutra */
+    setAccent(contextAccent(), el);
 
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
@@ -1211,7 +1237,7 @@ function openLibrary(workoutId, onDone, opts) {
       const sel = escolhas[ex.id] || (escolhas[ex.id] = { equip: ex.equip, sets: 3 });
       const row = h(`<div class="exrow">
         <div class="exrow-top">
-          ${exThumb(ex.id, ex.grupo)}
+          ${exThumb(ex.id, ex.grupo, sel.equip)}
           <div class="exrow-name"><b>${esc(ex.nome)}</b><span>${esc(ex.grupo)}</span></div>
           <button class="add-circle" data-act="add">+</button>
         </div>
@@ -1220,7 +1246,7 @@ function openLibrary(workoutId, onDone, opts) {
             <svg class="lead" viewBox="0 0 24 24">${ICONS.halter}</svg>
             <label>${esc(sel.equip)}</label>
             ${icon('caret')}
-            <select data-f="equip">${EQUIPAMENTOS.map((q) => `<option${q === sel.equip ? ' selected' : ''}>${esc(q)}</option>`).join('')}</select>
+            <select data-f="equip">${equipsDe(ex).map((q) => `<option${q === sel.equip ? ' selected' : ''}>${esc(q)}</option>`).join('')}</select>
           </div>
           <div class="opt">
             <svg class="lead" viewBox="0 0 24 24">${I.repeat.replace(/<\/?svg[^>]*>/g, '')}</svg>
@@ -1234,6 +1260,9 @@ function openLibrary(workoutId, onDone, opts) {
       on(row, 'select[data-f="equip"]', 'change', (ev) => {
         sel.equip = ev.target.value;
         row.querySelectorAll('.opt label')[0].textContent = sel.equip;
+        /* a foto acompanha o aparelho escolhido */
+        const antiga = row.querySelector('.thumb');
+        if (antiga) antiga.replaceWith(h(exThumb(ex.id, ex.grupo, sel.equip)));
       });
       on(row, 'select[data-f="sets"]', 'change', (ev) => {
         sel.sets = Number(ev.target.value);

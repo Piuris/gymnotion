@@ -43,11 +43,22 @@ const icon = (k) => I[k] || '';
 /* Foto do exercício quando existe (img/<slug>.webp), senão o ícone do grupo
    muscular. O slug é o id do exercício sem o prefixo "ex_"; exercícios criados
    por você (prefixo "my_") não têm foto e caem no ícone. */
-function exThumb(exId, grupo, classe) {
+/* Procura a foto da variação escolhida (movimento__equipamento); sem ela, cai
+   na foto do movimento; sem nenhuma, no ícone do grupo muscular. */
+function fotoDe(exId, equip) {
+  if (typeof EX_IMG === 'undefined') return null;
   const slug = String(exId || '').replace(/^ex_/, '');
-  const temFoto = typeof EX_IMG !== 'undefined' && EX_IMG.has(slug);
-  const dentro = temFoto
-    ? `<img src="img/${slug}.webp" alt="" loading="lazy" decoding="async"/>`
+  if (equip) {
+    const variante = slug + '__' + slugify(equip);
+    if (EX_IMG.has(variante)) return variante;
+  }
+  return EX_IMG.has(slug) ? slug : null;
+}
+
+function exThumb(exId, grupo, equip, classe) {
+  const foto = fotoDe(exId, equip);
+  const dentro = foto
+    ? `<img src="img/${foto}.webp" alt="" loading="lazy" decoding="async"/>`
     : svgFill(ICONS[grupoIcon(grupo)] || ICONS.halter);
   return `<div class="thumb${classe ? ' ' + classe : ''}">${dentro}</div>`;
 }
@@ -94,12 +105,18 @@ function aplicarTema(id) {
 
 const temaAtual = () => TEMAS.find((x) => x.id === S.settings.tema) || TEMAS[0];
 
-/* cor de acento "de contexto": último treino registrado, senão laranja */
+/* Cor dos detalhes fora do treino: neutra, para a cor colorida significar
+   sempre "isto pertence a um treino". */
 function contextAccent() {
+  return temaAtual().neutro || '#FFFFFF';
+}
+
+/* Cor dos painéis de números e gráficos: a do treino que gerou os dados, o que
+   torna a leitura imediata. Sem dados, cai no neutro. */
+function accentPainel() {
   if (S.active) return S.active.color;
   if (S.sessions.length) return S.sessions[0].color;
-  if (S.workouts.length) return S.workouts[0].color;
-  return '#FF5A1E';
+  return contextAccent();
 }
 
 /* ---------- helpers DOM ---------- */
