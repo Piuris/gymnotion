@@ -12,7 +12,6 @@ function tabbar() {
   const items = [
     ['inicio', 'home'],
     ['treinos', 'dumbbell'],
-    ['amigos', 'users'],
     ['nutricao', 'cookie'],
     ['perfil', 'user'],
   ];
@@ -35,16 +34,13 @@ function buildRoot(el, screen) {
   if (TAB === 'treinos') renderTreinos(el, screen);
   else if (TAB === 'inicio') renderInicio(el, screen);
   else if (TAB === 'perfil') renderPerfil(el, screen);
-  else renderEmBreve(el, TAB);
+  else renderEmBreve(el);
   el.appendChild(tabbar());
 }
 
-function renderEmBreve(el, tab) {
-  const txt = tab === 'amigos'
-    ? { t: 'Amigos', d: 'Comparar treinos com amigos chega numa próxima versão.' }
-    : { t: 'Nutrição', d: 'Registro de refeições e macros chega numa próxima versão.' };
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">${txt.t}</div><div style="width:44px"></div></div>`));
-  el.appendChild(h(`<div class="scroll"><div class="empty">${icon('clock')}<b>Em breve</b>${esc(txt.d)}</div></div>`));
+function renderEmBreve(el) {
+  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Nutrição</div><div style="width:44px"></div></div>`));
+  el.appendChild(h(`<div class="scroll"><div class="empty">${icon('clock')}<b>Em breve</b>${esc('Registro de refeições e macros chega numa próxima versão.')}</div></div>`));
 }
 
 /* =========================================================
@@ -250,22 +246,26 @@ function renderPerfil(el, screen) {
   el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Perfil</div><div style="width:44px"></div></div>`));
   const scroll = h('<div class="scroll"></div>');
 
-  const row = (label, value, act) => {
-    const r = h(`<button class="ex-item" style="width:100%"><div class="name">${esc(label)}</div>
-      <div style="color:var(--txt-2)">${esc(value)}</div>${icon('chev').replace('<svg', '<svg class="chev"')}</button>`);
+  const row = (label, value, act, nota) => {
+    const r = h(`<button class="ex-item" style="width:100%;align-items:flex-start;text-align:left">
+      <div class="name" style="white-space:normal">${esc(label)}
+        ${nota ? `<i style="display:block;font-style:normal;font-size:13px;color:var(--txt-3);margin-top:2px">${esc(nota)}</i>` : ''}
+      </div>
+      <div style="color:var(--txt-2);padding-top:1px">${esc(value)}</div>${icon('chev').replace('<svg', '<svg class="chev" style="margin-top:3px"')}</button>`);
     r.addEventListener('click', act);
     return r;
   };
 
   scroll.appendChild(h('<div class="section-title">Ajustes</div>'));
   scroll.appendChild(row('Peso corporal', S.settings.bodyweight + ' kg', () =>
-    promptSheet('Peso corporal (kg)', String(S.settings.bodyweight), '75', (v) => {
-      S.settings.bodyweight = Number(String(v).replace(',', '.')) || 75; saveNow(); screen.refresh();
-    })));
+    promptSheet('Peso corporal (kg)', String(S.settings.bodyweight),
+      '75', (v) => {
+        S.settings.bodyweight = Number(String(v).replace(',', '.')) || 75; saveNow(); screen.refresh();
+      }), 'Usado só para estimar as calorias do treino'));
   scroll.appendChild(row('Descanso padrão', S.settings.restDefault + ' min', () =>
     promptSheet('Descanso padrão (min)', String(S.settings.restDefault), '1', (v) => {
       S.settings.restDefault = Number(String(v).replace(',', '.')) || 1; saveNow(); screen.refresh();
-    })));
+    }), 'Preenche o descanso de cada série nova'));
 
   scroll.appendChild(h('<div class="section-title">Dados</div>'));
   scroll.appendChild(row('Exportar backup', '.json', () => doExport()));

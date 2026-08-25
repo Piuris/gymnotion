@@ -141,7 +141,10 @@ do grupo muscular, sem quebrar nada.
 - Exportar e importar backup em `.json` (aba *Perfil*).
 - Ver a foto da execução de cada exercício.
 
-As abas *Amigos* e *Nutrição* estão como espaço reservado.
+A aba *Nutrição* está como espaço reservado.
+
+O **peso corporal** (aba *Perfil*) serve só para escalar a estimativa de calorias
+em `sessionStats` — nada mais depende dele.
 
 ## Manutenção
 
