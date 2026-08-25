@@ -92,9 +92,41 @@ O casamento entre o nome em português e o nome em inglês do banco está em
 873 nomes reais do catálogo. Para trocar a foto de um exercício, mude o nome
 inglês nesse arquivo e rode `node tools/fetch-images.js` de novo.
 
-Escolhi esse banco em vez do [wger](https://wger.de) (que tem o traço técnico de
-ilustração) porque o wger só cobria **23 dos 124** exercícios desta lista, e suas
-imagens são CC-BY-SA — o que obrigaria o app a herdar a mesma licença.
+### Por que foto, e não desenho anatômico
+
+O traço que a maioria dos apps de treino usa — figura cinza com o músculo em
+vermelho — vem da [Gym visual](https://gymvisual.com), que é **comercial**. A
+licença deles permite usar em app, mas proíbe redistribuir: um repositório
+público com os arquivos soltos já conta como redistribuição. Para adotar esse
+estilo é preciso comprar o pacote **e** tirar o projeto do GitHub Pages, que no
+plano grátis exige repo público. Existe um repositório que redistribui essas
+imagens com permissão do titular, mas ele avisa em letras claras que *"cloning
+this repo is not a license"* — não serve.
+
+Os conjuntos abertos foram medidos contra esta lista de 124 exercícios:
+
+| Fonte | Estilo | Cobertura | Licença |
+| --- | --- | --- | --- |
+| [free-exercise-db](https://github.com/yuhonas/free-exercise-db) | foto de academia | **122/124** | Unlicense (domínio público) |
+| [RepDB](https://github.com/sergei-argutin/exercise-dataset) grátis | desenho chapado, fundo azul | 74/124 | uso comercial com atribuição |
+| [Everkinetic](https://github.com/everkinetic/data) | linha preta, sem o vermelho | 62/124 | CC-BY-SA 4.0 |
+| [wger](https://wger.de) | linha preta | 23/124 | CC-BY-SA |
+
+Nenhum conjunto aberto tem o estilo desejado *e* cobre a lista. Usar desenho em
+metade dos exercícios e foto na outra metade fica pior do que só foto, então a
+escolha foi o único conjunto que cobre tudo com um estilo só.
+
+Nota sobre CC-BY-SA: o *share-alike* recai sobre as imagens e suas modificações,
+não sobre o código do app — licença de imagem não contamina o código. Isso não
+foi o que barrou o Everkinetic aqui; foi a cobertura de metade da lista.
+
+### Trocar por outro conjunto
+
+A estrutura não depende da fonte. Cada exercício procura `img/<slug>.webp`, onde
+o slug é o id sem o prefixo `ex_` (veja `exThumb` em [js/ui.js](js/ui.js)). Para
+usar imagens compradas, basta gravar os arquivos com esses nomes em `img/` e
+listar os slugs em `js/exercise-images.js`. Quem não tiver arquivo cai no ícone
+do grupo muscular, sem quebrar nada.
 
 ## O que dá para fazer
 
