@@ -776,6 +776,55 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .foot-actions .pill-btn { flex: 1; }
 
+/* ---------- arrastar para reordenar ---------- */
+
+.alca {
+  width: 44px; height: 44px; flex: 0 0 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--txt-3);
+  touch-action: none;          /* o dedo arrasta a linha, não rola a tela */
+  cursor: grab;
+}
+.alca svg { width: 22px; height: 22px; fill: currentColor; }
+
+.ex-item.arrastando {
+  position: relative; z-index: 5;
+  background: var(--card);
+  box-shadow: 0 8px 22px var(--sombra);
+  opacity: .96;
+}
+body.arrastando-algo { cursor: grabbing; }
+body.arrastando-algo .scroll { overflow: hidden; }
+
+/* ---------- comparação com o treino anterior ---------- */
+
+.comparacao { padding: 14px 16px; }
+.comp-topo { font-size: 13px; color: var(--txt-2); margin-bottom: 8px; }
+.comp-linha { font-size: 16px; color: var(--txt-2); line-height: 1.5; }
+.comp-linha span { font-weight: 700; }
+.comp-ex {
+  margin-top: 10px; font-size: 14px; line-height: 1.45;
+}
+.sobe { color: #30D158; }
+.desce { color: #FF9F0A; }
+.igual { color: var(--txt-2); }
+
+.chart-tend {
+  position: absolute; bottom: 10px; right: 14px;
+  font-size: 13px; font-weight: 700;
+  background: var(--toast-bg); padding: 4px 8px; border-radius: 8px;
+}
+
+/* frequência ao lado do nome do grupo */
+.grupo-nome i {
+  display: block; font-style: normal;
+  font-size: 12px; color: var(--txt-3); margin-top: 1px;
+}
+
+/* na troca de exercício o número de séries não muda: some o seletor */
+.exrow-opts.so-equip .opt:last-child { display: none; }
+.exrow-opts.so-equip .opt:first-child { flex: 1; }
+
 /* ---------- login ---------- */
 
 .login {

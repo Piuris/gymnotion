@@ -132,6 +132,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/features-test.js](tools/features-test.js) | Testa tipos de série, última execução, séries por grupo, recorde, correção e backup |
 | [tools/cloud-test.js](tools/cloud-test.js) | Testa o backup na nuvem contra um servidor falso, sem tocar num projeto real |
 | [tools/theme-test.js](tools/theme-test.js) | Testa a tela de login e os temas, e fotografa os cinco |
+| [tools/gym-test.js](tools/gym-test.js) | Testa tela acesa, substituir exercício, reordenar e as análises |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -195,7 +196,11 @@ do grupo muscular, sem quebrar nada.
 - Adicionar exercícios da biblioteca escolhendo equipamento e número de séries,
   ou criar exercícios seus.
 - Iniciar o treino: cronômetro, marcar séries feitas, temporizador de descanso
-  com aviso sonoro ao terminar.
+  com aviso sonoro ao terminar. **A tela fica acesa enquanto o treino roda**
+  (Wake Lock, Safari 16.4+), e é liberada ao pausar ou concluir.
+- Substituir um exercício no meio do treino (máquina ocupada) mantendo a
+  quantidade de séries e o descanso; e reordenar exercícios arrastando pela alça
+  no modo de edição.
 - Anotar peso, repetições e descanso por série, além de observações por exercício.
 - Classificar cada série: **válida**, **aquecimento**, **feeder** ou **PAP**. Só a
   válida entra em volume, calorias, séries, repetições, recordes e no gráfico de
@@ -203,7 +208,11 @@ do grupo muscular, sem quebrar nada.
 - Ver o que você fez naquele exercício no treino anterior, série a série, como
   sugestão dentro do campo, com um botão para preencher tudo de uma vez.
 - Acompanhar as **séries por grupo muscular na semana**, com a faixa de 10 a 20
-  séries marcada na barra (aba *Resumo*).
+  séries marcada na barra e a **frequência** (quantos dias distintos) — volume e
+  frequência são coisas diferentes.
+- Ver, ao abrir um registro, a **comparação com o treino anterior** do mesmo
+  molde: diferença de volume, séries, repetições e carga por exercício.
+- Ver a **tendência de carga dos últimos 30 dias** no gráfico do exercício.
 - Receber aviso na hora em que uma série supera seu melhor 1RM estimado.
 - Corrigir um treino já salvo em vez de só apagar; os números são recalculados.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
@@ -234,6 +243,7 @@ node tools/flow-test.js ./__shots        # percurso completo, com verificações
 node tools/features-test.js ./__shots    # recursos avançados, com verificações
 node tools/cloud-test.js ./__shots       # backup na nuvem, com Firebase simulado
 node tools/theme-test.js ./__shots       # login e temas, com fotos de cada tema
+node tools/gym-test.js ./__shots         # trio da academia e análises
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)

@@ -32,6 +32,7 @@ const I = {
   target: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M11 3h2v9.2l3.6-3.6L18 10l-6 6-6-6 1.4-1.4L11 12.2zM4 19h16v2H4z"/></svg>',
   upload: '<svg viewBox="0 0 24 24"><path d="M12 3l6 6-1.4 1.4L13 6.8V16h-2V6.8L7.4 10.4 6 9zM4 19h16v2H4z"/></svg>',
+  arrastar: '<svg viewBox="0 0 24 24"><path d="M4 7.5h16v2H4zM4 14.5h16v2H4z"/></svg>',
   info: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v2h-2zm0 4h2v7h-2z"/></svg>',
 };
 
@@ -372,6 +373,103 @@ function toast(msg) {
     t.style.animation = 'toastIn .2s reverse';
     setTimeout(() => t.remove(), 190);
   }, 1900);
+}
+
+/* ---------- manter a tela acesa ---------- */
+
+/* Entre uma série e outra o iPhone apaga a tela e você desbloqueia com a mão
+   suada. O Wake Lock evita isso enquanto o treino está rodando (Safari 16.4+).
+   O sistema solta o bloqueio sozinho quando o app sai de vista, por isso o
+   reforço no visibilitychange. */
+let travaTela = null;
+
+async function segurarTela() {
+  if (!('wakeLock' in navigator) || travaTela) return false;
+  try {
+    travaTela = await navigator.wakeLock.request('screen');
+    travaTela.addEventListener('release', () => { travaTela = null; });
+    return true;
+  } catch (e) {
+    travaTela = null;               // recusado por bateria fraca, por exemplo
+    return false;
+  }
+}
+
+function soltarTela() {
+  if (!travaTela) return;
+  try { travaTela.release(); } catch (e) { /* já solto */ }
+  travaTela = null;
+}
+
+/* Chamado a cada mudança de estado: mantém a trava só durante treino rodando. */
+function ajustarTravaTela() {
+  const querSegurar = !!(S.active && S.active.running) && !document.hidden;
+  if (querSegurar) segurarTela(); else soltarTela();
+}
+
+/* ---------- reordenar arrastando ---------- */
+
+/* Arraste por toque, sem biblioteca. O elemento arrastado acompanha o dedo e a
+   posição de destino sai da comparação com o meio de cada vizinho, o que
+   funciona mesmo com linhas de alturas diferentes. */
+function tornarArrastavel(lista, alca, aoSoltar) {
+  alca.addEventListener('pointerdown', (ev) => {
+    const linha = alca.closest('[data-arrastavel]');
+    if (!linha || !linha.parentElement) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const pai = linha.parentElement;
+    const irmaos = () => Array.from(pai.querySelectorAll('[data-arrastavel]'));
+    const origem = irmaos().indexOf(linha);
+    const y0 = ev.clientY;
+    let destino = origem;
+
+    linha.classList.add('arrastando');
+    document.body.classList.add('arrastando-algo');
+    alca.setPointerCapture(ev.pointerId);
+    haptic();
+
+    const mover = (e) => {
+      const dy = e.clientY - y0;
+      linha.style.transform = 'translateY(' + dy + 'px)';
+      const atuais = irmaos();
+      const meio = e.clientY;
+      let novo = 0;
+      atuais.forEach((el) => {
+        if (el === linha) return;
+        const r = el.getBoundingClientRect();
+        if (meio > r.top + r.height / 2) novo += 1;
+      });
+      if (novo !== destino) {
+        destino = novo;
+        const ref = atuais.filter((el) => el !== linha)[destino];
+        pai.insertBefore(linha, ref || null);
+        /* o elemento pulou de lugar: o deslocamento visual precisa zerar */
+        const r = linha.getBoundingClientRect();
+        linha.style.transform = 'translateY(' + (e.clientY - (r.top + r.height / 2)) + 'px)';
+        haptic();
+      }
+    };
+
+    const soltar = () => {
+      alca.removeEventListener('pointermove', mover);
+      alca.removeEventListener('pointerup', soltar);
+      alca.removeEventListener('pointercancel', soltar);
+      linha.style.transform = '';
+      linha.classList.remove('arrastando');
+      document.body.classList.remove('arrastando-algo');
+      if (destino !== origem) {
+        const [item] = lista.splice(origem, 1);
+        lista.splice(destino, 0, item);
+        aoSoltar();
+      }
+    };
+
+    alca.addEventListener('pointermove', mover);
+    alca.addEventListener('pointerup', soltar);
+    alca.addEventListener('pointercancel', soltar);
+  });
 }
 
 /* ---------- beep de descanso ---------- */

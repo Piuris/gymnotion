@@ -233,7 +233,7 @@ function renderInicio(el) {
       const nivel = g.series < SERIES_MIN ? 'baixo' : (g.series > SERIES_MAX ? 'alto' : 'ok');
       const rotulo = { baixo: 'abaixo da faixa', ok: 'na faixa', alto: 'acima da faixa' }[nivel];
       caixa.appendChild(h(`<div class="grupo-row">
-        <div class="grupo-nome">${esc(g.grupo)}</div>
+        <div class="grupo-nome">${esc(g.grupo)}<i>${g.frequencia}× na semana</i></div>
         <div class="grupo-barra">
           <i style="width:${(g.series / teto) * 100}%" class="${nivel}"></i>
           <u style="left:${(SERIES_MIN / teto) * 100}%"></u>
@@ -749,6 +749,7 @@ function openWorkout(workoutId, mode) {
       const t = h(`<div class="timer${S.active.running ? '' : ' paused'}">${fmtClock(activeElapsedMs() / 1000)}</div>`);
       t.addEventListener('click', () => {
         if (S.active.running) { pauseSession(); toast('Pausado'); } else { resumeSession(); toast('Retomado'); }
+        ajustarTravaTela();
         screen.refresh();
       });
       scroll.appendChild(t);
@@ -768,8 +769,10 @@ function openWorkout(workoutId, mode) {
       else if (all) checkCls = ' on';
       else if (some) checkCls = ' partial';
 
-      const row = h(`<div class="ex-item">
-        <button class="check${checkCls}" data-act="check">${icon('check')}</button>
+      const row = h(`<div class="ex-item" data-arrastavel>
+        ${MODE === 'edit'
+          ? `<button class="alca" data-alca>${icon('arrastar')}</button>`
+          : `<button class="check${checkCls}" data-act="check">${icon('check')}</button>`}
         ${exThumb(e.exId, e.grupo, 'round')}
         <div class="name">${esc(e.nome)}${e.equip && e.equip !== 'Sem equipamento' ? ` <span style="color:var(--txt-2)">(${esc(e.equip)})</span>` : ''}</div>
         ${MODE === 'edit' ? '' : `<button class="kebab" data-act="menu">${icon('dots')}</button>`}
@@ -793,16 +796,21 @@ function openWorkout(workoutId, mode) {
         },
         menu: () => actionSheet(e.nome, [
           { label: 'Abrir séries', icon: 'chart', onClick: () => openExercise(workoutId, e.uid, inSession) },
+          { label: 'Substituir exercício', icon: 'repeat', onClick: () => openLibrary(workoutId, () => screen.refresh(), { substituirUid: e.uid, nomeAtual: e.nome }) },
           { label: 'Mover para cima', icon: 'upload', onClick: () => { moveEx(src, idx, -1); save(); screen.refresh(); } },
           { label: 'Mover para baixo', icon: 'download', onClick: () => { moveEx(src, idx, 1); save(); screen.refresh(); } },
           { label: 'Remover do treino', icon: 'trash', danger: true, onClick: () => { removeEx(workoutId, e.uid); screen.refresh(); } },
         ]),
       });
       row.addEventListener('click', (ev) => {
-        if (ev.target.closest('[data-act]')) return;
+        if (ev.target.closest('[data-act]') || ev.target.closest('[data-alca]')) return;
         if (MODE === 'edit') { if (selection.has(e.uid)) selection.delete(e.uid); else selection.add(e.uid); screen.refresh(); return; }
         openExercise(workoutId, e.uid, inSession);
       });
+      if (MODE === 'edit') {
+        const alca = row.querySelector('[data-alca]');
+        if (alca) tornarArrastavel(src, alca, () => { saveNow(); screen.refresh(); });
+      }
       scroll.appendChild(row);
     });
 
@@ -859,6 +867,7 @@ function openWorkout(workoutId, mode) {
         if (!S.active) startSession(workoutId);
         MODE = 'session';
         haptic();
+        ajustarTravaTela();
         screen.refresh();
       },
       finish: () => finishFlow(screen),
@@ -889,7 +898,7 @@ function finishFlow(screen) {
   const feitas = a.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
   if (!feitas) {
     confirmSheet('Encerrar sem séries?', 'Nenhuma série foi marcada como feita. O treino não será salvo no histórico.', 'Encerrar', () => {
-      cancelSession(); popScreen();
+      cancelSession(); ajustarTravaTela(); popScreen();
     });
     return;
   }
@@ -907,6 +916,7 @@ function finishFlow(screen) {
     r.close();
     const s = finishSession();
     REST = null;
+    ajustarTravaTela();
     cloudEnviarEmSegundoPlano();
     setTimeout(() => {
       popToRoot(); currentScreen().refresh();
@@ -977,9 +987,12 @@ function openExercise(workoutId, uid, inSession) {
     /* gráfico de evolução */
     const hist = exerciseHistory(e.exId);
     if (hist.length >= 2) {
+      const tend = tendenciaCarga(e.exId, 30);
+      const seta = tend ? (tend.delta > 0 ? '+' : '') + fmtWeight(Math.round(tend.delta * 10) / 10) + ' kg em 30 dias' : '';
       const card = h(`<div class="chart-card">
         ${sparkline(hist.map((x) => x.rm), { w: 320, h: 170, pad: 20, dots: true })}
         <div class="chart-badge">Carga estimada • ${hist[hist.length - 1].rm} kg</div>
+        ${tend ? `<div class="chart-tend ${tend.delta >= 0 ? 'sobe' : 'desce'}">${esc(seta)}</div>` : ''}
       </div>`);
       scroll.appendChild(card);
     } else {
@@ -1130,7 +1143,9 @@ function checarRecorde(e, st) {
    BIBLIOTECA DE EXERCÍCIOS
    ========================================================= */
 
-function openLibrary(workoutId, onDone) {
+function openLibrary(workoutId, onDone, opts) {
+  const o = opts || {};
+  const substituindo = !!o.substituirUid;
   let query = '';
   let filtro = 'Todos';
   const escolhas = {};   // exId -> { equip, sets }
@@ -1141,7 +1156,7 @@ function openLibrary(workoutId, onDone) {
 
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
-      <div class="title">Adicionar Exercício</div>
+      <div class="title${substituindo ? ' long' : ''}">${substituindo ? 'Substituir ' + esc(o.nomeAtual || 'exercício') : 'Adicionar Exercício'}</div>
       <button class="icon-btn" data-act="novo">${icon('plus')}</button>
     </div>`);
     acts(nav, {
@@ -1200,7 +1215,7 @@ function openLibrary(workoutId, onDone) {
           <div class="exrow-name"><b>${esc(ex.nome)}</b><span>${esc(ex.grupo)}</span></div>
           <button class="add-circle" data-act="add">+</button>
         </div>
-        <div class="exrow-opts">
+        <div class="exrow-opts${substituindo ? ' so-equip' : ''}">
           <div class="opt">
             <svg class="lead" viewBox="0 0 24 24">${ICONS.halter}</svg>
             <label>${esc(sel.equip)}</label>
@@ -1227,6 +1242,14 @@ function openLibrary(workoutId, onDone) {
 
       acts(row, {
         add: (btn) => {
+          if (substituindo) {
+            substituirExercicio(workoutId, o.substituirUid, ex, sel.equip);
+            haptic();
+            if (onDone) onDone();
+            popScreen();
+            toast('Trocado para ' + ex.nome);
+            return;
+          }
           addExerciseToWorkout(workoutId, ex, sel.sets, sel.equip);
           if (S.active && S.active.workoutId === workoutId) {
             const w2 = getWorkout(workoutId);
@@ -1326,6 +1349,31 @@ function openSessionDetail(id) {
       ring('Repetições', String(s.reps), 1, '');
     scroll.appendChild(box);
 
+    /* comparação com o treino anterior do mesmo molde */
+    const comp = editando ? null : compararComAnterior(s);
+    if (comp) {
+      const sinal = (n, sufixo) => (n > 0 ? '+' : '') + fmtWeight(n) + (sufixo || '');
+      const classe = (n) => (n > 0 ? 'sobe' : (n < 0 ? 'desce' : 'igual'));
+      const subiram = comp.porExercicio.filter((x) => x.delta > 0);
+      const cairam = comp.porExercicio.filter((x) => x.delta < 0);
+
+      const caixa = h(`<div class="card comparacao">
+        <div class="comp-topo">Comparado com ${esc(fmtDate(comp.anterior.date))}</div>
+        <div class="comp-linha">${[
+          [comp.volume, ' kg de volume'],
+          [comp.sets, ' séries'],
+          [comp.reps, ' repetições'],
+        ]
+          .filter(([n]) => n !== 0)   /* zero não é informação, é ruído */
+          .map(([n, rotulo]) => `<span class="${classe(n)}">${esc(sinal(n))}</span>${esc(rotulo)}`)
+          .join(' · ') || 'Mesmos números do treino anterior'}</div>
+        ${subiram.length ? `<div class="comp-ex sobe">↑ ${subiram.map((x) => esc(x.nome) + ' ' + sinal(x.delta, ' kg')).join(' · ')}</div>` : ''}
+        ${cairam.length ? `<div class="comp-ex desce">↓ ${cairam.map((x) => esc(x.nome) + ' ' + sinal(x.delta, ' kg')).join(' · ')}</div>` : ''}
+        ${!subiram.length && !cairam.length ? '<div class="comp-ex igual">Mesmas cargas do treino anterior</div>' : ''}
+      </div>`);
+      scroll.appendChild(caixa);
+    }
+
     if (editando) {
       scroll.appendChild(h('<div class="hint" style="padding:0 16px 12px">Ajuste peso e repetições. As estatísticas são recalculadas ao salvar.</div>'));
     }
@@ -1377,6 +1425,7 @@ function openSessionDetail(id) {
 
 function boot() {
   aplicarTema(S.settings.tema);
+  ajustarTravaTela();   /* treino retomado depois de fechar o app */
   replaceRoot(buildRoot, 'root');
 
   clearInterval(TICK);
@@ -1384,6 +1433,7 @@ function boot() {
 
   /* mantém o cronômetro coerente ao voltar do segundo plano */
   document.addEventListener('visibilitychange', () => {
+    ajustarTravaTela();   /* o sistema solta a trava ao esconder o app */
     if (!document.hidden) {
       const sc = currentScreen();
       if (sc) sc.refresh();

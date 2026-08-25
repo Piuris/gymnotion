@@ -173,6 +173,29 @@ function addExerciseToWorkout(workoutId, ex, nSets, equip) {
   return we;
 }
 
+/* Troca o exercício mantendo a estrutura das séries (quantidade, tipo e
+   descanso). Peso e repetições zeram, porque são de outro movimento. */
+function substituirExercicio(workoutId, uid, ex, equip) {
+  const trocar = (lista) => {
+    const alvo = lista.find((e) => e.uid === uid);
+    if (!alvo) return false;
+    alvo.exId = ex.id;
+    alvo.nome = ex.nome;
+    alvo.grupo = ex.grupo;
+    alvo.equip = equip || ex.equip;
+    alvo.notas = '';
+    alvo.sets = alvo.sets.map((st) => ({
+      peso: 0, reps: 0, desc: st.desc, tipo: tipoSet(st), done: false,
+    }));
+    return true;
+  };
+  const w = getWorkout(workoutId);
+  const ok = w ? trocar(w.exercises) : false;
+  if (S.active && S.active.workoutId === workoutId) trocar(S.active.exercises);
+  saveNow();
+  return ok;
+}
+
 /* ---------- sessão ativa ---------- */
 
 function startSession(workoutId) {
@@ -362,20 +385,65 @@ function inicioDaSemana(ts) {
 const SERIES_MIN = 10;
 const SERIES_MAX = 20;
 
+/* Devolve séries e frequência: volume e número de vezes treinado são coisas
+   diferentes — 15 séries num dia só não é o mesmo que 15 em três dias. */
 function seriesPorGrupo(desde, ate) {
   const fim = ate == null ? Infinity : ate;
   const contagem = {};
   S.sessions.forEach((sess) => {
     if (sess.date < desde || sess.date > fim) return;
+    const dia = dayKey(sess.date);
     sess.exercises.forEach((e) => {
       const g = e.grupo || 'Outros';
       const n = e.sets.filter(ehValida).length;
-      if (n) contagem[g] = (contagem[g] || 0) + n;
+      if (!n) return;
+      if (!contagem[g]) contagem[g] = { series: 0, dias: new Set() };
+      contagem[g].series += n;
+      contagem[g].dias.add(dia);
     });
   });
   return Object.entries(contagem)
-    .map(([grupo, series]) => ({ grupo, series }))
+    .map(([grupo, v]) => ({ grupo, series: v.series, frequencia: v.dias.size }))
     .sort((a, b) => b.series - a.series);
+}
+
+/* Quanto a melhor carga estimada mudou numa janela de dias. */
+function tendenciaCarga(exId, dias) {
+  const corte = Date.now() - dias * 86400000;
+  const h = exerciseHistory(exId);
+  if (h.length < 2) return null;
+  const recentes = h.filter((x) => x.date >= corte);
+  const antigos = h.filter((x) => x.date < corte);
+  if (!recentes.length || !antigos.length) return null;
+  const antes = Math.max(...antigos.map((x) => x.rm));
+  const agora = Math.max(...recentes.map((x) => x.rm));
+  return { antes, agora, delta: agora - antes, dias };
+}
+
+/* Compara um registro com o anterior do mesmo treino. */
+function compararComAnterior(sess) {
+  const i = S.sessions.findIndex((x) => x.id === sess.id);
+  if (i < 0) return null;
+  const anterior = S.sessions.slice(i + 1).find((x) => x.workoutId === sess.workoutId);
+  if (!anterior) return null;
+
+  const maiorCarga = (ex) => Math.max(0, ...ex.sets.filter(ehValida).map((st) => Number(st.peso) || 0));
+  const porExercicio = [];
+  sess.exercises.forEach((e) => {
+    const a = anterior.exercises.find((x) => x.exId === e.exId);
+    if (!a) return;
+    const antes = maiorCarga(a);
+    const agora = maiorCarga(e);
+    if (antes || agora) porExercicio.push({ nome: e.nome, antes, agora, delta: agora - antes });
+  });
+
+  return {
+    anterior,
+    volume: sess.volume - anterior.volume,
+    sets: sess.sets - anterior.sets,
+    reps: sess.reps - anterior.reps,
+    porExercicio,
+  };
 }
 
 /* Recalcula os números de um registro depois de editado à mão. */
