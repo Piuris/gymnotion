@@ -61,7 +61,14 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
-  settings: { unit: 'kg', restDefault: 1, bodyweight: 75, lastBackup: 0, backupAvisado: 0, tema: 'preto' },
+  descansos: [],          // dias marcados como descanso, em chave AAAA-MM-DD
+  agua: {},               // ml bebidos por dia, em chave AAAA-MM-DD
+  settings: {
+    unit: 'kg', restDefault: 1, bodyweight: 75,
+    lastBackup: 0, backupAvisado: 0, tema: 'preto',
+    metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
+    metaAgua: 0,          // ml por dia; 0 = calcula a partir do peso
+  },
   active: null,
 };
 
@@ -128,6 +135,17 @@ function migrarParaV2(estado) {
   return estado;
 }
 
+/* Campos que passaram a existir depois: um estado antigo não os tem. */
+function completarCampos(estado) {
+  if (!Array.isArray(estado.descansos)) estado.descansos = [];
+  if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
+  const p = DEFAULT_STATE.settings;
+  Object.keys(p).forEach((k) => {
+    if (estado.settings[k] === undefined) estado.settings[k] = p[k];
+  });
+  return estado;
+}
+
 const KEY = 'gymnotion.v1';
 
 let S = load();
@@ -137,7 +155,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
-    return migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), parsed));
+    return completarCampos(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), parsed)));
   } catch (e) {
     console.warn('estado corrompido, recomeçando', e);
     return structuredClone(DEFAULT_STATE);
@@ -370,14 +388,68 @@ function sessionsOn(ts) {
   return S.sessions.filter((s) => dayKey(s.date) === k);
 }
 
+/* ---------- ofensiva e dias de descanso ---------- */
+
+const metaSemanal = () => Math.max(1, S.settings.metaSemanal || 2);
+
+const ehDescanso = (ts) => S.descansos.includes(dayKey(ts));
+
+function alternarDescanso(ts) {
+  const k = dayKey(ts);
+  const i = S.descansos.indexOf(k);
+  if (i >= 0) S.descansos.splice(i, 1);
+  else S.descansos.push(k);
+  saveNow();
+  return i < 0;
+}
+
+function treinosNaSemana(inicio) {
+  const fim = inicio + 7 * 86400000;
+  const dias = new Set();
+  S.sessions.forEach((s) => {
+    if (s.date >= inicio && s.date < fim) dias.add(dayKey(s.date));
+  });
+  return dias.size;
+}
+
+/* Um dia mantém a ofensiva se teve treino, ou se foi marcado como descanso —
+   mas o descanso só vale se a semana dele bateu a meta de treinos. A semana em
+   curso é poupada, porque ela ainda pode bater a meta. */
+function diaMantemOfensiva(ts) {
+  if (sessionsOn(ts).length) return true;
+  if (!ehDescanso(ts)) return false;
+  const ini = inicioDaSemana(ts);
+  if (ini === inicioDaSemana(Date.now())) return true;
+  return treinosNaSemana(ini) >= metaSemanal();
+}
+
 function streak() {
   if (!S.sessions.length) return 0;
-  const days = new Set(S.sessions.map((s) => dayKey(s.date)));
   let n = 0;
   const d = new Date();
-  if (!days.has(dayKey(d.getTime()))) d.setDate(d.getDate() - 1);
-  while (days.has(dayKey(d.getTime()))) { n += 1; d.setDate(d.getDate() - 1); }
+  /* hoje ainda pode ser preenchido: não conta contra, mas também não soma */
+  if (!diaMantemOfensiva(d.getTime())) d.setDate(d.getDate() - 1);
+  while (diaMantemOfensiva(d.getTime())) { n += 1; d.setDate(d.getDate() - 1); }
   return n;
+}
+
+/* ---------- água ---------- */
+
+/* Sem meta definida, usa 35 ml por kg — a referência mais comum — arredondado
+   para a centena mais próxima. */
+function metaAgua() {
+  if (S.settings.metaAgua > 0) return S.settings.metaAgua;
+  return Math.round((S.settings.bodyweight || 75) * 35 / 100) * 100;
+}
+
+const aguaDoDia = (ts) => S.agua[dayKey(ts == null ? Date.now() : ts)] || 0;
+
+function beberAgua(ml, ts) {
+  const k = dayKey(ts == null ? Date.now() : ts);
+  S.agua[k] = Math.max(0, (S.agua[k] || 0) + ml);
+  if (!S.agua[k]) delete S.agua[k];
+  saveNow();
+  return S.agua[k] || 0;
 }
 
 /* histórico de um exercício: [{date, volume, best1rm, topSet}] mais antigo -> mais novo */
@@ -545,7 +617,7 @@ function exportJSON() {
 function importJSON(text) {
   const data = JSON.parse(text);
   if (!data || !Array.isArray(data.workouts)) throw new Error('Arquivo inválido');
-  S = migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), data));
+  S = completarCampos(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), data)));
   saveNow();
 }
 

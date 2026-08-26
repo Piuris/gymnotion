@@ -36,7 +36,7 @@
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --tabbar-h: 56px;
+  --tabbar-h: 48px;
 }
 
 /* =========================================================
@@ -181,6 +181,13 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(24px + var(--safe-b));
+}
+
+/* A barra de abas é absoluta, logo sai do fluxo: sem reservar a altura dela, o
+   último registro da lista fica escondido atrás. Só as telas que têm a barra
+   pagam esse espaço. */
+.screen.com-abas > .scroll {
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
 }
 
 /* ---------- cabeçalho ---------- */
@@ -436,6 +443,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .day.today .dow { color: var(--txt-2); }
 .day.today .num { color: var(--txt); }
 .day.has .dot { background: var(--accent); }
+/* descanso: anel vazado, para não competir com o ponto cheio do treino */
+.day.descanso .dot {
+  background: transparent;
+  border: 2px solid var(--txt-3);
+  width: 8px; height: 8px;
+  margin-top: 2px;
+}
+.day:active { background: var(--fill-1); }
 
 .card {
   display: block;
@@ -544,7 +559,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   z-index: 4;
 }
 .tab { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--txt-3); }
-.tab svg { width: 27px; height: 27px; fill: currentColor; }
+.tab svg { width: 25px; height: 25px; fill: currentColor; }
 .tab.on { color: var(--txt); }
 
 /* ---------- sessão / treino aberto ---------- */
@@ -836,6 +851,82 @@ body.arrastando-algo .scroll { overflow: hidden; }
 /* na troca de exercício o número de séries não muda: some o seletor */
 .exrow-opts.so-equip .opt:last-child { display: none; }
 .exrow-opts.so-equip .opt:first-child { flex: 1; }
+
+/* ---------- água ---------- */
+
+.agua-topo { padding: 8px 16px 4px; text-align: center; }
+
+.agua-anel {
+  width: 190px; height: 190px;
+  margin: 0 auto;
+  position: relative;
+}
+.agua-anel svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.agua-valor {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.agua-valor b { font-size: 44px; font-weight: 800; letter-spacing: -1.5px; }
+.agua-valor span { font-size: 15px; color: var(--txt-2); margin-top: 2px; }
+
+.agua-falta {
+  margin-top: 12px;
+  font-size: 15px; color: var(--txt-2);
+}
+
+.agua-copos {
+  display: flex; gap: 12px;
+  padding: 20px 16px 8px;
+}
+.agua-copo {
+  flex: 1;
+  height: 66px;
+  border-radius: 18px;
+  background: var(--card);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: transform .12s, background .15s;
+}
+.agua-copo:active { transform: scale(.95); background: var(--card-2); }
+.agua-copo b { font-size: 20px; font-weight: 700; color: var(--accent); }
+.agua-copo span { font-size: 12px; color: var(--txt-2); margin-top: 1px; }
+
+.agua-extras {
+  display: flex; gap: 12px;
+  padding: 4px 16px 8px;
+}
+.agua-extras button {
+  flex: 1; height: 44px;
+  border-radius: 14px;
+  background: var(--fill-1);
+  color: var(--txt-2);
+  font-size: 15px; font-weight: 600;
+}
+.agua-extras button:active { background: var(--fill-2); }
+.agua-extras button[disabled] { opacity: .4; pointer-events: none; }
+
+.agua-semana {
+  display: flex; align-items: flex-end; gap: 10px;
+  padding: 4px 16px 8px;
+  height: 130px;
+}
+.agua-dia { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.agua-barra {
+  flex: 1; width: 100%;
+  border-radius: 8px;
+  background: var(--fill-1);
+  display: flex; align-items: flex-end;
+  overflow: hidden;
+}
+.agua-barra i {
+  display: block; width: 100%;
+  background: var(--fill-3);
+  border-radius: 8px;
+  transition: height .3s cubic-bezier(.32,.72,0,1);
+}
+.agua-dia.bateu .agua-barra i { background: var(--accent); }
+.agua-rotulo { font-size: 12px; color: var(--txt-3); margin-top: 6px; }
 
 /* ---------- login ---------- */
 

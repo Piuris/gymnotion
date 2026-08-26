@@ -135,6 +135,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/gym-test.js](tools/gym-test.js) | Testa tela acesa, substituir exercício, reordenar e as análises |
 | [tools/catalog-test.js](tools/catalog-test.js) | Testa o catálogo, a foto por aparelho, a migração e a cor neutra |
 | [tools/logging-test.js](tools/logging-test.js) | Testa limpar a busca e o início automático do treino ao anotar |
+| [tools/habits-test.js](tools/habits-test.js) | Testa a barra de abas, o dia de descanso e a meta de água |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -248,7 +249,10 @@ do grupo muscular, sem quebrar nada.
 - Receber aviso na hora em que uma série supera seu melhor 1RM estimado.
 - Corrigir um treino já salvo em vez de só apagar; os números são recalculados.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
-- Histórico com calorias, volume, séries e repetições; sequência de dias treinados.
+- Histórico com calorias, volume, séries e repetições.
+- **Ofensiva com dias de descanso**: toque num dia da faixa da semana para
+  marcá-lo como descanso e a sequência não quebra.
+- **Meta diária de água** na aba *Nutrição*, com copos rápidos e os 7 dias.
 - Escolher entre cinco temas (aba *Perfil → Tema*), do preto puro ao claro.
 - Exportar e importar backup em `.json` (aba *Perfil*).
 - Guardar uma cópia na nuvem e restaurá-la em outro aparelho, se o Firebase
@@ -278,6 +282,7 @@ node tools/theme-test.js ./__shots       # login e temas, com fotos de cada tema
 node tools/gym-test.js ./__shots         # trio da academia e análises
 node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migração
 node tools/logging-test.js ./__shots     # busca e início automático
+node tools/habits-test.js ./__shots      # abas, descanso e água
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -308,6 +313,32 @@ sumiria, então esse tema reserva uma faixa escura na altura da barra de status.
 
 Para adicionar um tema: crie o bloco no CSS e acrescente uma entrada em `TEMAS`
 (em [js/store.js](js/store.js)). Para remover, apague os dois.
+
+## Ofensiva e dias de descanso
+
+A sequência antiga exigia treinar **todos os dias** — inútil para quem treina
+três ou quatro vezes por semana, porque ficava sempre em 1. Agora um dia sustenta
+a ofensiva se teve treino **ou** se foi marcado como descanso, tocando nele na
+faixa da semana.
+
+Para o descanso não virar desculpa, ele só vale se a semana dele bateu a meta de
+treinos (`metaSemanal`, padrão 2, ajustável no *Perfil*). A **semana em curso é
+poupada** dessa regra, porque ela ainda pode bater a meta — sem isso, marcar
+descanso numa segunda-feira quebraria a ofensiva na hora.
+
+## Meta de água
+
+Ocupa a aba *Nutrição* enquanto o registro de refeições não existe. Copos de 200,
+300 e 500 ml, desfazer, os últimos 7 dias e meta ajustável. Sem meta definida,
+usa **35 ml por quilo** de peso corporal — a referência mais citada — arredondado
+para a centena.
+
+## Barra de abas
+
+A barra é `position: absolute`, logo sai do fluxo: a lista ia até o fim da tela e
+o último registro ficava **escondido atrás dela**. A classe `com-abas` na tela
+raiz reserva a altura da barra no `padding-bottom` da lista. Só as telas que têm
+a barra pagam esse espaço.
 
 ## Início automático ao anotar
 

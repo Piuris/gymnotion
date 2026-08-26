@@ -30,17 +30,12 @@ function tabbar() {
 
 function buildRoot(el, screen) {
   setAccent(contextAccent());
-  el.className = 'screen';
+  el.className = 'screen com-abas';
   if (TAB === 'treinos') renderTreinos(el, screen);
   else if (TAB === 'inicio') renderInicio(el, screen);
   else if (TAB === 'perfil') renderPerfil(el, screen);
-  else renderEmBreve(el);
+  else renderAgua(el, screen);
   el.appendChild(tabbar());
-}
-
-function renderEmBreve(el) {
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Nutrição</div><div style="width:44px"></div></div>`));
-  el.appendChild(h(`<div class="scroll"><div class="empty">${icon('clock')}<b>Em breve</b>${esc('Registro de refeições e macros chega numa próxima versão.')}</div></div>`));
 }
 
 /* =========================================================
@@ -65,13 +60,18 @@ function renderTreinos(el, screen) {
   const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
   for (let i = 0; i < 7; i++) {
     const d = new Date(sunday); d.setDate(sunday.getDate() + i);
-    const isToday = dayKey(d.getTime()) === dayKey(now.getTime());
-    const has = sessionsOn(d.getTime()).length > 0;
-    week.appendChild(h(`<div class="day${isToday ? ' today' : ''}${has ? ' has' : ''}">
+    const ts = d.getTime();
+    const isToday = dayKey(ts) === dayKey(now.getTime());
+    const has = sessionsOn(ts).length > 0;
+    const descanso = ehDescanso(ts);
+    const futuro = ts > now.getTime() && !isToday;
+    const dia = h(`<button class="day${isToday ? ' today' : ''}${has ? ' has' : ''}${descanso ? ' descanso' : ''}">
       <div class="dow">${nomes[i]}</div>
       <div class="num">${d.getDate()}</div>
       <div class="dot"></div>
-    </div>`));
+    </button>`);
+    if (!futuro) dia.addEventListener('click', () => menuDoDia(ts, screen));
+    week.appendChild(dia);
   }
   scroll.appendChild(week);
 
@@ -90,8 +90,8 @@ function renderTreinos(el, screen) {
 
   /* plano da semana */
   const inicioSemana = new Date(sunday); inicioSemana.setHours(0, 0, 0, 0);
-  const feitosSemana = S.sessions.filter((s) => s.date >= inicioSemana.getTime()).length;
-  const meta = Math.max(S.workouts.length, 1);
+  const feitosSemana = treinosNaSemana(inicioSemana.getTime());
+  const meta = metaSemanal();
   const plan = h(`<button class="card plan-card">
     <div class="plan-row">
       <div class="plan-ico">${icon('dumbbell')}</div>
@@ -99,7 +99,7 @@ function renderTreinos(el, screen) {
       ${icon('chev').replace('<svg', '<svg class="chev"')}
     </div>
     <div class="progress"><i style="width:${Math.min(100, (feitosSemana / meta) * 100)}%"></i></div>
-    <div class="plan-foot"><span>Esta semana</span><span>${feitosSemana}/${meta}</span></div>
+    <div class="plan-foot"><span>Esta semana</span><span>${feitosSemana}/${meta} treinos</span></div>
   </button>`);
   setAccent(accentPainel(), plan.querySelector('.progress'));
   plan.addEventListener('click', () => openWorkoutsSheet());
@@ -303,6 +303,15 @@ function renderPerfil(el, screen) {
       '75', (v) => {
         S.settings.bodyweight = Number(String(v).replace(',', '.')) || 75; saveNow(); screen.refresh();
       }), 'Usado só para estimar as calorias do treino'));
+  scroll.appendChild(row('Meta semanal', metaSemanal() + ' treinos', () =>
+    promptSheet('Treinos por semana', String(metaSemanal()), '2', (v) => {
+      S.settings.metaSemanal = Math.max(1, Math.round(Number(v) || 2)); saveNow(); screen.refresh();
+    }), 'Abaixo disso, dias de descanso não seguram a ofensiva'));
+  scroll.appendChild(row('Meta de água', metaAgua() + ' ml', () =>
+    promptSheet('Meta diária (ml)', String(metaAgua()), '2600', (v) => {
+      S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
+      saveNow(); screen.refresh();
+    }), '0 recalcula pelo peso: 35 ml por quilo'));
   scroll.appendChild(row('Descanso padrão', S.settings.restDefault + ' min', () =>
     promptSheet('Descanso padrão (min)', String(S.settings.restDefault), '1', (v) => {
       S.settings.restDefault = Number(String(v).replace(',', '.')) || 1; saveNow(); screen.refresh();
@@ -390,6 +399,107 @@ function trocarEquipamento(e, aoMudar) {
     box.appendChild(b);
   });
   ov = openSheet(box);
+}
+
+/* ---------- dia de descanso ---------- */
+
+/* Descanso faz parte do treino: um dia parado não devia zerar a ofensiva. Para
+   não virar desculpa, o descanso só sustenta a ofensiva se a semana bateu a
+   meta de treinos — a semana em curso é poupada porque ainda pode bater. */
+function menuDoDia(ts, screen) {
+  const treinos = sessionsOn(ts);
+  const descanso = ehDescanso(ts);
+  const quando = fmtDate(ts);
+  const itens = [];
+
+  if (treinos.length) {
+    treinos.forEach((t) => itens.push({
+      label: 'Ver ' + t.name, icon: 'chart', onClick: () => openSessionDetail(t.id),
+    }));
+  }
+  itens.push({
+    label: descanso ? 'Desmarcar descanso' : 'Marcar como descanso',
+    icon: descanso ? 'fechar' : 'clock',
+    onClick: () => {
+      const marcou = alternarDescanso(ts);
+      screen.refresh();
+      toast(marcou ? quando + ' marcado como descanso' : 'Descanso removido');
+    },
+  });
+  actionSheet(quando, itens);
+}
+
+/* ---------- água ---------- */
+
+const COPOS = [200, 300, 500];
+
+function renderAgua(el, screen) {
+  setAccent(contextAccent());
+  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Água</div><div style="width:44px"></div></div>`));
+  const scroll = h('<div class="scroll"></div>');
+
+  const meta = metaAgua();
+  const hoje = aguaDoDia();
+  const pct = Math.min(1, hoje / meta);
+  const falta = Math.max(0, meta - hoje);
+
+  const R = 52;
+  const C = 2 * Math.PI * R;
+  scroll.appendChild(h(`<div class="agua-topo">
+    <div class="agua-anel">
+      <svg viewBox="0 0 120 120">
+        <circle class="ring-bg" cx="60" cy="60" r="${R}" stroke-width="9"/>
+        <circle class="ring-fg" cx="60" cy="60" r="${R}" stroke-width="9"
+          stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - Math.max(0.02, pct))).toFixed(1)}"/>
+      </svg>
+      <div class="agua-valor">
+        <b>${(hoje / 1000).toFixed(hoje % 1000 === 0 ? 0 : 1).replace('.', ',')}</b>
+        <span>de ${(meta / 1000).toFixed(meta % 1000 === 0 ? 0 : 1).replace('.', ',')} L</span>
+      </div>
+    </div>
+    <div class="agua-falta">${falta
+      ? 'Faltam ' + falta + ' ml hoje'
+      : 'Meta batida hoje'}</div>
+  </div>`));
+
+  const botoes = h('<div class="agua-copos"></div>');
+  COPOS.forEach((ml) => {
+    const b = h(`<button class="agua-copo"><b>+${ml}</b><span>ml</span></button>`);
+    b.addEventListener('click', () => { beberAgua(ml); haptic(); screen.refresh(); });
+    botoes.appendChild(b);
+  });
+  scroll.appendChild(botoes);
+
+  const extras = h(`<div class="agua-extras">
+    <button data-act="menos" ${hoje ? '' : 'disabled'}>Desfazer 200 ml</button>
+    <button data-act="meta">Ajustar meta</button>
+  </div>`);
+  acts(extras, {
+    menos: () => { beberAgua(-200); haptic(); screen.refresh(); },
+    meta: () => promptSheet('Meta diária (ml)', String(meta), '2600', (v) => {
+      S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
+      saveNow(); screen.refresh();
+    }),
+  });
+  scroll.appendChild(extras);
+
+  /* últimos 7 dias */
+  scroll.appendChild(h('<div class="section-title">Últimos 7 dias</div>'));
+  const barras = h('<div class="agua-semana"></div>');
+  const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ml = aguaDoDia(d.getTime());
+    const alt = Math.min(100, (ml / meta) * 100);
+    barras.appendChild(h(`<div class="agua-dia${ml >= meta ? ' bateu' : ''}">
+      <div class="agua-barra"><i style="height:${alt}%"></i></div>
+      <div class="agua-rotulo">${nomes[d.getDay()]}</div>
+    </div>`));
+  }
+  scroll.appendChild(barras);
+
+  scroll.appendChild(h(`<div class="hint" style="padding-top:16px">Sem meta definida, o app usa 35 ml por quilo — ${S.settings.bodyweight} kg dá ${metaAgua()} ml. O registro de refeições chega numa próxima versão.</div>`));
+  el.appendChild(scroll);
 }
 
 /* ---------- aparência ---------- */
