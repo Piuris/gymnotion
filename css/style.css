@@ -36,7 +36,12 @@
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --tabbar-h: 48px;
+  --tabbar-h: 44px;
+  /* O iPhone reserva 34px embaixo para o indicador de gesto. Reservar tudo isso
+     empurra os ícones para cima e deixa uma faixa vazia visível; metade já
+     mantém o indicador livre. */
+  --tabbar-pb: max(8px, calc(var(--safe-b) * 0.5));
+  --abas-total: calc(var(--tabbar-h) + var(--tabbar-pb));
 }
 
 /* =========================================================
@@ -187,7 +192,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
    último registro da lista fica escondido atrás. Só as telas que têm a barra
    pagam esse espaço. */
 .screen.com-abas > .scroll {
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
+  padding-bottom: calc(var(--abas-total) + 16px);
 }
 
 /* ---------- cabeçalho ---------- */
@@ -543,7 +548,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .fab {
   position: absolute;
   right: 16px;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
+  bottom: calc(var(--abas-total) + 16px);
   width: 62px; height: 62px;
   border-radius: 20px;
   background: var(--accent);
@@ -560,8 +565,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .tabbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  height: calc(var(--tabbar-h) + var(--safe-b));
-  padding-bottom: var(--safe-b);
+  height: var(--abas-total);
+  padding-bottom: var(--tabbar-pb);
   display: flex;
   background: var(--tabbar-bg);
   backdrop-filter: blur(20px);
@@ -570,7 +575,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   z-index: 4;
 }
 .tab { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--txt-3); }
-.tab svg { width: 25px; height: 25px; fill: currentColor; }
+.tab svg { width: 24px; height: 24px; fill: currentColor; }
 .tab.on { color: var(--txt); }
 
 /* ---------- sessão / treino aberto ---------- */
@@ -1136,7 +1141,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .toast {
   position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 24px);
+  bottom: calc(var(--abas-total) + 20px);
   background: var(--toast-bg);
   padding: 12px 20px; border-radius: 16px;
   font-size: 16px; font-weight: 600;

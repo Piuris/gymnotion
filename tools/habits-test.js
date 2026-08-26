@@ -89,8 +89,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1700);
 
   console.log('barra de abas:');
+  /* O navegador não tem safe area; sem simular os 34px do iPhone, a folga
+     embaixo mediria zero e o teste não veria o problema real. */
+  await ev("document.documentElement.style.setProperty('--safe-b', '34px');");
+  await sleep(300);
+
+  const geo = JSON.parse(await ev(`(function () {
+    var barra = currentScreen().el.querySelector('.tabbar').getBoundingClientRect();
+    var icone = currentScreen().el.querySelector('.tab svg').getBoundingClientRect();
+    var tela = window.innerHeight;
+    return JSON.stringify({
+      altura: Math.round(barra.height),
+      folgaAbaixoDoIcone: Math.round(tela - icone.bottom),
+    });
+  })()`));
+  ck(geo.altura <= 62, 'a barra inteira mede ' + geo.altura + 'px com o safe area do iPhone');
+  ck(geo.folgaAbaixoDoIcone <= 30,
+    'o ícone fica a ' + geo.folgaAbaixoDoIcone + 'px do fim da tela, sem faixa vazia sobrando');
+  ck(geo.folgaAbaixoDoIcone >= 12,
+    'e ainda deixa espaço para o indicador de gesto (' + geo.folgaAbaixoDoIcone + 'px)');
+  await ev("document.documentElement.style.removeProperty('--safe-b');");
+  await sleep(200);
+
   const altura = await ev("parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h'))");
-  ck(altura === 48, 'a barra encolheu para ' + altura + 'px');
+  ck(altura === 44, 'a faixa dos ícones mede ' + altura + 'px (era 56 no começo)');
   const reserva = await ev("parseInt(getComputedStyle(currentScreen().el.querySelector('.scroll')).paddingBottom)");
   ck(reserva >= altura, 'a lista reserva ' + reserva + 'px, cobrindo a barra de ' + altura + 'px');
   ck(await ev("currentScreen().el.classList.contains('com-abas')"), 'a tela raiz se marca como tendo abas');

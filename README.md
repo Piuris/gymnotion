@@ -353,10 +353,23 @@ para a centena.
 
 ## Barra de abas
 
-A barra é `position: absolute`, logo sai do fluxo: a lista ia até o fim da tela e
-o último registro ficava **escondido atrás dela**. A classe `com-abas` na tela
-raiz reserva a altura da barra no `padding-bottom` da lista. Só as telas que têm
-a barra pagam esse espaço.
+Dois problemas diferentes, com causas diferentes:
+
+**O último registro ficava escondido.** A barra é `position: absolute`, logo sai
+do fluxo e a lista ia até o fim da tela por baixo dela. A classe `com-abas` na
+tela raiz reserva a altura da barra no `padding-bottom` da lista; só as telas que
+têm a barra pagam esse espaço.
+
+**Sobrava uma faixa vazia embaixo, mas só no iPhone.** O `safe-area-inset-bottom`
+vale 34px no aparelho e **0 no navegador**, então o defeito era invisível em
+teste. Reservar os 34px inteiros empurrava os ícones para cima e deixava a faixa
+preta à mostra. Agora `--tabbar-pb` reserva metade disso, o que mantém o
+indicador de gesto livre sem o vazio: a barra caiu de 82px para 61px e os ícones
+chegaram a 27px da borda, contra 46px antes.
+
+Para ver isso em teste é preciso simular o inset — `habits-test.js` injeta
+`--safe-b: 34px` antes de medir, senão a folga daria zero e o teste passaria com
+o defeito no lugar.
 
 ## Início automático ao anotar
 
