@@ -1,5 +1,5 @@
 /* GymNotion — cache offline */
-const CACHE = 'gymnotion-v12';
+const CACHE = 'gymnotion-v13';
 
 const ASSETS = [
   './',

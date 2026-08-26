@@ -179,6 +179,13 @@ function fmtDate(ts) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
+/* "sábado, 23 de ago." — usado quando o dia mostrado não é hoje. */
+function fmtDataLonga(ts) {
+  const d = new Date(ts);
+  const txt = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
 function fmtWeight(v) {
   const n = Number(v) || 0;
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');

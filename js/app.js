@@ -3,6 +3,7 @@
 let TAB = 'treinos';
 let REST = null;      // { endsAt, label, tick }
 let TICK = null;      // intervalo global de 1s
+let DIA_SEL = Date.now();   // dia mostrado na aba Treinos; volta para hoje ao abrir
 
 /* =========================================================
    RAIZ / ABAS
@@ -43,6 +44,10 @@ function buildRoot(el, screen) {
    ========================================================= */
 
 function renderTreinos(el, screen) {
+  const hojeTs = Date.now();
+  const selecionado = DIA_SEL;
+  const ehHoje = dayKey(selecionado) === dayKey(hojeTs);
+
   const top = h(`<div class="top-bar">
     <div class="streak">${icon('flame')}<span>${streak()}</span></div>
     <div class="title">Treinos</div>
@@ -53,29 +58,56 @@ function renderTreinos(el, screen) {
 
   const scroll = h('<div class="scroll"></div>');
 
-  /* semana */
-  const week = h('<div class="week"></div>');
-  const now = new Date();
-  const sunday = new Date(now); sunday.setDate(now.getDate() - now.getDay());
+  /* ---------- faixa da semana: navega entre os dias ---------- */
+  const domingo = new Date(inicioDaSemana(selecionado));
   const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const week = h('<div class="week"></div>');
+
   for (let i = 0; i < 7; i++) {
-    const d = new Date(sunday); d.setDate(sunday.getDate() + i);
+    const d = new Date(domingo); d.setDate(domingo.getDate() + i);
     const ts = d.getTime();
-    const isToday = dayKey(ts) === dayKey(now.getTime());
-    const has = sessionsOn(ts).length > 0;
-    const descanso = ehDescanso(ts);
-    const futuro = ts > now.getTime() && !isToday;
-    const dia = h(`<button class="day${isToday ? ' today' : ''}${has ? ' has' : ''}${descanso ? ' descanso' : ''}">
+    const hoje = dayKey(ts) === dayKey(hojeTs);
+    const sel = dayKey(ts) === dayKey(selecionado);
+    const futuro = ts > hojeTs && !hoje;
+    const classes = [
+      'day',
+      sel ? 'sel' : '',
+      hoje && !sel ? 'hoje' : '',
+      sessionsOn(ts).length ? 'has' : '',
+      ehDescanso(ts) ? 'descanso' : '',
+      futuro ? 'futuro' : '',
+    ].filter(Boolean).join(' ');
+    const dia = h(`<button class="${classes}">
       <div class="dow">${nomes[i]}</div>
       <div class="num">${d.getDate()}</div>
       <div class="dot"></div>
     </button>`);
-    if (!futuro) dia.addEventListener('click', () => menuDoDia(ts, screen));
+    if (!futuro) dia.addEventListener('click', () => { DIA_SEL = ts; haptic(); screen.refresh(); });
     week.appendChild(dia);
   }
+
+  /* arrastar a faixa troca de semana; o futuro fica fora do alcance */
+  let x0 = null;
+  week.addEventListener('touchstart', (ev) => { x0 = ev.touches[0].clientX; }, { passive: true });
+  week.addEventListener('touchend', (ev) => {
+    if (x0 == null) return;
+    const dx = ev.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) < 45) return;
+    const alvo = new Date(selecionado);
+    alvo.setDate(alvo.getDate() + (dx > 0 ? -7 : 7));
+    DIA_SEL = alvo.getTime() > hojeTs ? hojeTs : alvo.getTime();
+    haptic(); screen.refresh();
+  }, { passive: true });
   scroll.appendChild(week);
 
-  /* sessão em andamento */
+  if (!ehHoje) {
+    const volta = h(`<button class="voltar-hoje">${esc(fmtDataLonga(selecionado))} · voltar para hoje</button>`);
+    volta.addEventListener('click', () => { DIA_SEL = hojeTs; screen.refresh(); });
+    scroll.appendChild(volta);
+  }
+
+  /* ---------- treino em andamento ---------- */
   if (S.active) {
     const a = S.active;
     const card = h(`<button class="card plan-card" style="text-align:left">
@@ -88,9 +120,8 @@ function renderTreinos(el, screen) {
     scroll.appendChild(card);
   }
 
-  /* plano da semana */
-  const inicioSemana = new Date(sunday); inicioSemana.setHours(0, 0, 0, 0);
-  const feitosSemana = treinosNaSemana(inicioSemana.getTime());
+  /* ---------- progresso da semana ---------- */
+  const feitosSemana = treinosNaSemana(inicioDaSemana(selecionado));
   const meta = metaSemanal();
   const plan = h(`<button class="card plan-card">
     <div class="plan-row">
@@ -99,28 +130,68 @@ function renderTreinos(el, screen) {
       ${icon('chev').replace('<svg', '<svg class="chev"')}
     </div>
     <div class="progress"><i style="width:${Math.min(100, (feitosSemana / meta) * 100)}%"></i></div>
-    <div class="plan-foot"><span>Esta semana</span><span>${feitosSemana}/${meta} treinos</span></div>
+    <div class="plan-foot"><span>${ehHoje ? 'Esta semana' : 'Nessa semana'}</span><span>${feitosSemana}/${meta} treinos</span></div>
   </button>`);
   setAccent(accentPainel(), plan.querySelector('.progress'));
   plan.addEventListener('click', () => openWorkoutsSheet());
   scroll.appendChild(plan);
 
-  /* anéis do dia */
-  scroll.appendChild(ringsBlock());
+  /* ---------- o dia selecionado ---------- */
+  const doDia = sessionsOn(selecionado);
 
-  /* histórico */
-  if (!S.sessions.length) {
-    /* aparelho novo: o caminho de volta precisa estar à vista, e acima do
-       estado vazio para não esbarrar no botão de ação */
-    if (cloudConfigurado() && !cloudLogado()) {
-      const volta = h(`<button class="pill-btn soft" style="margin:8px 16px 4px;width:calc(100% - 32px)">Já tenho conta — restaurar treinos</button>`);
-      volta.addEventListener('click', () => telaLogin(screen));
-      scroll.appendChild(volta);
-    }
-    scroll.appendChild(h(`<div class="empty">${icon('chart')}<b>Nenhum treino registrado</b>Toque no botão para montar um treino e começar a anotar suas cargas.</div>`));
+  if (doDia.length) {
+    /* dia com treino: os números e o que foi feito */
+    scroll.appendChild(ringsBlock(selecionado));
+    doDia.forEach((sess) => scroll.appendChild(sessionCard(sess, screen)));
   } else {
-    scroll.appendChild(h('<div class="section-title">Registros</div>'));
-    S.sessions.slice(0, 40).forEach((s) => scroll.appendChild(sessionCard(s, screen)));
+    /* dia sem treino: o que dá para fazer */
+    if (S.workouts.length) {
+      scroll.appendChild(h(`<div class="section-title">${ehHoje ? 'Treinos disponíveis' : 'Nenhum treino nesse dia'}</div>`));
+      const grid = h('<div class="folders"></div>');
+      S.workouts.forEach((w) => grid.appendChild(folderCard(w, screen)));
+      scroll.appendChild(grid);
+    } else {
+      if (cloudConfigurado() && !cloudLogado()) {
+        const volta = h('<button class="pill-btn soft" style="margin:8px 16px 4px;width:calc(100% - 32px)">Já tenho conta — restaurar treinos</button>');
+        volta.addEventListener('click', () => telaLogin(screen));
+        scroll.appendChild(volta);
+      }
+      scroll.appendChild(h(`<div class="empty">${icon('dumbbell')}<b>Nenhum treino montado</b>Toque no botão para montar seu primeiro treino e começar a anotar suas cargas.</div>`));
+    }
+
+    /* o descanso é do dia, então mora no dia e não escondido num menu */
+    const descanso = ehDescanso(selecionado);
+    const btn = h(`<button class="descanso-btn${descanso ? ' on' : ''}">
+      ${icon(descanso ? 'check' : 'clock')}
+      <span>${descanso ? 'Dia de descanso' : 'Marcar como descanso'}</span>
+    </button>`);
+    if (descanso) {
+      const v = btn.querySelector('svg');
+      if (v) {
+        v.style.fill = 'none';
+        v.style.stroke = 'currentColor';
+        v.style.strokeWidth = '2.6';
+        v.style.strokeLinecap = 'round';
+        v.style.strokeLinejoin = 'round';
+      }
+    }
+    btn.addEventListener('click', () => {
+      const marcou = alternarDescanso(selecionado);
+      haptic(); screen.refresh();
+      toast(marcou ? 'Descanso marcado' : 'Descanso removido');
+    });
+    scroll.appendChild(btn);
+  }
+
+  /* ---------- histórico completo ---------- */
+  if (S.sessions.length) {
+    const todos = h(`<button class="ex-item" style="width:100%;margin-top:8px;text-align:left">
+      <div class="name">Todos os registros</div>
+      <div style="color:var(--txt-2)">${S.sessions.length}</div>
+      ${icon('chev').replace('<svg', '<svg class="chev"')}
+    </button>`);
+    todos.addEventListener('click', () => openHistorico());
+    scroll.appendChild(todos);
   }
 
   el.appendChild(scroll);
@@ -130,8 +201,27 @@ function renderTreinos(el, screen) {
   el.appendChild(fab);
 }
 
-function ringsBlock() {
-  const hoje = sessionsOn(Date.now());
+/* Lista corrida de tudo que foi registrado, fora da navegação por dia. */
+function openHistorico() {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    const nav = h(`<div class="nav">
+      <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
+      <div class="title">Registros</div>
+      <div style="width:44px"></div>
+    </div>`);
+    acts(nav, { back: () => popScreen() });
+    el.appendChild(nav);
+
+    const scroll = h('<div class="scroll"></div>');
+    S.sessions.forEach((sess) => scroll.appendChild(sessionCard(sess, screen)));
+    el.appendChild(scroll);
+  }, { name: 'historico' });
+}
+
+function ringsBlock(quando) {
+  const ts = quando == null ? Date.now() : quando;
+  const hoje = sessionsOn(ts);
   const agg = hoje.reduce((a, s) => ({
     calorias: a.calorias + s.calorias, volume: a.volume + s.volume,
     sets: a.sets + s.sets, reps: a.reps + s.reps,
@@ -147,7 +237,7 @@ function ringsBlock() {
   const dias = Object.keys(porDia);
   const best = (f) => Math.max(1, ...dias.map((k) => porDia[k][f]));
 
-  const anteriores = dias.filter((k) => k !== dayKey(Date.now()));
+  const anteriores = dias.filter((k) => k !== dayKey(ts));
   const media = (f) => anteriores.length
     ? anteriores.reduce((a, k) => a + porDia[k][f], 0) / anteriores.length : 0;
 
@@ -399,34 +489,6 @@ function trocarEquipamento(e, aoMudar) {
     box.appendChild(b);
   });
   ov = openSheet(box);
-}
-
-/* ---------- dia de descanso ---------- */
-
-/* Descanso faz parte do treino: um dia parado não devia zerar a ofensiva. Para
-   não virar desculpa, o descanso só sustenta a ofensiva se a semana bateu a
-   meta de treinos — a semana em curso é poupada porque ainda pode bater. */
-function menuDoDia(ts, screen) {
-  const treinos = sessionsOn(ts);
-  const descanso = ehDescanso(ts);
-  const quando = fmtDate(ts);
-  const itens = [];
-
-  if (treinos.length) {
-    treinos.forEach((t) => itens.push({
-      label: 'Ver ' + t.name, icon: 'chart', onClick: () => openSessionDetail(t.id),
-    }));
-  }
-  itens.push({
-    label: descanso ? 'Desmarcar descanso' : 'Marcar como descanso',
-    icon: descanso ? 'fechar' : 'clock',
-    onClick: () => {
-      const marcou = alternarDescanso(ts);
-      screen.refresh();
-      toast(marcou ? quando + ' marcado como descanso' : 'Descanso removido');
-    },
-  });
-  actionSheet(quando, itens);
 }
 
 /* ---------- água ---------- */

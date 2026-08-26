@@ -136,6 +136,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/catalog-test.js](tools/catalog-test.js) | Testa o catálogo, a foto por aparelho, a migração e a cor neutra |
 | [tools/logging-test.js](tools/logging-test.js) | Testa limpar a busca e o início automático do treino ao anotar |
 | [tools/habits-test.js](tools/habits-test.js) | Testa a barra de abas, o dia de descanso e a meta de água |
+| [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia na aba Treinos |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -250,8 +251,11 @@ do grupo muscular, sem quebrar nada.
 - Corrigir um treino já salvo em vez de só apagar; os números são recalculados.
 - Ver a evolução da carga estimada de cada exercício em gráfico.
 - Histórico com calorias, volume, séries e repetições.
-- **Ofensiva com dias de descanso**: toque num dia da faixa da semana para
-  marcá-lo como descanso e a sequência não quebra.
+- **Navegar pelos dias**: a faixa da semana seleciona o dia. Dia sem treino
+  mostra os treinos disponíveis para começar; dia com treino mostra os números
+  e o que foi feito. Arraste a faixa para trocar de semana.
+- **Ofensiva com dias de descanso**: no dia sem treino, um botão marca o dia
+  como descanso e a sequência não quebra.
 - **Meta diária de água** na aba *Nutrição*, com copos rápidos e os 7 dias.
 - Escolher entre cinco temas (aba *Perfil → Tema*), do preto puro ao claro.
 - Exportar e importar backup em `.json` (aba *Perfil*).
@@ -283,6 +287,7 @@ node tools/gym-test.js ./__shots         # trio da academia e análises
 node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migração
 node tools/logging-test.js ./__shots     # busca e início automático
 node tools/habits-test.js ./__shots      # abas, descanso e água
+node tools/dias-test.js ./__shots        # navegação por dia
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -314,12 +319,25 @@ sumiria, então esse tema reserva uma faixa escura na altura da barra de status.
 Para adicionar um tema: crie o bloco no CSS e acrescente uma entrada em `TEMAS`
 (em [js/store.js](js/store.js)). Para remover, apague os dois.
 
+## A aba Treinos é um dia, não uma lista
+
+A faixa da semana navega: tocar num dia o seleciona, e o conteúdo abaixo muda.
+
+- **Dia sem treino** (o caso de hoje, antes de treinar): a grade de treinos
+  montados, para escolher e começar. Gráfico de zeros não serve para nada.
+- **Dia com treino**: os anéis daquele dia e os registros dele.
+
+Hoje ganha um anel quando não é o dia selecionado, para você não se perder. Dias
+futuros ficam apagados e não respondem ao toque. Arrastar a faixa troca de
+semana, sem passar de hoje. O histórico corrido continua acessível em *Todos os
+registros*.
+
 ## Ofensiva e dias de descanso
 
 A sequência antiga exigia treinar **todos os dias** — inútil para quem treina
 três ou quatro vezes por semana, porque ficava sempre em 1. Agora um dia sustenta
-a ofensiva se teve treino **ou** se foi marcado como descanso, tocando nele na
-faixa da semana.
+a ofensiva se teve treino **ou** se foi marcado como descanso, no botão que
+aparece ao selecionar um dia sem treino.
 
 Para o descanso não virar desculpa, ele só vale se a semana dele bateu a meta de
 treinos (`metaSemanal`, padrão 2, ajustável no *Perfil*). A **semana em curso é
