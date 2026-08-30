@@ -141,13 +141,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(livre >= 0, 'o último registro fica ' + livre + 'px acima da barra, sem ser coberto');
   await shot('h1-lista-completa');
 
-  console.log('\ndia de descanso:');
-  ck(await ev('Array.isArray(S.descansos)'), 'o estado guarda os dias de descanso');
-  ck(await ev('metaSemanal() === 2'), 'meta padrão de 2 treinos por semana');
+  console.log('descanso automatico:');
+  ck(await ev("typeof alternarDescanso === 'undefined'"),
+    'nao existe mais marcacao manual');
+  ck(await ev('metaSemanal() === 2'), 'meta padrao de 2 treinos por semana');
 
-  /* ofensiva quebra sem descanso: treino anteontem, nada ontem */
+  /* treinos em -3, -2 e hoje, com ontem vazio */
   await ev(`
-    S.sessions = []; S.descansos = [];
+    S.sessions = [];
     var w = S.workouts[0];
     function registrar(diasAtras) {
       startSession(w.id);
@@ -160,64 +161,40 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     registrar(3); registrar(2); registrar(0);
     saveNow(); 'ok';
   `);
-  const semDescanso = await ev('streak()');
-  ck(semDescanso === 1, 'sem marcar descanso, o buraco de ontem corta a ofensiva em ' + semDescanso);
+  const auto = await ev('streak()');
+  ck(auto === 3, 'o dia vazio vira descanso sozinho: ofensiva ' + auto + ', os dias treinados');
+  ck(await ev('ehDescanso(Date.now() - 86400000)'),
+    'o dia sem treino ja conta como descanso, sem ninguem marcar');
+  ck(await ev('!ehDescanso(Date.now())'), 'um dia com treino nao e descanso');
 
-  await ev('alternarDescanso(Date.now() - 86400000);');
-  const comDescanso = await ev('streak()');
-  /* treinos em -3, -2 e hoje; ontem de descanso. O descanso costura a corrente
-     mas não entra na conta: 3 dias treinados, não 4. */
-  ck(comDescanso === 3,
-    'o descanso congela a ofensiva em ' + comDescanso + ' (os dias treinados), sem somar');
-  ck(await ev('ehDescanso(Date.now() - 86400000)'), 'o dia fica marcado');
-
-  /* mais um descanso seguido não muda o número: só estende a ponte */
-  await ev('alternarDescanso(Date.now() - 4 * 86400000);');
-  ck(await ev('streak()') === 3,
-    'um segundo dia de descanso também não soma');
-  await ev('alternarDescanso(Date.now() - 4 * 86400000);');
-
-  /* e um treino a mais soma normalmente */
-  await ev(`
-    startSession(S.workouts[0].id);
-    S.active.exercises.forEach(function (e) {
-      e.sets.forEach(function (s) { s.peso = 60; s.reps = 10; s.done = true; });
-    });
-    var s = finishSession(); s.date = Date.now() - 4 * 86400000; saveNow(); 'ok';
-  `);
-  ck(await ev('streak()') === 4, 'treinar no dia seguinte à ponte soma normalmente');
-  await ev("S.sessions = S.sessions.filter(function (x) { return x.date > Date.now() - 3.5 * 86400000; }); saveNow();");
-
-  await ev('alternarDescanso(Date.now() - 86400000);');
-  ck(await ev('!ehDescanso(Date.now() - 86400000)'), 'tocar de novo desmarca');
-  await ev('alternarDescanso(Date.now() - 86400000);');
-
-  /* descanso não vira desculpa: semana fechada sem a meta não sustenta */
+  /* semana fechada abaixo da meta quebra a corrente */
   const semanaFraca = await ev(`(function () {
-    var guardaS = S.sessions.slice(), guardaD = S.descansos.slice();
-    S.sessions = []; S.descansos = [];
-    /* uma semana inteira só de descanso, bem no passado */
-    for (var i = 8; i < 15; i++) S.descansos.push(dayKey(Date.now() - i * 86400000));
-    var r = diaMantemOfensiva(Date.now() - 10 * 86400000);
-    S.sessions = guardaS; S.descansos = guardaD;
+    var guarda = S.sessions.slice();
+    var s = JSON.parse(JSON.stringify(guarda[0]));
+    s.date = Date.now() - 20 * 86400000;
+    S.sessions = [s];
+    var r = descansoCobre(Date.now() - 19 * 86400000);
+    S.sessions = guarda;
     return r;
   })()`);
-  ck(semanaFraca === false, 'semana fechada sem treino: o descanso não sustenta a ofensiva');
+  ck(semanaFraca === false,
+    'semana fechada com 1 treino so nao cobre o descanso, e a ofensiva quebra ali');
 
-  const semanaAtual = await ev('diaMantemOfensiva(Date.now() - 86400000)');
-  ck(semanaAtual === true, 'na semana em curso o descanso vale, porque a meta ainda pode ser batida');
+  ck(await ev('descansoCobre(Date.now() - 86400000)') === true,
+    'na semana em curso o descanso cobre, porque a meta ainda pode ser batida');
+  ck(await ev('faltamNaSemana(Date.now()) >= 0'),
+    'da para saber quantos treinos faltam na semana');
 
-  /* A faixa mostra a semana do dia selecionado. Num domingo, "ontem" cai na
-     semana anterior, então é preciso navegar até lá — senão o teste passa ou
-     falha conforme o dia em que roda. */
   await ev("popToRoot(); TAB = 'treinos'; DIA_SEL = Date.now() - 86400000; currentScreen().refresh();");
   await sleep(400);
   ck(await ev("!!currentScreen().el.querySelector('.day.descanso')"),
-    'o descanso aparece na faixa da semana dele');
-  ck(await ev("currentScreen().el.querySelector('.day.descanso .num').textContent.trim() === String(new Date(Date.now() - 86400000).getDate())"),
-    'e é o dia certo que aparece marcado');
+    'o descanso aparece sozinho na faixa da semana');
+  ck(await ev("!currentScreen().el.querySelector('.descanso-btn')"),
+    'e nao ha mais botao para marcar');
+  ck(await ev("!!currentScreen().el.querySelector('.descanso-aviso')"),
+    'no lugar dele, o aviso sobre a meta da semana');
+  await shot('h2-descanso-automatico');
   await ev('DIA_SEL = Date.now(); currentScreen().refresh();'); await sleep(300);
-  await shot('h2-descanso-na-semana');
 
   console.log('\nmeta de água:');
   await ev("TAB = 'nutricao'; popToRoot(); currentScreen().refresh();"); await sleep(500);

@@ -61,7 +61,6 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
-  descansos: [],          // dias marcados como descanso, em chave AAAA-MM-DD
   agua: {},               // ml bebidos por dia, em chave AAAA-MM-DD
   settings: {
     unit: 'kg', restDefault: 1, bodyweight: 75,
@@ -137,7 +136,7 @@ function migrarParaV2(estado) {
 
 /* Campos que passaram a existir depois: um estado antigo não os tem. */
 function completarCampos(estado) {
-  if (!Array.isArray(estado.descansos)) estado.descansos = [];
+  delete estado.descansos;   // o descanso passou a ser automático
   if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
   const p = DEFAULT_STATE.settings;
   Object.keys(p).forEach((k) => {
@@ -392,54 +391,61 @@ function sessionsOn(ts) {
 
 const metaSemanal = () => Math.max(1, S.settings.metaSemanal || 2);
 
-const ehDescanso = (ts) => S.descansos.includes(dayKey(ts));
-
-function alternarDescanso(ts) {
-  const k = dayKey(ts);
-  const i = S.descansos.indexOf(k);
-  if (i >= 0) S.descansos.splice(i, 1);
-  else S.descansos.push(k);
-  saveNow();
-  return i < 0;
-}
-
-function treinosNaSemana(inicio) {
+/* Contagem de dias distintos com treino numa semana. O cache evita recontar a
+   mesma semana a cada dia percorrido pela ofensiva. */
+function treinosNaSemana(inicio, cache) {
+  if (cache && cache.has(inicio)) return cache.get(inicio);
   const fim = inicio + 7 * 86400000;
   const dias = new Set();
   S.sessions.forEach((s) => {
     if (s.date >= inicio && s.date < fim) dias.add(dayKey(s.date));
   });
+  if (cache) cache.set(inicio, dias.size);
   return dias.size;
 }
 
-/* O descanso vale como ponte, mas só se a semana dele bateu a meta de treinos.
-   A semana em curso é poupada, porque ela ainda pode bater a meta. */
-function descansoValido(ts) {
-  if (!ehDescanso(ts)) return false;
+/* Dia sem treino é descanso automaticamente — não há nada a marcar. Ele
+   sustenta a corrente enquanto a semana dele tiver batido a meta de treinos;
+   é a meta semanal que segura a ofensiva, não o dia isolado. A semana em curso
+   é poupada, porque ela ainda pode bater. */
+function descansoCobre(ts, cache) {
   const ini = inicioDaSemana(ts);
   if (ini === inicioDaSemana(Date.now())) return true;
-  return treinosNaSemana(ini) >= metaSemanal();
+  return treinosNaSemana(ini, cache) >= metaSemanal();
 }
 
-/* O que interrompe a corrente: um dia sem treino e sem descanso válido. */
-function diaMantemOfensiva(ts) {
-  return sessionsOn(ts).length > 0 || descansoValido(ts);
+/* Descanso "de verdade" para a interface: dia sem treino que segura a corrente. */
+function ehDescanso(ts) {
+  return sessionsOn(ts).length === 0 && descansoCobre(ts);
 }
 
-/* A ofensiva conta DIAS TREINADOS. O descanso não soma: ele só congela a
-   contagem, deixando a corrente atravessar o dia sem quebrar. Assim o número
-   continua significando "quantas vezes eu treinei em sequência". */
+/* O que interrompe a corrente: um dia sem treino numa semana fechada que não
+   bateu a meta. */
+function diaMantemOfensiva(ts, cache) {
+  return sessionsOn(ts).length > 0 || descansoCobre(ts, cache);
+}
+
+/* A ofensiva conta DIAS TREINADOS. Os dias de descanso costuram a corrente sem
+   entrar na conta, então o número segue significando "quantas vezes eu treinei
+   em sequência". */
 function streak() {
   if (!S.sessions.length) return 0;
+  const cache = new Map();
   let n = 0;
   const d = new Date();
-  /* hoje ainda pode ser preenchido: não conta contra, mas também não soma */
-  if (!diaMantemOfensiva(d.getTime())) d.setDate(d.getDate() - 1);
-  while (diaMantemOfensiva(d.getTime())) {
+  /* hoje ainda pode ser preenchido: não conta contra, nem soma */
+  if (!diaMantemOfensiva(d.getTime(), cache)) d.setDate(d.getDate() - 1);
+  while (diaMantemOfensiva(d.getTime(), cache)) {
     if (sessionsOn(d.getTime()).length) n += 1;
     d.setDate(d.getDate() - 1);
   }
   return n;
+}
+
+/* Quantos treinos ainda faltam nesta semana para a ofensiva sobreviver à
+   virada. Zero quando a meta já foi batida. */
+function faltamNaSemana(ts) {
+  return Math.max(0, metaSemanal() - treinosNaSemana(inicioDaSemana(ts)));
 }
 
 /* ---------- água ---------- */

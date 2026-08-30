@@ -254,8 +254,8 @@ do grupo muscular, sem quebrar nada.
 - **Navegar pelos dias**: a faixa da semana seleciona o dia. Dia sem treino
   mostra os treinos disponíveis para começar; dia com treino mostra os números
   e o que foi feito. Arraste a faixa para trocar de semana.
-- **Ofensiva com dias de descanso**: no dia sem treino, um botão marca o dia
-  como descanso e a sequência não quebra.
+- **Ofensiva com descanso automático**: dias sem treino não quebram a sequência,
+  desde que a semana bata a meta de treinos.
 - **Meta diária de água** na aba *Nutrição*, com copos rápidos e os 7 dias.
 - Escolher entre cinco temas (aba *Perfil → Tema*), do preto puro ao claro.
 - Exportar e importar backup em `.json` (aba *Perfil*).
@@ -335,19 +335,27 @@ registros*.
 ## Ofensiva e dias de descanso
 
 A sequência antiga exigia treinar **todos os dias** — inútil para quem treina
-três ou quatro vezes por semana, porque ficava sempre em 1. Agora a corrente
-atravessa os dias de descanso, marcados no botão que aparece ao selecionar um dia
-sem treino.
+três ou quatro vezes por semana, porque ficava sempre em 1.
 
-O descanso **congela, não soma**: a ofensiva conta dias *treinados*. Com treinos
-em três dias e um descanso no meio, o número é 3 — o descanso só costura a
-corrente para ela não cair. Assim o número continua significando "quantas vezes
-eu treinei em sequência", em vez de premiar quem marca folga.
+Hoje o descanso é **automático**: um dia sem treino já é descanso, não há nada a
+marcar. Quem segura a ofensiva é a **meta semanal** (`metaSemanal`, padrão 2,
+ajustável no *Perfil*): os dias vazios de uma semana só cobrem a corrente se
+aquela semana tiver batido a meta. Semana fechada abaixo dela quebra a sequência
+naquele ponto.
 
-Para o descanso não virar desculpa, ele só vale se a semana dele bateu a meta de
-treinos (`metaSemanal`, padrão 2, ajustável no *Perfil*). A **semana em curso é
-poupada** dessa regra, porque ela ainda pode bater a meta — sem isso, marcar
-descanso numa segunda-feira quebraria a ofensiva na hora.
+O descanso **congela, não soma**: a ofensiva conta dias *treinados*. Com dois
+treinos numa semana e cinco dias vazios, o número é 2 — os vazios só costuram a
+corrente para ela não cair.
+
+Dois cuidados na interface:
+
+- **Hoje não é descanso.** O dia ainda pode virar treino, então não recebe a
+  marca nem é chamado assim; o aviso olha para a frente ("faltam N treinos nesta
+  semana"). Dias futuros também não são marcados.
+- **A semana em curso é poupada** da regra da meta, porque ela ainda pode bater —
+  senão a ofensiva quebraria toda segunda-feira.
+
+Na faixa da semana, ponto cheio é dia treinado e anel vazado é descanso coberto.
 
 ## Meta de água
 

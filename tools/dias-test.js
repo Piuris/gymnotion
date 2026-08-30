@@ -114,7 +114,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(`${tela()}.querySelectorAll('.folders .folder').length === 3`),
     'os 3 treinos aparecem como pastas');
   ck(await ev(`!${tela()}.querySelector('.rings')`), 'sem gráficos num dia sem treino');
-  ck(await ev(`!!${tela()}.querySelector('.descanso-btn')`), 'oferece marcar descanso');
+  ck(await ev(`!!${tela()}.querySelector('.descanso-aviso')`), 'avisa sobre a meta da semana');
   ck(await ev(`!${tela()}.querySelector('.voltar-hoje')`), 'sem atalho de volta, porque já é hoje');
   await shot('d1-hoje-sem-treino');
 
@@ -200,16 +200,66 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('d3-historico');
   await ev('popScreen();'); await sleep(400);
 
-  console.log('\ndescanso pelo dia:');
+  console.log('descanso automatico:');
+
+  /* hoje ainda pode virar treino: nao e chamado de descanso nem marcado */
   await ev('DIA_SEL = Date.now(); currentScreen().refresh();'); await sleep(400);
-  await ev(`${tela()}.querySelector('.descanso-btn').click()`); await sleep(500);
-  ck(await ev('ehDescanso(Date.now())'), 'o botão marca o dia como descanso');
-  ck(await ev(`${tela()}.querySelector('.descanso-btn').classList.contains('on')`),
-    'o botão fica aceso');
-  ck(await ev(`!!${tela()}.querySelector('.day.sel.descanso')`), 'a faixa da semana acompanha');
-  await shot('d4-descanso');
-  await ev(`${tela()}.querySelector('.descanso-btn').click()`); await sleep(400);
-  ck(await ev('!ehDescanso(Date.now())'), 'e desmarca no segundo toque');
+  ck(await ev(`!${tela()}.querySelector('.day.sel.descanso')`),
+    'hoje nao aparece como descanso, porque o dia ainda nao acabou');
+  ck(await ev(`${tela()}.querySelectorAll('.day.futuro.descanso').length === 0`),
+    'e nenhum dia futuro aparece como descanso');
+  const avisoHoje = await ev(`${tela()}.querySelector('.descanso-aviso').textContent.trim()`);
+  ck(avisoHoje.indexOf('descanso') < 0,
+    'o aviso de hoje olha para a frente: ' + JSON.stringify(avisoHoje));
+  ck(avisoHoje.indexOf('semana') >= 0, 'e fala da meta da semana');
+  await shot('d4-hoje');
+
+  /* Um dia passado so vira descanso se a semana dele bateu a meta. Aqui a
+     semana anterior tem um treino so, entao ela NAO cobre. */
+  await ev('DIA_SEL = Date.now() - 86400000; currentScreen().refresh();'); await sleep(400);
+  const semanaDoDia = await ev('treinosNaSemana(inicioDaSemana(DIA_SEL))');
+  ck(await ev('!ehDescanso(DIA_SEL)'),
+    'com ' + semanaDoDia + ' treino(s) na semana e meta 2, o dia nao vira descanso');
+  ck(await ev(`!${tela()}.querySelector('.day.sel.descanso')`),
+    'e a faixa nao o marca');
+  const avisoFraco = await ev(`${tela()}.querySelector('.descanso-aviso').textContent.trim()`);
+  ck(avisoFraco.indexOf('cai aqui') >= 0,
+    'o aviso diz que a ofensiva cai ali: ' + JSON.stringify(avisoFraco));
+  ck(await ev(`${tela()}.querySelector('.descanso-aviso').classList.contains('alerta')`),
+    'e o aviso fica em tom de alerta');
+  ck(await ev(`!${tela()}.querySelector('.descanso-btn')`),
+    'nao ha botao de marcar descanso');
+  await shot('d5-semana-abaixo-da-meta');
+
+  /* com a semana batendo a meta, o mesmo dia passa a ser descanso coberto */
+  await ev(`
+    var molde = S.sessions[0];
+    var s = JSON.parse(JSON.stringify(molde));
+    s.id = 'extra';
+    s.date = inicioDaSemana(DIA_SEL) + 86400000;   /* segunda daquela semana */
+    S.sessions.push(s);
+    S.sessions.sort(function (a, b) { return b.date - a.date; });
+    saveNow(); currentScreen().refresh(); 'ok';
+  `);
+  await sleep(400);
+  ck(await ev('treinosNaSemana(inicioDaSemana(DIA_SEL)) >= 2'), 'a semana passa a ter 2 treinos');
+  ck(await ev('ehDescanso(DIA_SEL)'),
+    'e o dia vazio vira descanso sozinho, sem ninguem marcar');
+  ck(await ev(`!!${tela()}.querySelector('.day.sel.descanso')`),
+    'a faixa passa a marca-lo');
+  const avisoOk = await ev(`${tela()}.querySelector('.descanso-aviso').textContent.trim()`);
+  ck(avisoOk.indexOf('Dia de descanso') >= 0 && avisoOk.indexOf('segue') >= 0,
+    'com o aviso certo: ' + JSON.stringify(avisoOk));
+  await shot('d6-descanso-coberto');
+  await ev("S.sessions = S.sessions.filter(function (x) { return x.id !== 'extra'; }); saveNow();");
+
+  /* o dia com treino nao e descanso */
+  await ev('DIA_SEL = Date.now() - 2 * 86400000; currentScreen().refresh();'); await sleep(400);
+  ck(await ev('!ehDescanso(DIA_SEL)'), 'um dia com treino nao conta como descanso');
+  ck(await ev(`!${tela()}.querySelector('.day.sel.descanso')`),
+    'e nao aparece marcado na faixa');
+  await ev('DIA_SEL = Date.now(); currentScreen().refresh();'); await sleep(300);
+
 
   console.log('\nproblemas:', bad.length);
   bad.forEach((b) => console.log('  !', b));

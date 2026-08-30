@@ -74,7 +74,7 @@ function renderTreinos(el, screen) {
       sel ? 'sel' : '',
       hoje && !sel ? 'hoje' : '',
       sessionsOn(ts).length ? 'has' : '',
-      ehDescanso(ts) ? 'descanso' : '',
+      !futuro && !hoje && ehDescanso(ts) ? 'descanso' : '',   // dia que ainda não acabou não é descanso
       futuro ? 'futuro' : '',
     ].filter(Boolean).join(' ');
     const dia = h(`<button class="${classes}">
@@ -159,28 +159,34 @@ function renderTreinos(el, screen) {
       scroll.appendChild(h(`<div class="empty">${icon('dumbbell')}<b>Nenhum treino montado</b>Toque no botão para montar seu primeiro treino e começar a anotar suas cargas.</div>`));
     }
 
-    /* o descanso é do dia, então mora no dia e não escondido num menu */
-    const descanso = ehDescanso(selecionado);
-    const btn = h(`<button class="descanso-btn${descanso ? ' on' : ''}">
-      ${icon(descanso ? 'check' : 'clock')}
-      <span>${descanso ? 'Dia de descanso' : 'Marcar como descanso'}</span>
-    </button>`);
-    if (descanso) {
-      const v = btn.querySelector('svg');
-      if (v) {
-        v.style.fill = 'none';
-        v.style.stroke = 'currentColor';
-        v.style.strokeWidth = '2.6';
-        v.style.strokeLinecap = 'round';
-        v.style.strokeLinejoin = 'round';
+    /* Não há o que marcar: o dia sem treino já é descanso. O que vale dizer é
+       se a semana está de pé, porque é a meta semanal que segura a ofensiva. */
+    if (S.sessions.length) {
+      const faltam = faltamNaSemana(selecionado);
+      const restam = faltam === 1 ? 'Falta 1 treino' : 'Faltam ' + faltam + ' treinos';
+      const semana = ehHoje ? 'nesta semana' : 'na semana dele';
+      /* hoje ainda pode virar treino, então não é chamado de descanso */
+      const texto = faltam
+        ? (ehHoje ? `${restam} nesta semana para a ofensiva não cair.`
+                  : `Dia de descanso. ${restam} ${semana} — a ofensiva cai aqui.`)
+        : (ehHoje ? 'A semana já bateu a meta. A ofensiva está garantida.'
+                  : 'Dia de descanso. A semana bateu a meta, a ofensiva segue.');
+      const aviso = h(`<div class="descanso-aviso${faltam ? ' alerta' : ''}">
+        ${icon(faltam ? 'info' : 'check')}
+        <span>${esc(texto)}</span>
+      </div>`);
+      if (!faltam) {
+        const v = aviso.querySelector('svg');
+        if (v) {
+          v.style.fill = 'none';
+          v.style.stroke = 'currentColor';
+          v.style.strokeWidth = '2.6';
+          v.style.strokeLinecap = 'round';
+          v.style.strokeLinejoin = 'round';
+        }
       }
+      scroll.appendChild(aviso);
     }
-    btn.addEventListener('click', () => {
-      const marcou = alternarDescanso(selecionado);
-      haptic(); screen.refresh();
-      toast(marcou ? 'Descanso marcado' : 'Descanso removido');
-    });
-    scroll.appendChild(btn);
   }
 
   /* ---------- histórico completo ---------- */
@@ -396,7 +402,7 @@ function renderPerfil(el, screen) {
   scroll.appendChild(row('Meta semanal', metaSemanal() + ' treinos', () =>
     promptSheet('Treinos por semana', String(metaSemanal()), '2', (v) => {
       S.settings.metaSemanal = Math.max(1, Math.round(Number(v) || 2)); saveNow(); screen.refresh();
-    }), 'Abaixo disso, dias de descanso não seguram a ofensiva'));
+    }), 'Semana fechada abaixo disso quebra a ofensiva'));
   scroll.appendChild(row('Meta de água', metaAgua() + ' ml', () =>
     promptSheet('Meta diária (ml)', String(metaAgua()), '2600', (v) => {
       S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
