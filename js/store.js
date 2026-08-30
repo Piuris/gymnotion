@@ -412,24 +412,33 @@ function treinosNaSemana(inicio) {
   return dias.size;
 }
 
-/* Um dia mantém a ofensiva se teve treino, ou se foi marcado como descanso —
-   mas o descanso só vale se a semana dele bateu a meta de treinos. A semana em
-   curso é poupada, porque ela ainda pode bater a meta. */
-function diaMantemOfensiva(ts) {
-  if (sessionsOn(ts).length) return true;
+/* O descanso vale como ponte, mas só se a semana dele bateu a meta de treinos.
+   A semana em curso é poupada, porque ela ainda pode bater a meta. */
+function descansoValido(ts) {
   if (!ehDescanso(ts)) return false;
   const ini = inicioDaSemana(ts);
   if (ini === inicioDaSemana(Date.now())) return true;
   return treinosNaSemana(ini) >= metaSemanal();
 }
 
+/* O que interrompe a corrente: um dia sem treino e sem descanso válido. */
+function diaMantemOfensiva(ts) {
+  return sessionsOn(ts).length > 0 || descansoValido(ts);
+}
+
+/* A ofensiva conta DIAS TREINADOS. O descanso não soma: ele só congela a
+   contagem, deixando a corrente atravessar o dia sem quebrar. Assim o número
+   continua significando "quantas vezes eu treinei em sequência". */
 function streak() {
   if (!S.sessions.length) return 0;
   let n = 0;
   const d = new Date();
   /* hoje ainda pode ser preenchido: não conta contra, mas também não soma */
   if (!diaMantemOfensiva(d.getTime())) d.setDate(d.getDate() - 1);
-  while (diaMantemOfensiva(d.getTime())) { n += 1; d.setDate(d.getDate() - 1); }
+  while (diaMantemOfensiva(d.getTime())) {
+    if (sessionsOn(d.getTime()).length) n += 1;
+    d.setDate(d.getDate() - 1);
+  }
   return n;
 }
 

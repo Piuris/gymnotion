@@ -335,9 +335,14 @@ registros*.
 ## Ofensiva e dias de descanso
 
 A sequência antiga exigia treinar **todos os dias** — inútil para quem treina
-três ou quatro vezes por semana, porque ficava sempre em 1. Agora um dia sustenta
-a ofensiva se teve treino **ou** se foi marcado como descanso, no botão que
-aparece ao selecionar um dia sem treino.
+três ou quatro vezes por semana, porque ficava sempre em 1. Agora a corrente
+atravessa os dias de descanso, marcados no botão que aparece ao selecionar um dia
+sem treino.
+
+O descanso **congela, não soma**: a ofensiva conta dias *treinados*. Com treinos
+em três dias e um descanso no meio, o número é 3 — o descanso só costura a
+corrente para ela não cair. Assim o número continua significando "quantas vezes
+eu treinei em sequência", em vez de premiar quem marca folga.
 
 Para o descanso não virar desculpa, ele só vale se a semana dele bateu a meta de
 treinos (`metaSemanal`, padrão 2, ajustável no *Perfil*). A **semana em curso é

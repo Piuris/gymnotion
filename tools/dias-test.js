@@ -142,8 +142,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\nmarcador do dia:');
   ck(await ev(`${tela()}.querySelectorAll('.day.sel').length === 1`), 'um dia selecionado por vez');
-  ck(await ev(`${tela()}.querySelectorAll('.day.hoje').length === 1`),
-    'hoje ganha o anel quando não é o selecionado');
+  /* O anel só existe se hoje estiver na semana exibida — num domingo, um dia
+     anterior cai na semana passada e hoje nem aparece. Deriva da semana em
+     vez de presumir. */
+  const hojeNaFaixa = await ev('inicioDaSemana(DIA_SEL) === inicioDaSemana(Date.now())');
+  const anel = await ev(`${tela()}.querySelectorAll('.day.hoje').length`);
+  ck(anel === (hojeNaFaixa ? 1 : 0),
+    hojeNaFaixa
+      ? 'hoje ganha o anel quando não é o selecionado'
+      : 'a semana exibida é anterior, então não há anel de hoje nela');
   ck(await ev(`${tela()}.querySelector('.day.sel .num').textContent.trim() === String(new Date(DIA_SEL).getDate())`),
     'o dia aceso é o selecionado');
   ck(await ev(`${tela()}.querySelectorAll('.day.has').length === 1`), 'o dia com treino tem o ponto');
@@ -162,8 +169,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\ndias futuros:');
   const futuros = await ev(`${tela()}.querySelectorAll('.day.futuro').length`);
-  const hojeDow = await ev('new Date().getDay()');
-  ck(futuros === 6 - hojeDow, 'os ' + futuros + ' dias depois de hoje ficam fora de alcance');
+  const esperadoFuturo = await ev(`(function () {
+    var ini = inicioDaSemana(DIA_SEL);
+    var n = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(ini); d.setDate(d.getDate() + i);
+      if (d.getTime() > Date.now() && dayKey(d.getTime()) !== dayKey(Date.now())) n += 1;
+    }
+    return n;
+  })()`);
+  ck(futuros === esperadoFuturo,
+    'os ' + futuros + ' dias depois de hoje na semana exibida ficam fora de alcance');
   ck(await ev(`getComputedStyle(${tela()}.querySelector('.day.futuro') || document.body).pointerEvents === 'none' || ${futuros} === 0`),
     'e não respondem ao toque');
 
