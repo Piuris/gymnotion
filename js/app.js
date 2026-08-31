@@ -570,6 +570,108 @@ function renderAgua(el, screen) {
   el.appendChild(scroll);
 }
 
+/* ---------- aquecimento e feeder ---------- */
+
+/* Percentuais da carga de trabalho. Aquecimento sobe de leve até quase a série
+   válida; feeder são séries curtas mais perto do peso real. */
+const FAIXA_AQUECIMENTO = [0.35, 0.50];
+const FAIXA_FEEDER = [0.60, 0.75];
+
+/* Anilha de 1,25 kg de cada lado é o menor salto comum numa barra, então 2,5 kg
+   é o degrau que dá para montar de verdade. */
+const arredondaCarga = (v) => Math.round(v / 2.5) * 2.5;
+
+/* Distribui n séries dentro da faixa: com uma só, usa o meio; com várias, sobe
+   do início ao fim, que é como se aquece na prática. */
+function escalonar(peso, faixa, n) {
+  const [a, b] = faixa;
+  if (n <= 1) return [arredondaCarga(peso * (a + b) / 2)];
+  return Array.from({ length: n }, (_, i) =>
+    arredondaCarga(peso * (a + ((b - a) * i) / (n - 1))));
+}
+
+/* Carga de trabalho de referência: a maior série válida deste exercício, ou a
+   do último treino, se ainda não houver nada anotado hoje. */
+function pesoDeTrabalho(e) {
+  const daTela = Math.max(0, ...e.sets.filter(ehValida).map((x) => Number(x.peso) || 0));
+  if (daTela > 0) return daTela;
+  const ultima = ultimaExecucao(e.exId);
+  if (!ultima) return 0;
+  return Math.max(0, ...ultima.sets.map((x) => Number(x.peso) || 0));
+}
+
+function calculadoraAquecimento(e, aoAplicar) {
+  const inicial = pesoDeTrabalho(e);
+  let ov;
+
+  const box = h(`<div>
+    <h3>Aquecimento e feeder</h3>
+    <p class="desc">A partir da carga de trabalho, em cima das faixas que você usa.</p>
+    <div class="calc-peso">
+      <span>Carga de trabalho</span>
+      <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${inicial || ''}" placeholder="0"/><u>kg</u></div>
+    </div>
+    <div class="calc-linhas"></div>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="fechar">Fechar</button>
+      <button class="pill-btn" data-x="aplicar">Preencher séries</button>
+    </div>
+  </div>`);
+
+  const campo = box.querySelector('input');
+  const linhas = box.querySelector('.calc-linhas');
+  const aplicar = box.querySelector('[data-x="aplicar"]');
+
+  const nDe = (tipo) => e.sets.filter((x) => tipoSet(x) === tipo).length;
+
+  const desenhar = () => {
+    const peso = Number(String(campo.value).replace(',', '.')) || 0;
+    const nA = nDe('a');
+    const nF = nDe('f');
+
+    const bloco = (rotulo, faixa, n, marca) => {
+      const pct = Math.round(faixa[0] * 100) + '–' + Math.round(faixa[1] * 100) + '%';
+      const valores = peso > 0
+        ? escalonar(peso, faixa, Math.max(1, n)).map((v) => fmtWeight(v) + ' kg').join('  ·  ')
+        : '—';
+      return `<div class="calc-linha">
+        <div class="calc-rot"><b>${esc(rotulo)}</b><i>${pct}${n ? ' · ' + n + (n > 1 ? ' séries' : ' série') : ' · nenhuma série'}</i></div>
+        <div class="calc-val">${esc(valores)}</div>
+      </div>`;
+    };
+
+    linhas.innerHTML =
+      bloco('Aquecimento', FAIXA_AQUECIMENTO, nA, 'a') +
+      bloco('Feeder', FAIXA_FEEDER, nF, 'f');
+
+    aplicar.disabled = !(peso > 0 && (nA + nF) > 0);
+  };
+
+  campo.addEventListener('input', desenhar);
+  desenhar();
+  setTimeout(() => { if (!inicial) campo.focus(); }, 250);
+
+  box.querySelector('[data-x="fechar"]').addEventListener('click', () => ov.close());
+  aplicar.addEventListener('click', () => {
+    const peso = Number(String(campo.value).replace(',', '.')) || 0;
+    if (peso <= 0) return;
+    let mudou = 0;
+    [['a', FAIXA_AQUECIMENTO], ['f', FAIXA_FEEDER]].forEach(([tipo, faixa]) => {
+      const alvos = e.sets.filter((x) => tipoSet(x) === tipo);
+      const valores = escalonar(peso, faixa, alvos.length);
+      alvos.forEach((st, i) => { st.peso = valores[i]; mudou += 1; });
+    });
+    haptic();
+    ov.close();
+    setTimeout(() => {
+      aoAplicar();
+      toast(mudou + (mudou > 1 ? ' séries preenchidas' : ' série preenchida'));
+    }, 120);
+  });
+
+  ov = openSheet(box);
+}
+
 /* ---------- aparência ---------- */
 
 function telaTemas(paiScreen) {
@@ -1076,7 +1178,6 @@ function openWorkout(workoutId, mode) {
     }
 
     /* ---- barra de descanso ---- */
-    if (REST) el.appendChild(restBar(screen));
 
     /* ---- ações do nav ---- */
     acts(nav, {
@@ -1121,7 +1222,7 @@ function finishFlow(screen) {
   const feitas = a.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
   if (!feitas) {
     confirmSheet('Encerrar sem séries?', 'Nenhuma série foi marcada como feita. O treino não será salvo no histórico.', 'Encerrar', () => {
-      cancelSession(); ajustarTravaTela(); popScreen();
+      cancelSession(); REST = null; atualizarBarraDescanso(); ajustarTravaTela(); popScreen();
     });
     return;
   }
@@ -1139,6 +1240,7 @@ function finishFlow(screen) {
     r.close();
     const s = finishSession();
     REST = null;
+    atualizarBarraDescanso();
     ajustarTravaTela();
     cloudEnviarEmSegundoPlano();
     setTimeout(() => {
@@ -1160,27 +1262,39 @@ function globalTick() {
   }
 
   if (REST) {
-    const left = (REST.endsAt - Date.now()) / 1000;
-    if (left <= 0) {
+    if (REST.endsAt - Date.now() <= 0) {
       REST = null; beep(); haptic();
       toast('Descanso terminado');
-      sc.refresh();
-    } else {
-      const b = sc.el.querySelector('.rest-bar b');
-      if (b) b.textContent = fmtClock(left);
-      else sc.refresh();
     }
+    atualizarBarraDescanso();
   }
 }
 
-function restBar(screen) {
-  const bar = h(`<div class="rest-bar">
-    <b>${fmtClock(Math.max(0, (REST.endsAt - Date.now()) / 1000))}</b>
-    <span>Descanso • ${esc(REST.label)}</span>
-    <button data-act="skip">Pular</button>
-  </div>`);
-  acts(bar, { skip: () => { REST = null; screen.refresh(); } });
-  return bar;
+/* A barra de descanso vive fora das telas, presa ao app.
+   Antes ela era montada dentro de cada tela, e o relógio precisava reconstruir
+   a tela para atualizar — o que, na biblioteca, destruía a busca em foco e
+   fechava o teclado a cada segundo. Sendo global, ela só troca o próprio texto
+   e acompanha o usuário para qualquer tela. */
+function atualizarBarraDescanso() {
+  let bar = APP.querySelector('.rest-bar');
+
+  if (!REST) {
+    if (bar) bar.remove();
+    return;
+  }
+
+  const falta = Math.max(0, (REST.endsAt - Date.now()) / 1000);
+  if (!bar) {
+    bar = h(`<div class="rest-bar">
+      <b></b>
+      <span>Descanso • ${esc(REST.label)}</span>
+      <button data-act="skip">Pular</button>
+    </div>`);
+    acts(bar, { skip: () => { REST = null; atualizarBarraDescanso(); } });
+    APP.appendChild(bar);
+  }
+  setAccent(S.active ? S.active.color : contextAccent(), bar);
+  bar.querySelector('b').textContent = fmtClock(falta);
 }
 
 /* =========================================================
@@ -1306,9 +1420,8 @@ function openExercise(workoutId, uid, inSession) {
           if (marcado.done) {
             if (valida) checarRecorde(e, marcado);
             if (S.active && marcado.desc > 0) {
-              const parent = stack[stack.length - 2];
               REST = { endsAt: Date.now() + Math.round(marcado.desc * 60) * 1000, label: e.nome };
-              if (parent) parent.refresh();
+              atualizarBarraDescanso();
             }
           }
           screen.refresh();
@@ -1326,6 +1439,15 @@ function openExercise(workoutId, uid, inSession) {
       });
       scroll.appendChild(row);
     });
+
+    /* calculadora de aquecimento e feeder */
+    const calc = h(`<button class="calc-abrir">
+      ${icon('alvo')}
+      <span>Calcular aquecimento e feeder</span>
+      ${icon('chev').replace('<svg', '<svg class="chev"')}
+    </button>`);
+    calc.addEventListener('click', () => calculadoraAquecimento(e, () => { save(); screen.refresh(); }));
+    scroll.appendChild(calc);
 
     /* adicionar série */
     const add = h(`<button class="add-row" style="width:100%">
@@ -1345,7 +1467,6 @@ function openExercise(workoutId, uid, inSession) {
     scroll.appendChild(notes);
 
     el.appendChild(scroll);
-    if (REST) el.appendChild(restBar(screen));
   }, { name: 'exercise' });
 }
 

@@ -971,6 +971,49 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .agua-dia.bateu .agua-barra i { background: var(--accent); }
 .agua-rotulo { font-size: 12px; color: var(--txt-3); margin-top: 6px; }
 
+/* ---------- calculadora de aquecimento ---------- */
+
+.calc-abrir {
+  display: flex; align-items: center; gap: 12px;
+  width: calc(100% - 32px);
+  margin: 10px 16px 2px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--fill-1);
+  font-size: 15px; font-weight: 600;
+  text-align: left;
+}
+.calc-abrir > svg:first-child { width: 20px; height: 20px; flex: 0 0 20px; fill: var(--accent); }
+.calc-abrir span { flex: 1; min-width: 0; }
+.calc-abrir .chev { width: 16px; height: 16px; flex: 0 0 16px; }
+.calc-abrir:active { background: var(--fill-2); }
+
+.calc-peso {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 20px 14px;
+}
+.calc-peso span { flex: 1; font-size: 15px; color: var(--txt-2); }
+.calc-peso .field { flex: 0 0 120px; background: var(--input-bg); border: 1px solid var(--line); }
+
+.calc-linhas { margin: 0 20px 16px; }
+
+.calc-linha {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.calc-rot { flex: 0 0 auto; }
+.calc-rot b { display: block; font-size: 16px; font-weight: 600; }
+.calc-rot i {
+  display: block; font-style: normal;
+  font-size: 12px; color: var(--txt-3); margin-top: 2px;
+}
+.calc-val {
+  flex: 1; text-align: right;
+  font-size: 16px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- login ---------- */
 
 .login {
@@ -1149,16 +1192,18 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
+/* Presa ao app, não a uma tela: assim acompanha a navegação e o relógio
+   atualiza só o próprio texto, sem reconstruir nada. */
 .rest-bar {
   position: absolute; left: 16px; right: 16px;
-  bottom: calc(var(--safe-b) + 16px);
+  bottom: calc(var(--abas-total) + 14px);
   background: var(--a22);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--a35);
   border-radius: 18px;
   padding: 12px 16px;
   display: flex; align-items: center; gap: 12px;
-  z-index: 10;
+  z-index: 30;
 }
 .rest-bar b { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .rest-bar span { flex: 1; font-size: 15px; color: var(--txt-2); }

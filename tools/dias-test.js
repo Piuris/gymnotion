@@ -214,44 +214,59 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(avisoHoje.indexOf('semana') >= 0, 'e fala da meta da semana');
   await shot('d4-hoje');
 
-  /* Um dia passado so vira descanso se a semana dele bateu a meta. Aqui a
-     semana anterior tem um treino so, entao ela NAO cobre. */
-  await ev('DIA_SEL = Date.now() - 86400000; currentScreen().refresh();'); await sleep(400);
-  const semanaDoDia = await ev('treinosNaSemana(inicioDaSemana(DIA_SEL))');
+  /* A regra da meta so vale para semana FECHADA. Ancorar em "ontem" tornava o
+     teste refem do dia em que ele roda: num domingo ontem cai na semana
+     anterior, numa segunda cai na semana em curso, que e poupada. Aqui a
+     semana passada inteira e montada de proposito. */
+  await ev(`
+    window.__guarda = S.sessions.slice();
+    var semana = inicioDaSemana(Date.now()) - 7 * 86400000;
+    window.__semana = semana;
+    var molde = S.sessions[0];
+    function copia(id, quando) {
+      var c = JSON.parse(JSON.stringify(molde));
+      c.id = id; c.date = quando;
+      return c;
+    }
+    /* um unico treino na semana passada: abaixo da meta de 2 */
+    S.sessions = [copia('sp1', semana + 86400000)];
+    DIA_SEL = semana + 3 * 86400000;   /* quarta daquela semana, sem treino */
+    saveNow(); currentScreen().refresh(); 'ok';
+  `);
+  await sleep(400);
+  ck(await ev('treinosNaSemana(window.__semana) === 1'), 'a semana passada tem 1 treino');
   ck(await ev('!ehDescanso(DIA_SEL)'),
-    'com ' + semanaDoDia + ' treino(s) na semana e meta 2, o dia nao vira descanso');
-  ck(await ev(`!${tela()}.querySelector('.day.sel.descanso')`),
-    'e a faixa nao o marca');
+    'com 1 treino e meta 2, o dia da semana fechada nao vira descanso');
+  ck(await ev(`!${tela()}.querySelector('.day.sel.descanso')`), 'e a faixa nao o marca');
   const avisoFraco = await ev(`${tela()}.querySelector('.descanso-aviso').textContent.trim()`);
   ck(avisoFraco.indexOf('cai aqui') >= 0,
     'o aviso diz que a ofensiva cai ali: ' + JSON.stringify(avisoFraco));
   ck(await ev(`${tela()}.querySelector('.descanso-aviso').classList.contains('alerta')`),
     'e o aviso fica em tom de alerta');
-  ck(await ev(`!${tela()}.querySelector('.descanso-btn')`),
-    'nao ha botao de marcar descanso');
+  ck(await ev(`!${tela()}.querySelector('.descanso-btn')`), 'nao ha botao de marcar descanso');
   await shot('d5-semana-abaixo-da-meta');
 
   /* com a semana batendo a meta, o mesmo dia passa a ser descanso coberto */
   await ev(`
     var molde = S.sessions[0];
-    var s = JSON.parse(JSON.stringify(molde));
-    s.id = 'extra';
-    s.date = inicioDaSemana(DIA_SEL) + 86400000;   /* segunda daquela semana */
-    S.sessions.push(s);
+    var c = JSON.parse(JSON.stringify(molde));
+    c.id = 'sp2'; c.date = window.__semana + 5 * 86400000;
+    S.sessions.push(c);
     S.sessions.sort(function (a, b) { return b.date - a.date; });
     saveNow(); currentScreen().refresh(); 'ok';
   `);
   await sleep(400);
-  ck(await ev('treinosNaSemana(inicioDaSemana(DIA_SEL)) >= 2'), 'a semana passa a ter 2 treinos');
+  ck(await ev('treinosNaSemana(window.__semana) === 2'), 'a semana passa a ter 2 treinos');
   ck(await ev('ehDescanso(DIA_SEL)'),
     'e o dia vazio vira descanso sozinho, sem ninguem marcar');
-  ck(await ev(`!!${tela()}.querySelector('.day.sel.descanso')`),
-    'a faixa passa a marca-lo');
+  ck(await ev(`!!${tela()}.querySelector('.day.sel.descanso')`), 'a faixa passa a marca-lo');
   const avisoOk = await ev(`${tela()}.querySelector('.descanso-aviso').textContent.trim()`);
   ck(avisoOk.indexOf('Dia de descanso') >= 0 && avisoOk.indexOf('segue') >= 0,
     'com o aviso certo: ' + JSON.stringify(avisoOk));
   await shot('d6-descanso-coberto');
-  await ev("S.sessions = S.sessions.filter(function (x) { return x.id !== 'extra'; }); saveNow();");
+
+  await ev('S.sessions = window.__guarda; saveNow(); DIA_SEL = Date.now() - 2 * 86400000; currentScreen().refresh();');
+  await sleep(300);
 
   /* o dia com treino nao e descanso */
   await ev('DIA_SEL = Date.now() - 2 * 86400000; currentScreen().refresh();'); await sleep(400);

@@ -137,6 +137,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/logging-test.js](tools/logging-test.js) | Testa limpar a busca e o início automático do treino ao anotar |
 | [tools/habits-test.js](tools/habits-test.js) | Testa a barra de abas, o dia de descanso e a meta de água |
 | [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia na aba Treinos |
+| [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -236,6 +237,8 @@ do grupo muscular, sem quebrar nada.
   quantidade de séries e o descanso; e reordenar exercícios arrastando pela alça
   no modo de edição.
 - Anotar peso, repetições e descanso por série, além de observações por exercício.
+- **Calculadora de aquecimento e feeder**: a partir da carga de trabalho,
+  sugere 35–50% para aquecimento e 60–75% para feeder, e preenche as séries.
 - Classificar cada série: **válida**, **aquecimento**, **feeder** ou **PAP**. Só a
   válida entra em volume, calorias, séries, repetições, recordes e no gráfico de
   evolução — as outras ficam no histórico como preparação.
@@ -288,6 +291,7 @@ node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migra
 node tools/logging-test.js ./__shots     # busca e início automático
 node tools/habits-test.js ./__shots      # abas, descanso e água
 node tools/dias-test.js ./__shots        # navegação por dia
+node tools/calc-test.js ./__shots        # descanso global e calculadora
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -383,6 +387,27 @@ chegaram a 27px da borda, contra 46px antes.
 Para ver isso em teste é preciso simular o inset — `habits-test.js` injeta
 `--safe-b: 34px` antes de medir, senão a folga daria zero e o teste passaria com
 o defeito no lugar.
+
+## Calculadora de aquecimento e feeder
+
+Na tela do exercício. Pega a carga de trabalho — a maior série válida, ou a do
+último treino — e aplica as faixas: **35–50%** para aquecimento, **60–75%** para
+feeder. O botão preenche as séries marcadas com esses tipos.
+
+Com mais de uma série do mesmo tipo, os valores **escalonam dentro da faixa** em
+vez de repetir o mesmo número: dois aquecimentos com 100 kg de trabalho viram
+35 e 50 kg, três viram 35, 42,5 e 50. As cargas caem no múltiplo de 2,5 kg mais
+próximo, que é o menor salto montável com anilhas de 1,25 de cada lado.
+
+## A barra de descanso vive fora das telas
+
+Ela era montada dentro de cada tela, e o relógio precisava **reconstruir a tela**
+para atualizar o número. Na biblioteca não havia barra nenhuma, então o
+`globalTick` reconstruía a tela inteira a cada segundo — o que destruía o campo
+de busca em foco e fechava o teclado do iPhone no meio da digitação.
+
+Agora ela é um elemento único preso ao `#app`: troca só o próprio texto, nunca
+reconstrói nada, e de quebra acompanha o usuário para qualquer tela.
 
 ## Início automático ao anotar
 
