@@ -1042,21 +1042,46 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .calc-linhas { margin: 0 20px 16px; }
 
 .calc-linha {
-  display: flex; align-items: center; gap: 12px;
   padding: 12px 0;
   border-top: 1px solid var(--line);
 }
-.calc-rot { flex: 0 0 auto; }
+.calc-topo { display: flex; align-items: center; gap: 12px; }
+.calc-rot { flex: 1; min-width: 0; }
 .calc-rot b { display: block; font-size: 16px; font-weight: 600; }
 .calc-rot i {
   display: block; font-style: normal;
   font-size: 12px; color: var(--txt-3); margin-top: 2px;
 }
+
+/* Quantas séries de cada tipo. É o que faltava: sem poder criar série aqui, a
+   calculadora só servia para quem já tinha marcado tudo como A ou F na mão. */
+.calc-passo {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--fill-1);
+  border-radius: 999px;
+  padding: 3px;
+}
+.calc-passo button {
+  width: 34px; height: 34px; border-radius: 50%;
+  font-size: 20px; font-weight: 600; line-height: 1;
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.calc-passo button:active { background: var(--fill-2); }
+.calc-passo button[disabled] { opacity: .3; pointer-events: none; }
+.calc-passo span {
+  min-width: 22px; text-align: center;
+  font-size: 17px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .calc-val {
-  flex: 1; text-align: right;
+  margin-top: 8px;
   font-size: 16px; font-weight: 700; color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
+.calc-val.vazio { color: var(--txt-3); font-weight: 500; font-size: 14px; }
+.calc-nota { padding: 0 20px 12px; }
 
 /* ---------- login ---------- */
 

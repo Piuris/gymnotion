@@ -174,7 +174,93 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(sets[3] === 'v:100' && sets[4] === 'v:100', 'as válidas não foram tocadas');
   await shot('k3-preenchido');
 
-  console.log('\nsem carga anotada:');
+  console.log('');
+  console.log('exercicio so com series validas:');
+  /* O caso que deixava o botao morto: num exercicio recem-montado nenhuma
+     serie e A nem F, e a calculadora so sabia preencher o que ja existia. */
+  await ev(`
+    popToRoot();
+    var ex = findExercise('ex_agachamento_livre');
+    var we = addExerciseToWorkout(S.workouts[0].id, ex, 3);
+    we.sets.forEach(function (st) { st.peso = 80; st.reps = 8; });
+    saveNow();
+    openExercise(S.workouts[0].id, we.uid, false);
+    'ok';
+  `);
+  await sleep(700);
+  const idx = await ev('S.workouts[0].exercises.length - 1');
+  const oEx = () => `S.workouts[0].exercises[${idx}]`;
+  ck(await ev(`${oEx()}.sets.every(function (x) { return tipoSet(x) === 'v'; })`),
+    'o exercicio comeca sem nenhuma serie de aquecimento');
+
+  await ev("currentScreen().el.querySelector('.calc-abrir').click()"); await sleep(600);
+  ck(await ev(naFolha('[data-x=aplicar]') + '.disabled === false'),
+    'o botao ja nasce clicavel, em vez de morto');
+  const passos = await ev(`(function () {
+    var v = [];
+    document.querySelectorAll('.sheet .calc-passo span').forEach(function (x) { v.push(x.textContent); });
+    return v.join(',');
+  })()`);
+  ck(passos === '2,0', 'com dois aquecimentos ja sugeridos e nenhum feeder (' + passos + ')');
+  ck(await ev(naFolha('.calc-linhas') + ".textContent.indexOf('nenhuma série') >= 0"),
+    'e o feeder dizendo que nao tem serie, em vez de travessao');
+  ck(await ev(naFolha('.calc-nota') + ".textContent.indexOf('cria 2') >= 0"),
+    'a nota avisa que vai criar duas series');
+  await shot('k4-so-validas');
+
+  /* o + do feeder tem de mudar a previa na hora */
+  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(400);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[1].textContent === '1'`),
+    'o + do feeder sobe a contagem');
+  ck(await ev(naFolha('.calc-linhas') + ".textContent.indexOf('55 kg') >= 0"),
+    'e a previa ja mostra a carga dele: 80 kg no meio de 60-75% da 55 kg');
+
+  await ev(`document.querySelector('.sheet [data-mais=a]').click()`); await sleep(400);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[0].textContent === '3'`),
+    'e o do aquecimento tambem');
+
+  await ev(naFolha('[data-x=aplicar]') + '.click()'); await sleep(800);
+  const criados = JSON.parse(await ev(`JSON.stringify(${oEx()}.sets.map(function (x) {
+    return tipoSet(x) + ':' + x.peso;
+  }))`));
+  ck(criados.length === 7, 'aplicar cria as 4 series novas (ficou com ' + criados.length + ')');
+  ck(criados.slice(0, 3).every(function (x) { return x.indexOf('a:') === 0; }),
+    'os aquecimentos ficam na frente: ' + criados.slice(0, 3).join(' '));
+  ck(criados[3].indexOf('f:') === 0, 'o feeder vem depois deles (' + criados[3] + ')');
+  ck(criados.slice(4).every(function (x) { return x === 'v:80'; }),
+    'e as validas continuam intactas no fim');
+  ck(await ev(`${oEx()}.sets[0].reps === 8`),
+    'as series novas herdam as repeticoes da serie de trabalho');
+  ck(await ev(`${oEx()}.sets[0].peso === 27.5`),
+    'com 80 kg, o primeiro aquecimento sai em 27,5 kg (35% no degrau de 2,5)');
+  await shot('k5-series-criadas');
+
+  /* reduzir tem de tirar as series, nao so zerar a carga */
+  await ev("currentScreen().el.querySelector('.calc-abrir').click()"); await sleep(600);
+  await ev(`document.querySelector('.sheet [data-menos=a]').click()`); await sleep(300);
+  await ev(`document.querySelector('.sheet [data-menos=f]').click()`); await sleep(300);
+  ck(await ev(naFolha('.calc-nota') + ".textContent.indexOf('tira 2') >= 0"),
+    'a nota avisa que vai tirar duas');
+  await ev(naFolha('[data-x=aplicar]') + '.click()'); await sleep(800);
+  ck(await ev(`${oEx()}.sets.length === 5`), 'aplicar tira as series a mais');
+  ck(await ev(`contaTipo(${oEx()}, 'a') === 2 && contaTipo(${oEx()}, 'f') === 0`),
+    'sobrando dois aquecimentos e nenhum feeder');
+
+  /* no meio do treino, a ordem nao pode ser remexida */
+  await ev(`${oEx()}.sets[4].done = true; saveNow(); currentScreen().refresh();`);
+  await sleep(400);
+  await ev("currentScreen().el.querySelector('.calc-abrir').click()"); await sleep(600);
+  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(300);
+  await ev(naFolha('[data-x=aplicar]') + '.click()'); await sleep(800);
+  const ordem = JSON.parse(await ev(`JSON.stringify(${oEx()}.sets.map(function (x) { return tipoSet(x); }))`));
+  ck(ordem[ordem.length - 1] === 'f',
+    'com serie ja marcada, a nova entra no fim sem remexer no que foi feito (' + ordem.join(' ') + ')');
+  await ev(`${oEx()}.sets.forEach(function (x) { x.done = false; }); saveNow();`);
+  await ev('popScreen();'); await sleep(500);
+  await ev(`openExercise(S.workouts[0].id, S.workouts[0].exercises[0].uid, false)`); await sleep(700);
+
+  console.log('');
+  console.log('sem carga anotada:');
   await ev(`
     S.workouts[0].exercises[0].sets.forEach(function (x) { x.peso = 0; });
     saveNow(); currentScreen().refresh(); 'ok';
@@ -184,7 +270,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'sem carga e sem histórico, a referência é zero');
   await ev("currentScreen().el.querySelector('.calc-abrir').click()"); await sleep(500);
   ck(await ev(naFolha('[data-x=aplicar]') + '.disabled === true'),
-    'e o botão de preencher fica desligado, em vez de gravar zeros');
+    'e o botão de aplicar fica desligado, em vez de gravar zeros');
   ck(await ev(naFolha('.calc-linhas') + ".textContent.indexOf('—') >= 0"),
     'mostrando travessão no lugar dos valores');
 

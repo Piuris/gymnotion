@@ -673,12 +673,32 @@ Rodado contra o código anterior, ele acusa 11 falhas.
 
 Na tela do exercício. Pega a carga de trabalho — a maior série válida, ou a do
 último treino — e aplica as faixas: **35–50%** para aquecimento, **60–75%** para
-feeder. O botão preenche as séries marcadas com esses tipos.
+feeder.
 
 Com mais de uma série do mesmo tipo, os valores **escalonam dentro da faixa** em
 vez de repetir o mesmo número: dois aquecimentos com 100 kg de trabalho viram
 35 e 50 kg, três viram 35, 42,5 e 50. As cargas caem no múltiplo de 2,5 kg mais
 próximo, que é o menor salto montável com anilhas de 1,25 de cada lado.
+
+**Ela cria as séries, não só preenche.** Na primeira versão o botão apenas
+gravava a carga nas séries já marcadas como A ou F — e num exercício recém
+montado, onde todas são válidas, ele nascia desabilitado e parecia quebrado: só
+funcionava para quem tivesse marcado cada série na mão antes de abrir a
+calculadora, que é justamente o trabalho que ela deveria poupar.
+
+Agora cada faixa tem um contador (`− n +`). Ele começa no que já existe no
+exercício; num exercício sem nenhuma A ou F, começa em **2 aquecimentos e 0
+feeders** — o palpite que serve para quase todo mundo, com o feeder em zero por
+ser o mais específico dos dois. *Aplicar* cria as séries que faltam, tira as que
+sobram e grava as cargas; a nota acima do botão diz de antemão o que ele vai
+fazer.
+
+As séries criadas herdam repetições e descanso da série de trabalho — inventar
+número aqui só daria trabalho de corrigir depois — e vão para a frente da lista,
+na ordem em que se faz: aquecimento, feeder, trabalho. Essa reordenação **só
+acontece com o exercício intocado**: se alguma série já foi marcada como feita,
+remexer na ordem do que já passou seria pior que a bagunça, então a série nova
+entra no fim.
 
 ## A barra de descanso vive fora das telas
 

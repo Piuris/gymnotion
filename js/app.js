@@ -988,9 +988,55 @@ function pesoDeTrabalho(e) {
   return Math.max(0, ...ultima.sets.map((x) => Number(x.peso) || 0));
 }
 
+/* Quantas séries de aquecimento e feeder já existem no exercício. */
+const contaTipo = (e, tipo) => e.sets.filter((x) => tipoSet(x) === tipo).length;
+
+/* Ajusta o exercício para ter exatamente `n` séries de um tipo, com as cargas
+   dadas. Sobrando, tira as últimas; faltando, cria — herdando repetições e
+   descanso da série de trabalho, porque inventar número aqui só daria trabalho
+   de corrigir depois. */
+function ajustarSeries(e, tipo, cargas) {
+  const n = cargas.length;
+  const doTipo = e.sets.filter((x) => tipoSet(x) === tipo);
+
+  if (doTipo.length > n) {
+    const sobra = doTipo.slice(n);
+    e.sets = e.sets.filter((x) => sobra.indexOf(x) < 0);
+  }
+
+  const molde = e.sets.find((x) => ehValida(x)) || e.sets[0] || {};
+  for (let i = doTipo.length; i < n; i++) {
+    e.sets.push({
+      peso: 0,
+      reps: molde.reps || 0,
+      desc: molde.desc || S.settings.restDefault,
+      tipo,
+      done: false,
+    });
+  }
+
+  e.sets.filter((x) => tipoSet(x) === tipo).forEach((st, i) => { st.peso = cargas[i]; });
+  return n - doTipo.length;   // quantas foram criadas (negativo = removidas)
+}
+
+/* Calculadora de aquecimento e feeder.
+
+   Antes ela só preenchia séries que já estivessem marcadas como A ou F — e num
+   exercício recém-montado, onde todas são válidas, o botão nascia desabilitado
+   e parecia quebrado. Agora ela também cria e remove as séries, que é o que
+   "calcular o aquecimento" quer dizer na prática. */
 function calculadoraAquecimento(e, aoAplicar) {
   const inicial = pesoDeTrabalho(e);
   let ov;
+
+  /* Começa no que já existe; sem nada marcado, dois aquecimentos são o palpite
+     que serve para quase todo mundo, e o feeder fica em zero por ser o mais
+     específico dos dois. */
+  const temAlgum = contaTipo(e, 'a') + contaTipo(e, 'f') > 0;
+  const n = {
+    a: temAlgum ? contaTipo(e, 'a') : 2,
+    f: temAlgum ? contaTipo(e, 'f') : 0,
+  };
 
   const box = h(`<div>
     <h3>Aquecimento e feeder</h3>
@@ -1000,39 +1046,70 @@ function calculadoraAquecimento(e, aoAplicar) {
       <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${inicial || ''}" placeholder="0"/><u>kg</u></div>
     </div>
     <div class="calc-linhas"></div>
+    <div class="hint calc-nota"></div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="fechar">Fechar</button>
-      <button class="pill-btn" data-x="aplicar">Preencher séries</button>
+      <button class="pill-btn" data-x="aplicar">Aplicar</button>
     </div>
   </div>`);
 
   const campo = box.querySelector('input');
   const linhas = box.querySelector('.calc-linhas');
+  const nota = box.querySelector('.calc-nota');
   const aplicar = box.querySelector('[data-x="aplicar"]');
 
-  const nDe = (tipo) => e.sets.filter((x) => tipoSet(x) === tipo).length;
+  const pesoAtual = () => Number(String(campo.value).replace(',', '.')) || 0;
+  const cargasDe = (tipo) => {
+    const faixa = tipo === 'a' ? FAIXA_AQUECIMENTO : FAIXA_FEEDER;
+    return n[tipo] ? escalonar(pesoAtual(), faixa, n[tipo]) : [];
+  };
 
   const desenhar = () => {
-    const peso = Number(String(campo.value).replace(',', '.')) || 0;
-    const nA = nDe('a');
-    const nF = nDe('f');
+    const peso = pesoAtual();
 
-    const bloco = (rotulo, faixa, n, marca) => {
+    const bloco = (rotulo, tipo, faixa) => {
       const pct = Math.round(faixa[0] * 100) + '–' + Math.round(faixa[1] * 100) + '%';
-      const valores = peso > 0
-        ? escalonar(peso, faixa, Math.max(1, n)).map((v) => fmtWeight(v) + ' kg').join('  ·  ')
-        : '—';
+      const valores = peso > 0 && n[tipo]
+        ? cargasDe(tipo).map((v) => fmtWeight(v) + ' kg').join('  ·  ')
+        : (n[tipo] ? '—' : 'nenhuma série');
       return `<div class="calc-linha">
-        <div class="calc-rot"><b>${esc(rotulo)}</b><i>${pct}${n ? ' · ' + n + (n > 1 ? ' séries' : ' série') : ' · nenhuma série'}</i></div>
-        <div class="calc-val">${esc(valores)}</div>
+        <div class="calc-topo">
+          <div class="calc-rot"><b>${esc(rotulo)}</b><i>${pct} da carga</i></div>
+          <div class="calc-passo">
+            <button data-menos="${tipo}" ${n[tipo] ? '' : 'disabled'}>−</button>
+            <span>${n[tipo]}</span>
+            <button data-mais="${tipo}" ${n[tipo] >= 6 ? 'disabled' : ''}>+</button>
+          </div>
+        </div>
+        <div class="calc-val${n[tipo] ? '' : ' vazio'}">${esc(valores)}</div>
       </div>`;
     };
 
     linhas.innerHTML =
-      bloco('Aquecimento', FAIXA_AQUECIMENTO, nA, 'a') +
-      bloco('Feeder', FAIXA_FEEDER, nF, 'f');
+      bloco('Aquecimento', 'a', FAIXA_AQUECIMENTO) +
+      bloco('Feeder', 'f', FAIXA_FEEDER);
 
-    aplicar.disabled = !(peso > 0 && (nA + nF) > 0);
+    on(linhas, '[data-menos]', 'click', (ev) => {
+      const t = ev.currentTarget.dataset.menos;
+      n[t] = Math.max(0, n[t] - 1); haptic(); desenhar();
+    });
+    on(linhas, '[data-mais]', 'click', (ev) => {
+      const t = ev.currentTarget.dataset.mais;
+      n[t] = Math.min(6, n[t] + 1); haptic(); desenhar();
+    });
+
+    const criar = Math.max(0, n.a - contaTipo(e, 'a')) + Math.max(0, n.f - contaTipo(e, 'f'));
+    const tirar = Math.max(0, contaTipo(e, 'a') - n.a) + Math.max(0, contaTipo(e, 'f') - n.f);
+    const partes = [];
+    if (criar) partes.push('cria ' + criar + (criar > 1 ? ' séries' : ' série'));
+    if (tirar) partes.push('tira ' + tirar);
+    nota.textContent = peso > 0
+      ? (partes.length
+        ? 'Aplicar ' + partes.join(' e ') + ', antes das séries de trabalho.'
+        : 'Aplicar preenche as cargas das séries que já existem.')
+      : 'Informe a carga de trabalho para calcular.';
+
+    aplicar.disabled = !(peso > 0 && (n.a + n.f) > 0);
   };
 
   campo.addEventListener('input', desenhar);
@@ -1041,19 +1118,30 @@ function calculadoraAquecimento(e, aoAplicar) {
 
   box.querySelector('[data-x="fechar"]').addEventListener('click', () => ov.close());
   aplicar.addEventListener('click', () => {
-    const peso = Number(String(campo.value).replace(',', '.')) || 0;
-    if (peso <= 0) return;
-    let mudou = 0;
-    [['a', FAIXA_AQUECIMENTO], ['f', FAIXA_FEEDER]].forEach(([tipo, faixa]) => {
-      const alvos = e.sets.filter((x) => tipoSet(x) === tipo);
-      const valores = escalonar(peso, faixa, alvos.length);
-      alvos.forEach((st, i) => { st.peso = valores[i]; mudou += 1; });
-    });
+    if (pesoAtual() <= 0) return;
+
+    /* Antes de mexer: no meio do treino, remexer no que já foi marcado seria
+       pior que a bagunça, então a reordenação só vale com tudo intocado. */
+    const intocado = e.sets.every((x) => !x.done);
+
+    const criadas = ajustarSeries(e, 'a', cargasDe('a')) + ajustarSeries(e, 'f', cargasDe('f'));
+
+    if (intocado) {
+      /* aquecimento, depois feeder, depois o resto: é a ordem em que se faz */
+      const ordem = { a: 0, f: 1 };
+      e.sets = e.sets.slice().sort((x, y) =>
+        (ordem[tipoSet(x)] == null ? 2 : ordem[tipoSet(x)])
+        - (ordem[tipoSet(y)] == null ? 2 : ordem[tipoSet(y)]));
+    }
+
+    const total = n.a + n.f;
     haptic();
     ov.close();
     setTimeout(() => {
       aoAplicar();
-      toast(mudou + (mudou > 1 ? ' séries preenchidas' : ' série preenchida'));
+      toast(criadas > 0
+        ? criadas + (criadas > 1 ? ' séries criadas' : ' série criada')
+        : total + (total > 1 ? ' séries preenchidas' : ' série preenchida'));
     }, 120);
   });
 
