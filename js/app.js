@@ -51,6 +51,7 @@ function abrirMenuModulos(ancora) {
     label: m.nome, icone: m.iconeO, on: m.id === TAB,
     onClick: () => m.abrir(),
   }));
+  itens.push({ label: 'Plano da semana', icone: 'calendario', onClick: () => telaPlanoSemana() });
   itens.push({ label: 'Resumo da academia', icone: 'grafico', onClick: () => telaResumo() });
   if (S.sessions.length) {
     itens.push({ label: 'Todos os registros', icone: 'lista', onClick: () => openHistorico() });
@@ -97,6 +98,9 @@ const MODULOS = [
       if (S.active) return S.active.name + ' em andamento';
       if (sessionsOn(Date.now()).length) return 'Treino de hoje registrado';
       if (!S.workouts.length) return 'Monte o primeiro treino';
+      const plano = treinoDoDia(Date.now());
+      if (plano.folga) return 'Descanso marcado para hoje';
+      if (plano.origem !== 'rodizio') return plano.treino.name + ' marcado para hoje';
       const f = faltamNaSemana(Date.now());
       if (!f) return 'Meta da semana batida';
       return f === 1 ? 'Falta 1 treino nesta semana' : 'Faltam ' + f + ' treinos nesta semana';
@@ -151,8 +155,8 @@ function corAcademia() {
   if (S.active) return S.active.color;
   const hoje = sessionsOn(Date.now());
   if (hoje.length) return hoje[0].color;
-  const w = treinoSugerido();
-  return w ? w.color : contextAccent();
+  const plano = treinoDoDia(Date.now());
+  return plano.treino && !plano.folga ? plano.treino.color : contextAccent();
 }
 
 function irParaAba(id) {
@@ -241,9 +245,10 @@ function renderAcademia(el, screen) {
   const week = h('<div class="week"></div>');
   /* o disco do dia aberto usa a cor do treino dele, casando com o herói logo
      abaixo em vez de ser um branco solto */
+  const doDiaSel = treinoDoDia(selecionado);
   setAccent(sessionsOn(selecionado).length
     ? accentPainel(selecionado)
-    : (treinoSugerido() ? treinoSugerido().color : contextAccent()), week);
+    : (doDiaSel.treino ? doDiaSel.treino.color : contextAccent()), week);
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(domingo); d.setDate(domingo.getDate() + i);
@@ -259,10 +264,16 @@ function renderAcademia(el, screen) {
       !futuro && !hoje && ehDescanso(ts) ? 'descanso' : '',   // dia que ainda não acabou não é descanso
       futuro ? 'futuro' : '',
     ].filter(Boolean).join(' ');
+    /* dia ainda por vir e sem registro mostra, apagadinho, a cor do que está
+       marcado: dá para ler a semana inteira de relance */
+    const marcado = (!sessionsOn(ts).length && ts >= hojeTs - 86400000)
+      ? treinoDoDia(ts) : null;
+    const pinta = marcado && marcado.treino && marcado.origem !== 'rodizio'
+      ? ` style="background:${marcado.treino.color};opacity:.5"` : '';
     const dia = h(`<button class="${classes}">
       <div class="dow">${nomes[i]}</div>
       <div class="num">${d.getDate()}</div>
-      <div class="dot"></div>
+      <div class="dot"${pinta}></div>
     </button>`);
     if (!futuro) dia.addEventListener('click', () => { DIA_SEL = ts; haptic(); screen.refresh(); });
     week.appendChild(dia);
@@ -320,26 +331,57 @@ function renderAcademia(el, screen) {
     card.addEventListener('click', () => openSessionDetail(sess.id));
     scroll.appendChild(card);
   } else if (S.workouts.length) {
-    const w = treinoSugerido();
-    const series = w.exercises.reduce((n, e) => n + e.sets.length, 0);
-    const card = h(heroi({
-      sobrancelha: ehHoje ? 'Treino de hoje' : 'Sugestão do dia',
-      titulo: w.name,
-      numero: w.exercises.length + ' exercícios · ' + series + ' séries',
-      nota: ehHoje ? 'Seu plano está pronto para começar' : 'Nada foi registrado neste dia',
-    }));
-    setAccent(w.color, card);
-    card.addEventListener('click', () => openWorkout(w.id, 'view'));
+    const plano = doDiaSel;
+    const w = plano.treino;
+    const rotulo = {
+      dia: ehHoje ? 'Treino de hoje' : 'Marcado para o dia',
+      semana: DIAS_SEMANA[new Date(selecionado).getDay()],
+      rodizio: ehHoje ? 'Sugestão de hoje' : 'Sugestão do dia',
+    }[plano.origem];
+
+    const card = h(plano.folga
+      ? heroi({
+        sobrancelha: rotulo,
+        titulo: 'Descanso',
+        numero: 'Folga marcada no seu plano',
+        nota: ehHoje ? 'Dá para treinar mesmo assim: toque para escolher' : '',
+      })
+      : heroi({
+        sobrancelha: rotulo,
+        titulo: w.name,
+        numero: w.exercises.length + ' exercícios · ' + w.exercises.reduce((n, e) => n + e.sets.length, 0) + ' séries',
+        nota: plano.origem === 'rodizio'
+          ? 'Sem plano para este dia — este é o que está há mais tempo parado'
+          : (ehHoje ? 'Seu plano está pronto para começar' : 'Nada foi registrado neste dia'),
+      }));
+    setAccent(plano.folga ? contextAccent() : w.color, card);
+
+    /* Trocar só este dia sem mexer na rotina: é o caso da semana que sai do
+       script, e por isso mora no próprio cartão em vez de numa tela à parte. */
+    const trocar = h(`<button class="hero-menu" aria-label="Trocar treino do dia">${icon('dots')}</button>`);
+    trocar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      trocarTreinoDoDia(selecionado, screen, trocar);
+    });
+    card.appendChild(trocar);
+
+    if (!plano.folga) card.addEventListener('click', () => openWorkout(w.id, 'view'));
+    else card.addEventListener('click', () => trocarTreinoDoDia(selecionado, screen, trocar));
     scroll.appendChild(card);
   }
 
   scroll.appendChild(h(`<div class="acoes">
     <button class="acao" data-act="evolucao">${iconO('grafico')}Ver evolução</button>
-    <button class="acao" data-act="semana">${iconO('calendario')}${feitosSemana}/${meta} na semana</button>
+    <button class="acao" data-act="semana">${iconO('calendario')}Editar semana</button>
+    <button class="acao" data-act="metaSemana">${feitosSemana}/${meta} nesta semana</button>
   </div>`));
   acts(scroll, {
     evolucao: () => telaResumo(),
-    semana: () => openWorkoutsSheet(),
+    semana: () => telaPlanoSemana(),
+    metaSemana: () => promptSheet('Treinos por semana', String(meta), '2', (v) => {
+      S.settings.metaSemanal = Math.max(1, Math.round(Number(v) || 2));
+      saveNow(); screen.refresh();
+    }),
   });
 
   /* ---------- o dia selecionado ---------- */
@@ -351,12 +393,16 @@ function renderAcademia(el, screen) {
   } else {
     /* dia sem treino: o que dá para fazer */
     if (S.workouts.length) {
-      const w = treinoSugerido();
-      scroll.appendChild(h(secao('Plano do dia', 'Seus exercícios')));
-      scroll.appendChild(linhaDoTempo(w, screen));
-      scroll.appendChild(h(`<div class="section-title">${ehHoje ? 'Outros treinos' : 'Trocar de treino'}</div>`));
+      const w = doDiaSel.treino;
+      if (w && !doDiaSel.folga) {
+        scroll.appendChild(h(secao('Plano do dia', 'Seus exercícios')));
+        scroll.appendChild(linhaDoTempo(w, screen));
+      }
+      scroll.appendChild(h(`<div class="section-title">${w && !doDiaSel.folga ? 'Outros treinos' : 'Seus treinos'}</div>`));
       const grid = h('<div class="folders"></div>');
-      S.workouts.filter((x) => x.id !== w.id).forEach((x) => grid.appendChild(folderCard(x, screen)));
+      S.workouts
+        .filter((x) => doDiaSel.folga || !w || x.id !== w.id)
+        .forEach((x) => grid.appendChild(folderCard(x, screen)));
       if (grid.children.length) scroll.appendChild(grid);
       else scroll.lastChild.remove();
     } else {
@@ -411,6 +457,94 @@ function renderAcademia(el, screen) {
   }
 
   el.appendChild(scroll);
+}
+
+/* Menu de escolha de treino, usado tanto pela semana quanto pela troca do dia.
+   `atual` é o que está marcado; `extras` são as opções que não são treino. */
+function menuDeTreinos(ancora, atual, extras, aoEscolher) {
+  const itens = S.workouts.map((w) => ({
+    label: w.name, cor: w.color, on: atual === w.id,
+    onClick: () => aoEscolher(w.id),
+  }));
+  extras.forEach((x) => itens.push({
+    label: x.label, icone: x.icone, on: atual === x.valor,
+    onClick: () => aoEscolher(x.valor),
+  }));
+  menuSuspenso(itens, { ancora });
+}
+
+/* Troca o treino de UM dia, sem tocar na rotina. Voltar ao plano é apagar a
+   troca, não escolher de novo o que o molde já dizia. */
+function trocarTreinoDoDia(ts, screen, ancora) {
+  const extras = [{ label: 'Descanso', valor: FOLGA, icone: 'gota' }];
+  if (planoAvulso(ts)) extras.push({ label: 'Seguir o plano da semana', valor: '', icone: 'repeat' });
+  menuDeTreinos(ancora, planoAvulso(ts), extras, (valor) => {
+    definirPlanoDoDia(ts, valor);
+    haptic();
+    screen.refresh();
+  });
+}
+
+/* =========================================================
+   PLANO DA SEMANA
+   ========================================================= */
+
+function telaPlanoSemana() {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    el.appendChild(navBar('Plano da semana'));
+
+    const scroll = h('<div class="scroll"></div>');
+    scroll.appendChild(h(secao('Academia', 'Sua rotina')));
+    scroll.appendChild(h(`<div class="hint" style="padding-bottom:14px">Marque o treino de cada dia da semana. Vale toda semana; para mudar só um dia, use o ⋯ no cartão daquele dia.</div>`));
+
+    if (!S.workouts.length) {
+      scroll.appendChild(h(`<div class="empty">${icon('dumbbell')}<b>Nenhum treino montado</b>Monte seus treinos primeiro; depois eles aparecem aqui para você distribuir na semana.</div>`));
+      el.appendChild(scroll);
+      return;
+    }
+
+    const hojeDow = new Date().getDay();
+    DIAS_SEMANA.forEach((nome, dow) => {
+      const marcado = planoDaSemana(dow);
+      const w = marcado && marcado !== FOLGA ? getWorkout(marcado) : null;
+      const valor = w ? w.name : (marcado === FOLGA ? 'Descanso' : 'Livre');
+      const linha = h(`<button class="plano-dia${dow === hojeDow ? ' hoje' : ''}">
+        <i class="plano-cor"></i>
+        <div class="plano-txt">
+          <b>${esc(nome)}</b>
+          <span>${esc(valor)}</span>
+        </div>
+        ${icon('caret')}
+      </button>`);
+      if (w) setAccent(w.color, linha);
+      linha.querySelector('.plano-cor').style.background = w ? w.color : 'var(--fill-2)';
+      linha.addEventListener('click', () => {
+        menuDeTreinos(linha, marcado, [
+          { label: 'Descanso', valor: FOLGA, icone: 'gota' },
+          { label: 'Deixar livre', valor: '', icone: 'fechar' },
+        ], (v) => { definirPlanoSemanal(dow, v); haptic(); screen.refresh(); });
+      });
+      scroll.appendChild(linha);
+    });
+
+    const marcados = (S.settings.planoSemanal || []).filter((v) => v && v !== FOLGA).length;
+    scroll.appendChild(h(`<div class="hint" style="padding-top:16px">${marcados
+      ? marcados + (marcados === 1 ? ' dia de treino marcado' : ' dias de treino marcados')
+        + ' — a meta da semana continua sendo ' + metaSemanal() + ', e é ela que segura a ofensiva.'
+      : 'Nenhum dia marcado ainda: o app segue sugerindo o treino que está há mais tempo parado.'}</div>`));
+
+    const limpar = h('<button class="acao" style="margin:6px 16px">Apagar o plano</button>');
+    limpar.addEventListener('click', () => confirmSheet('Apagar o plano da semana?',
+      'Os treinos continuam montados; só as marcações de cada dia somem.', 'Apagar', () => {
+        S.settings.planoSemanal = [];
+        S.planoDias = {};
+        saveNow(); screen.refresh();
+      }));
+    if (temPlano()) scroll.appendChild(limpar);
+
+    el.appendChild(scroll);
+  }, { name: 'plano' });
 }
 
 /* Os exercícios do treino como um roteiro: a bolha traz a foto do movimento e

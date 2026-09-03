@@ -77,6 +77,7 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
+  planoDias: {},          // troca avulsa de treino, por dia (AAAA-MM-DD)
   tarefas: [],            // cronograma: tarefas e compromissos
   metas: [],              // cofrinho: dinheiro separado por objetivo
   materias: [],           // estudos: tópicos e horas por matéria
@@ -86,6 +87,7 @@ const DEFAULT_STATE = {
     unit: 'kg', restDefault: 1, bodyweight: 75,
     lastBackup: 0, backupAvisado: 0, tema: 'preto',
     metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
+    planoSemanal: [],     // molde da rotina: um treino (ou folga) por dia da semana
     metaAgua: 0,          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
@@ -173,6 +175,8 @@ function completarCampos(estado) {
   delete estado.descansos;   // o descanso passou a ser automático
   if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
   if (!estado.aguaLog || typeof estado.aguaLog !== 'object') estado.aguaLog = {};
+  if (!estado.planoDias || typeof estado.planoDias !== 'object') estado.planoDias = {};
+  if (!Array.isArray(estado.settings.planoSemanal)) estado.settings.planoSemanal = [];
   const p = DEFAULT_STATE.settings;
   Object.keys(p).forEach((k) => {
     if (estado.settings[k] === undefined) estado.settings[k] = p[k];
@@ -249,8 +253,77 @@ function newWorkout() {
 
 function getWorkout(id) { return S.workouts.find((w) => w.id === id); }
 
-/* Treino sugerido para hoje: o que está há mais tempo sem ser feito. É um
-   rodízio simples, que funciona sem exigir que ele monte uma agenda fixa. */
+/* ---------- plano de treino ----------
+
+   Duas camadas. O **molde semanal** é como uma rotina de academia costuma ser
+   pensada — "segunda é peito, terça é costas" — e vale toda semana. A **troca
+   avulsa** marca um dia específico, para a semana em que a ordem muda sem que
+   a rotina inteira mude junto. A troca vence o molde; sem nenhum dos dois, o
+   dia cai no rodízio automático.
+
+   O plano diz o que treinar, não o que conta como descanso: a ofensiva
+   continua presa à meta semanal, senão bastaria planejar sete folgas para
+   nunca perdê-la. */
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const DIAS_CURTO = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const FOLGA = 'folga';   // guardado quando o dia é de descanso de propósito
+
+const planoDaSemana = (dow) => (S.settings.planoSemanal || [])[dow] || null;
+
+function definirPlanoSemanal(dow, valor) {
+  if (!Array.isArray(S.settings.planoSemanal)) S.settings.planoSemanal = [];
+  S.settings.planoSemanal[dow] = valor || null;
+  saveNow();
+}
+
+const planoAvulso = (ts) => S.planoDias[dayKey(ts == null ? Date.now() : ts)] || null;
+
+function definirPlanoDoDia(ts, valor) {
+  const k = dayKey(ts == null ? Date.now() : ts);
+  if (valor) S.planoDias[k] = valor;
+  else delete S.planoDias[k];   // sem valor, o dia volta a seguir o molde
+  saveNow();
+}
+
+/* O que está marcado para um dia. `origem` diz de onde veio — 'dia' para a
+   troca avulsa, 'semana' para o molde, 'rodizio' quando nada foi marcado —,
+   e é isso que deixa a tela dizer "treino de hoje" em vez de "sugestão". */
+function treinoDoDia(ts) {
+  const quando = ts == null ? Date.now() : ts;
+
+  const avulso = planoAvulso(quando);
+  if (avulso === FOLGA) return { treino: null, origem: 'dia', folga: true };
+  if (avulso) {
+    const w = getWorkout(avulso);
+    if (w) return { treino: w, origem: 'dia', folga: false };
+  }
+
+  const semanal = planoDaSemana(new Date(quando).getDay());
+  if (semanal === FOLGA) return { treino: null, origem: 'semana', folga: true };
+  if (semanal) {
+    const w = getWorkout(semanal);
+    if (w) return { treino: w, origem: 'semana', folga: false };
+  }
+
+  return { treino: treinoSugerido(), origem: 'rodizio', folga: false };
+}
+
+const temPlano = () => (S.settings.planoSemanal || []).some(Boolean)
+  || Object.keys(S.planoDias).length > 0;
+
+/* Um treino apagado não pode deixar dias apontando para o vazio. */
+function limparPlano(workoutId) {
+  if (Array.isArray(S.settings.planoSemanal)) {
+    S.settings.planoSemanal = S.settings.planoSemanal.map((v) => (v === workoutId ? null : v));
+  }
+  Object.keys(S.planoDias).forEach((k) => {
+    if (S.planoDias[k] === workoutId) delete S.planoDias[k];
+  });
+}
+
+/* Treino sugerido para hoje: o que está há mais tempo sem ser feito. É o que
+   vale quando nada foi marcado no plano. */
 function treinoSugerido() {
   if (!S.workouts.length) return null;
   const ultimo = {};
@@ -265,6 +338,7 @@ function treinoSugerido() {
 function deleteWorkout(id) {
   S.workouts = S.workouts.filter((w) => w.id !== id);
   if (S.active && S.active.workoutId === id) S.active = null;
+  limparPlano(id);
   save();
 }
 

@@ -157,6 +157,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
 | [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
 | [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
+| [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -385,6 +386,7 @@ node tools/dias-test.js ./__shots        # navegação por dia e cores
 node tools/calc-test.js ./__shots        # descanso global e calculadora
 node tools/vida-test.js ./__shots        # módulos de organização e navegação
 node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
+node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -521,6 +523,42 @@ relógio e da câmera: esse recuo passou para `.screen.com-abas > .scroll`.
 
 Concluir um treino chama `voltarPara('academia')`, não `popToRoot()`: quem
 acabou de treinar quer cair de volta na academia.
+
+## O plano de treino
+
+Duas camadas, porque são dois problemas diferentes.
+
+O **molde da semana** é como uma rotina de academia costuma ser pensada:
+"segunda é peito, terça é costas". Vale toda semana, e mora em
+`settings.planoSemanal` — sete posições, cada uma com um `workoutId`, a
+constante `FOLGA` ou nada.
+
+A **troca avulsa** marca uma data só, em `planoDias['2026-09-03']`, para a
+semana que sai do script sem que a rotina inteira mude junto. Ela vence o
+molde; sem nenhum dos dois, o dia cai no rodízio automático.
+
+`treinoDoDia(ts)` resolve as três camadas e devolve também a **origem** —
+`'dia'`, `'semana'` ou `'rodizio'`. É a origem que deixa o cartão dizer
+*Quinta* quando o treino veio da rotina, *Treino de hoje* quando foi uma troca
+e *Sugestão de hoje* quando ninguém marcou nada.
+
+Onde se mexe:
+
+- **Plano da semana** (pílula *Editar semana* na academia, ou o menu suspenso):
+  sete linhas, uma por dia, cada uma abrindo o menu de treinos. Também dá para
+  marcar *Descanso* ou deixar *Livre*.
+- **Só um dia**: o ⋯ no canto do cartão do dia. Com uma troca no ar, o menu
+  ganha *Seguir o plano da semana*, que **apaga** a troca em vez de gravar
+  outra igual à rotina — senão mudar a rotina depois não alcançaria aquele dia.
+
+O plano diz o que treinar, **não** o que conta como descanso: a ofensiva
+continua presa à meta semanal. Marcar folga nos sete dias não a segura, e
+`plano-test.js` verifica exatamente isso. Apagar um treino limpa as marcações
+que apontavam para ele (`limparPlano`), para nenhum dia ficar apontando para o
+vazio.
+
+Na faixa da semana, um dia ainda por vir e sem registro mostra, apagadinho, a
+cor do que está marcado — dá para ler a semana inteira de relance.
 
 ## A academia em um cartão
 
