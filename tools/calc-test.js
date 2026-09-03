@@ -201,33 +201,68 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     document.querySelectorAll('.sheet .calc-passo span').forEach(function (x) { v.push(x.textContent); });
     return v.join(',');
   })()`);
-  ck(passos === '2,0', 'com dois aquecimentos ja sugeridos e nenhum feeder (' + passos + ')');
-  ck(await ev(naFolha('.calc-linhas') + ".textContent.indexOf('nenhuma série') >= 0"),
-    'e o feeder dizendo que nao tem serie, em vez de travessao');
+  ck(passos === '2', 'com dois aquecimentos ja sugeridos (' + passos + ')');
+  ck(await ev(`document.querySelector('.sheet [data-modo=a]').classList.contains('on')`),
+    'e o seletor comeca em "so aquecimento"');
+  ck(await ev(`!document.querySelector('.sheet [data-linha-f], .sheet .calc-linha:nth-child(2)')`),
+    'sem a linha do feeder atrapalhando quem nao usa');
   ck(await ev(naFolha('.calc-nota') + ".textContent.indexOf('cria 2') >= 0"),
     'a nota avisa que vai criar duas series');
   await shot('k4-so-validas');
 
-  /* o + do feeder tem de mudar a previa na hora */
-  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(400);
+  console.log('');
+  console.log('seletor de modo:');
+  await ev(`document.querySelector('.sheet [data-modo=af]').click()`); await sleep(500);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-linha').length === 2`),
+    'trocar para "aquecimento + feeder" traz a segunda linha');
   ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[1].textContent === '1'`),
-    'o + do feeder sobe a contagem');
+    'com um feeder de saida');
   ck(await ev(naFolha('.calc-linhas') + ".textContent.indexOf('55 kg') >= 0"),
     'e a previa ja mostra a carga dele: 80 kg no meio de 60-75% da 55 kg');
 
+  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(350);
+  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(350);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[1].textContent === '3'`),
+    'o + do feeder sobe a contagem para 3');
+
+  await ev(`document.querySelector('.sheet [data-modo=a]').click()`); await sleep(500);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-linha').length === 1`),
+    'voltar para "so aquecimento" tira a linha do feeder');
+  ck(await ev(naFolha('.calc-nota') + ".textContent.indexOf('cria 2') >= 0"),
+    'e a nota volta a falar so dos aquecimentos');
+
+  await ev(`document.querySelector('.sheet [data-modo=af]').click()`); await sleep(500);
+  ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[1].textContent === '3'`),
+    'religar o feeder devolve os 3 escolhidos, em vez de recomecar do 1');
+
+  /* dentro do modo com feeder, o menos nao pode zerar pelas costas do seletor */
+  for (let i = 0; i < 5; i++) {
+    await ev(`document.querySelector('.sheet [data-menos=f]').click()`); await sleep(180);
+  }
+  ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[1].textContent === '1'`),
+    'o menos do feeder para no 1: zerar e trabalho do seletor');
+
+  await ev(`document.querySelector('.sheet [data-mais=f]').click()`); await sleep(350);
   await ev(`document.querySelector('.sheet [data-mais=a]').click()`); await sleep(400);
   ck(await ev(`document.querySelectorAll('.sheet .calc-passo span')[0].textContent === '3'`),
-    'e o do aquecimento tambem');
+    'e o do aquecimento tambem sobe');
+
+  /* a folha veste a cor do treino, e nao o neutro da raiz */
+  const corFolha = await ev(`getComputedStyle(document.querySelector('.sheet .calc-val')).color`);
+  ck(corFolha === 'rgb(160, 32, 240)' || corFolha === 'rgb(255, 59, 48)' || corFolha.indexOf('rgb(255, 255, 255)') < 0,
+    'as cargas saem na cor do treino, nao no neutro (' + corFolha + ')');
+  await shot('k4b-com-feeder');
 
   await ev(naFolha('[data-x=aplicar]') + '.click()'); await sleep(800);
   const criados = JSON.parse(await ev(`JSON.stringify(${oEx()}.sets.map(function (x) {
     return tipoSet(x) + ':' + x.peso;
   }))`));
-  ck(criados.length === 7, 'aplicar cria as 4 series novas (ficou com ' + criados.length + ')');
+  ck(criados.length === 8, 'aplicar cria as 5 series novas: 3 aquecimentos e 2 feeders (ficou com ' + criados.length + ')');
   ck(criados.slice(0, 3).every(function (x) { return x.indexOf('a:') === 0; }),
     'os aquecimentos ficam na frente: ' + criados.slice(0, 3).join(' '));
-  ck(criados[3].indexOf('f:') === 0, 'o feeder vem depois deles (' + criados[3] + ')');
-  ck(criados.slice(4).every(function (x) { return x === 'v:80'; }),
+  ck(criados.slice(3, 5).every(function (x) { return x.indexOf('f:') === 0; }),
+    'os feeders vem depois deles: ' + criados.slice(3, 5).join(' '));
+  ck(criados.slice(5).every(function (x) { return x === 'v:80'; }),
     'e as validas continuam intactas no fim');
   ck(await ev(`${oEx()}.sets[0].reps === 8`),
     'as series novas herdam as repeticoes da serie de trabalho');
@@ -242,9 +277,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(naFolha('.calc-nota') + ".textContent.indexOf('tira 2') >= 0"),
     'a nota avisa que vai tirar duas');
   await ev(naFolha('[data-x=aplicar]') + '.click()'); await sleep(800);
-  ck(await ev(`${oEx()}.sets.length === 5`), 'aplicar tira as series a mais');
-  ck(await ev(`contaTipo(${oEx()}, 'a') === 2 && contaTipo(${oEx()}, 'f') === 0`),
-    'sobrando dois aquecimentos e nenhum feeder');
+  ck(await ev(`${oEx()}.sets.length === 6`), 'aplicar tira as series a mais');
+  ck(await ev(`contaTipo(${oEx()}, 'a') === 2 && contaTipo(${oEx()}, 'f') === 1`),
+    'sobrando dois aquecimentos e um feeder');
 
   /* no meio do treino, a ordem nao pode ser remexida */
   await ev(`${oEx()}.sets[4].done = true; saveNow(); currentScreen().refresh();`);

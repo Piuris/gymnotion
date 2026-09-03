@@ -606,13 +606,21 @@ há dentro. A barra para em 100% mesmo com o guardado passando do alvo.
 
 ## Estudos
 
-Matéria com cor, tópicos e horas. Os tópicos são uma lista de check, e a fração
+Matéria com cor, tópicos e horas. A cor da matéria estava só num contorno de 1px
+e num número pequeno; agora ela ocupa um **selo cheio de 46px com a inicial** e
+a barra de progresso inteira, que é o que faz achar a matéria certa sem ler nome
+por nome. Dentro dela, o cartão-herói assume a mesma cor. Os tópicos são uma lista de check, e a fração
 concluída vira a porcentagem do cartão. As horas entram por botões de 25, 50 e 90
 minutos ou por valor livre, contra uma meta semanal em minutos.
 
+O número ao lado do nome conta a mesma coisa que a barra: com meta semanal, o
+tempo; sem meta, o avanço nos tópicos. Antes o número mostrava tópicos e a barra
+mostrava minutos, e os dois discordavam lado a lado.
+
 O gráfico de 14 dias junta matérias, então não tem uma cor só: **cada barra leva
 a cor da matéria que mais rendeu naquele dia**, pela mesma regra do gráfico de
-volume da academia.
+volume da academia. As barras têm piso de 8% de altura — um dia de 10 minutos
+virava um risco invisível, e o que importa ali é ver que houve estudo.
 
 ## Barra de abas: o que sobrou de duas correções antigas
 
@@ -686,12 +694,16 @@ montado, onde todas são válidas, ele nascia desabilitado e parecia quebrado: s
 funcionava para quem tivesse marcado cada série na mão antes de abrir a
 calculadora, que é justamente o trabalho que ela deveria poupar.
 
-Agora cada faixa tem um contador (`− n +`). Ele começa no que já existe no
-exercício; num exercício sem nenhuma A ou F, começa em **2 aquecimentos e 0
-feeders** — o palpite que serve para quase todo mundo, com o feeder em zero por
-ser o mais específico dos dois. *Aplicar* cria as séries que faltam, tira as que
-sobram e grava as cargas; a nota acima do botão diz de antemão o que ele vai
-fazer.
+Um seletor decide primeiro o essencial — **Só aquecimento** ou **Aquecimento +
+feeder** —, e a linha do feeder só aparece no segundo modo: quem não usa feeder
+fica com uma decisão em vez de dois contadores. Voltar para o modo com feeder
+devolve o número que já tinha sido escolhido, e não recomeça do um.
+
+Dentro de cada faixa há um contador (`− n +`), que começa no que já existe no
+exercício; sem nenhuma A ou F, começa em **2 aquecimentos**. *Aplicar* cria as
+séries que faltam, tira as que sobram e grava as cargas; a nota acima do botão
+diz de antemão o que ele vai fazer. A folha veste a cor do treino: ela nasce
+fora da tela dele e não herdaria o acento sozinha.
 
 As séries criadas herdam repetições e descanso da série de trabalho — inventar
 número aqui só daria trabalho de corrigir depois — e vão para a frente da lista,

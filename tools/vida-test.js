@@ -307,6 +307,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(`${tela()}.querySelectorAll('.mat-card').length === 1`), 'a matéria aparece');
   const corMat = await ev(`getComputedStyle(${tela()}.querySelector('.mat-card')).getPropertyValue('--accent').trim()`);
   ck(corMat === '#A020F0', 'com a cor dela (' + corMat + ')');
+  /* a cor precisa aparecer de verdade, nao so num contorno de 1px */
+  const selo = JSON.parse(await ev(`(function () {
+    var s = ${tela()}.querySelector('.mat-card .mat-ico');
+    var b = ${tela()}.querySelector('.mat-card .progress');
+    var e = getComputedStyle(s);
+    return JSON.stringify({
+      letra: s.textContent.trim(),
+      fundo: e.backgroundColor,
+      lado: Math.round(s.getBoundingClientRect().width),
+      barra: Math.round(b.getBoundingClientRect().height),
+    });
+  })()`));
+  ck(selo.letra === 'C', 'o selo traz a inicial da matéria (' + selo.letra + ')');
+  ck(selo.fundo === 'rgb(160, 32, 240)', 'preenchido na cor dela (' + selo.fundo + ')');
+  ck(selo.lado >= 40, 'num tamanho que dá para ver (' + selo.lado + 'px)');
+  ck(selo.barra >= 8, 'e a barra de progresso engrossou (' + selo.barra + 'px)');
 
   await ev(`${tela()}.querySelector('.mat-card').click()`); await sleep(600);
   ck(await ev("currentScreen().name === 'materia'"), 'tocar abre o detalhe');

@@ -513,6 +513,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   overflow: hidden;
 }
 .progress i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+/* barra mais grossa onde ela é o principal sinal de cor da lista */
+.progress.alto { height: 9px; border-radius: 5px; margin: 12px 0 8px; }
+.progress.alto i { border-radius: 5px; }
 .plan-foot { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; }
 .plan-foot span:last-child { color: var(--txt-2); }
 
@@ -1039,6 +1042,10 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .calc-peso span { flex: 1; font-size: 15px; color: var(--txt-2); }
 .calc-peso .field { flex: 0 0 120px; background: var(--input-bg); border: 1px solid var(--line); }
 
+/* Uma decisão antes dos números: com ou sem feeder. */
+.calc-modo { padding: 0 20px 14px; }
+.calc-modo .chip { height: 38px; padding: 0 16px; font-size: 14.5px; }
+
 .calc-linhas { margin: 0 20px 16px; }
 
 .calc-linha {
@@ -1432,7 +1439,17 @@ body.arrastando-algo .scroll { overflow: hidden; }
   transition: transform .14s;
 }
 .meta-card:active, .mat-card:active { transform: scale(.985); }
-.meta-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+/* a matéria carrega a cor num selo cheio, não num fio de 1px */
+.mat-card { border-color: var(--a35); }
+.meta-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.mat-ico {
+  width: 46px; height: 46px; flex: 0 0 46px;
+  border-radius: 15px;
+  background: var(--accent);
+  color: var(--on-accent, #000);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; letter-spacing: -.5px;
+}
 .meta-txt { flex: 1; min-width: 0; }
 .meta-txt b { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
 .meta-txt span { display: block; font-size: 14px; color: var(--txt-2); margin-top: 3px; }
@@ -1441,19 +1458,32 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .meta-card.batida .meta-foot { color: var(--accent); font-weight: 600; }
 
 .estudo-semana {
-  display: flex; align-items: flex-end; gap: 4px;
+  display: flex; align-items: flex-end; gap: 5px;
   padding: 4px 16px 8px;
-  height: 96px;
+  height: 132px;
 }
-.estudo-dia { flex: 1; display: flex; height: 100%; }
+.estudo-dia {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  height: 100%;
+}
 .estudo-barra {
-  flex: 1;
-  border-radius: 5px;
+  flex: 1; width: 100%;
+  border-radius: 7px;
   background: var(--fill-1);
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
-.estudo-barra i { display: block; width: 100%; border-radius: 5px; }
+.estudo-barra i {
+  display: block; width: 100%; border-radius: 7px;
+  transition: height .3s cubic-bezier(.32, .72, 0, 1);
+}
+.estudo-rotulo {
+  margin-top: 6px;
+  font-size: 11px; color: var(--txt-3);
+  white-space: nowrap;
+}
+.estudo-dia.tem .estudo-rotulo { color: var(--txt-2); font-weight: 600; }
 
 /* =========================================================
    SISTEMA VISUAL: seção, herói, ações e linha do tempo

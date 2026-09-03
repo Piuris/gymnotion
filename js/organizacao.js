@@ -421,9 +421,13 @@ function telaEstudos() {
     if (dias.some((d) => d.min)) {
       scroll.appendChild(h(secao('Ritmo', 'Últimos 14 dias')));
       const barras = h('<div class="estudo-semana"></div>');
-      dias.forEach((d) => {
-        const bar = h(`<div class="estudo-dia" title="${fmtMin(d.min)}">
-          <div class="estudo-barra"><i style="height:${(d.min / teto) * 100}%;background:${d.min ? d.cor : 'var(--fill-1)'}"></i></div>
+      dias.forEach((d, i) => {
+        /* piso de 8%: um dia de 10 minutos virava um risco invisível, e o que
+           importa no gráfico é ver que houve estudo, não medir no milímetro */
+        const alt = d.min ? Math.max(8, (d.min / teto) * 100) : 0;
+        const bar = h(`<div class="estudo-dia${d.min ? ' tem' : ''}" title="${fmtMin(d.min)}">
+          <div class="estudo-barra"><i style="height:${alt}%;background:${d.cor}"></i></div>
+          <div class="estudo-rotulo">${i === dias.length - 1 ? 'hoje' : DIAS_CURTO[new Date(d.ts).getDay()].charAt(0)}</div>
         </div>`);
         barras.appendChild(bar);
       });
@@ -438,15 +442,22 @@ function telaEstudos() {
     S.materias.forEach((m) => {
       const min = minutosNaSemana(m);
       const prog = progressoMateria(m);
+      /* o numero e a barra tem de contar a mesma coisa: com meta semanal, o
+         que importa e o tempo; sem meta, sobra o avanco nos topicos */
+      const pctBarra = m.metaSemanal ? Math.min(1, min / m.metaSemanal) : prog;
+      /* A cor da matéria estava só num contorno de 1px e num número pequeno.
+         Agora ela ocupa um selo cheio com a inicial e a barra inteira, que é o
+         que faz dar para achar a matéria certa sem ler nome por nome. */
       const card = h(`<div class="mat-card">
         <div class="meta-head">
+          <div class="mat-ico">${esc(m.nome.trim().charAt(0).toUpperCase())}</div>
           <div class="meta-txt">
             <b>${esc(m.nome)}</b>
             <span>${m.topicos.length ? topicosFeitos(m) + ' de ' + m.topicos.length + ' tópicos' : 'sem tópicos'} · ${fmtMin(min)} nesta semana</span>
           </div>
-          <div class="meta-pct">${m.topicos.length ? Math.round(prog * 100) + '%' : ''}</div>
+          <div class="meta-pct">${Math.round(pctBarra * 100)}%</div>
         </div>
-        <div class="progress"><i style="width:${(m.metaSemanal ? Math.min(1, min / m.metaSemanal) : prog) * 100}%"></i></div>
+        <div class="progress alto"><i style="width:${pctBarra * 100}%"></i></div>
         <div class="meta-foot">${m.metaSemanal ? 'Meta de ' + fmtMin(m.metaSemanal) + ' por semana' : 'Sem meta semanal'}</div>
       </div>`);
       setAccent(m.cor, card);
@@ -479,11 +490,15 @@ function telaMateria(id) {
     const scroll = h('<div class="scroll"></div>');
     const min = minutosNaSemana(m);
 
-    scroll.appendChild(h(`<div class="card">
-      <div class="plan-foot" style="margin-bottom:10px"><span>Nesta semana</span><span>${fmtMin(min)}${m.metaSemanal ? ' de ' + fmtMin(m.metaSemanal) : ''}</span></div>
-      <div class="progress" style="margin:4px 0 12px"><i style="width:${m.metaSemanal ? Math.min(100, (min / m.metaSemanal) * 100) : 0}%"></i></div>
-      <div class="plan-foot"><span>Total acumulado</span><span>${fmtMin(minutosTotais(m))}</span></div>
-    </div>`));
+    /* dentro da matéria, a cor dela toma a tela: é o mesmo herói das outras
+       telas, e some a dúvida de qual matéria está aberta */
+    scroll.appendChild(h(heroi({
+      sobrancelha: 'Nesta semana',
+      titulo: fmtMin(min),
+      classe: 'compacto',
+      numero: m.metaSemanal ? 'de ' + fmtMin(m.metaSemanal) + ' de meta' : 'Sem meta semanal',
+      nota: 'Total acumulado: ' + fmtMin(minutosTotais(m)),
+    })));
 
     const botoes = h('<div class="agua-copos"></div>');
     MINUTOS_RAPIDOS.forEach((v) => {

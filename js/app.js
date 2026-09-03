@@ -1025,7 +1025,7 @@ function ajustarSeries(e, tipo, cargas) {
    exercício recém-montado, onde todas são válidas, o botão nascia desabilitado
    e parecia quebrado. Agora ela também cria e remove as séries, que é o que
    "calcular o aquecimento" quer dizer na prática. */
-function calculadoraAquecimento(e, aoAplicar) {
+function calculadoraAquecimento(e, aoAplicar, cor) {
   const inicial = pesoDeTrabalho(e);
   let ov;
 
@@ -1037,6 +1037,9 @@ function calculadoraAquecimento(e, aoAplicar) {
     a: temAlgum ? contaTipo(e, 'a') : 2,
     f: temAlgum ? contaTipo(e, 'f') : 0,
   };
+  /* Quantos feeders havia antes de desligá-los: voltar para "com feeder" tem
+     de devolver o número escolhido, não recomeçar do um. */
+  let feederLembrado = n.f || 1;
 
   const box = h(`<div>
     <h3>Aquecimento e feeder</h3>
@@ -1044,6 +1047,10 @@ function calculadoraAquecimento(e, aoAplicar) {
     <div class="calc-peso">
       <span>Carga de trabalho</span>
       <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${inicial || ''}" placeholder="0"/><u>kg</u></div>
+    </div>
+    <div class="chips calc-modo">
+      <button class="chip" data-modo="a">Só aquecimento</button>
+      <button class="chip" data-modo="af">Aquecimento + feeder</button>
     </div>
     <div class="calc-linhas"></div>
     <div class="hint calc-nota"></div>
@@ -1054,6 +1061,7 @@ function calculadoraAquecimento(e, aoAplicar) {
   </div>`);
 
   const campo = box.querySelector('input');
+  const modo = box.querySelector('.calc-modo');
   const linhas = box.querySelector('.calc-linhas');
   const nota = box.querySelector('.calc-nota');
   const aplicar = box.querySelector('[data-x="aplicar"]');
@@ -1085,17 +1093,27 @@ function calculadoraAquecimento(e, aoAplicar) {
       </div>`;
     };
 
-    linhas.innerHTML =
-      bloco('Aquecimento', 'a', FAIXA_AQUECIMENTO) +
-      bloco('Feeder', 'f', FAIXA_FEEDER);
+    /* O feeder é a parte que nem todo mundo usa; escondê-lo no modo simples
+       deixa a folha com uma decisão só em vez de dois contadores. */
+    const comFeeder = n.f > 0;
+    modo.querySelectorAll('[data-modo]').forEach((b) => {
+      b.classList.toggle('on', (b.dataset.modo === 'af') === comFeeder);
+    });
+
+    linhas.innerHTML = bloco('Aquecimento', 'a', FAIXA_AQUECIMENTO)
+      + (comFeeder ? bloco('Feeder', 'f', FAIXA_FEEDER) : '');
 
     on(linhas, '[data-menos]', 'click', (ev) => {
       const t = ev.currentTarget.dataset.menos;
-      n[t] = Math.max(0, n[t] - 1); haptic(); desenhar();
+      n[t] = Math.max(t === 'f' ? 1 : 0, n[t] - 1);
+      if (t === 'f') feederLembrado = n.f;
+      haptic(); desenhar();
     });
     on(linhas, '[data-mais]', 'click', (ev) => {
       const t = ev.currentTarget.dataset.mais;
-      n[t] = Math.min(6, n[t] + 1); haptic(); desenhar();
+      n[t] = Math.min(6, n[t] + 1);
+      if (t === 'f') feederLembrado = n.f;
+      haptic(); desenhar();
     });
 
     const criar = Math.max(0, n.a - contaTipo(e, 'a')) + Math.max(0, n.f - contaTipo(e, 'f'));
@@ -1111,6 +1129,14 @@ function calculadoraAquecimento(e, aoAplicar) {
 
     aplicar.disabled = !(peso > 0 && (n.a + n.f) > 0);
   };
+
+  on(modo, '[data-modo]', 'click', (ev) => {
+    const alvo = ev.currentTarget.dataset.modo;
+    if (alvo === 'af') n.f = feederLembrado;
+    else { if (n.f) feederLembrado = n.f; n.f = 0; }
+    haptic();
+    desenhar();
+  });
 
   campo.addEventListener('input', desenhar);
   desenhar();
@@ -1145,6 +1171,9 @@ function calculadoraAquecimento(e, aoAplicar) {
     }, 120);
   });
 
+  /* A folha nasce fora da tela do treino, entao nao herda a cor dele sozinha:
+     sem isto, as cargas calculadas sairiam no neutro. */
+  if (cor) setAccent(cor, box);
   ov = openSheet(box);
 }
 
@@ -1916,7 +1945,7 @@ function openExercise(workoutId, uid, inSession) {
       <span>Calcular aquecimento e feeder</span>
       ${icon('chev').replace('<svg', '<svg class="chev"')}
     </button>`);
-    calc.addEventListener('click', () => calculadoraAquecimento(e, () => { save(); screen.refresh(); }));
+    calc.addEventListener('click', () => calculadoraAquecimento(e, () => { save(); screen.refresh(); }, w.color));
     scroll.appendChild(calc);
 
     /* adicionar série */
