@@ -275,6 +275,65 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'e nao aparece marcado na faixa');
   await ev('DIA_SEL = Date.now(); currentScreen().refresh();'); await sleep(300);
 
+  console.log('\ncor dos graficos:');
+  /* Registra um segundo treino, de outra cor, num terceiro dia. Antes os
+     paineis puxavam sempre a cor do ultimo treino: navegando para tras, os
+     numeros de terca apareciam com a cor do treino de quinta. */
+  await ev(`
+    startSession(S.workouts[1].id);            /* Push, laranja */
+    S.active.exercises.forEach(function (e) {
+      e.sets.forEach(function (s) { s.peso = 80; s.reps = 10; s.done = true; });
+    });
+    var s = finishSession();
+    s.date = Date.now() - 4 * 86400000;
+    S.sessions.sort(function (a, b) { return b.date - a.date; });
+    saveNow(); 'ok';
+  `);
+
+  const irAba = (nome) => ev(`TAB = '${nome}'; popToRoot(); currentScreen().refresh();`);
+  const corDoDia = async (diasAtras) => {
+    await ev(`DIA_SEL = Date.now() - ${diasAtras} * 86400000; popToRoot(); currentScreen().refresh();`);
+    await sleep(500);
+    return ev(`getComputedStyle(${tela()}.querySelector('.rings')).getPropertyValue('--accent').trim()`);
+  };
+  const corPull = await ev('S.workouts[0].color');
+  const corPush = await ev('S.workouts[1].color');
+  const anelPull = await corDoDia(2);
+  const anelPush = await corDoDia(4);
+  ck(anelPull === corPull, 'os aneis do dia do Pull usam a cor do Pull (' + anelPull + ')');
+  ck(anelPush === corPush, 'e os do dia do Push usam a do Push (' + anelPush + ')');
+  ck(anelPull !== anelPush, 'ou seja, a cor acompanha o dia navegado, nao o ultimo treino');
+
+  await ev('DIA_SEL = Date.now(); popToRoot(); currentScreen().refresh();'); await sleep(400);
+  await irAba('inicio'); await sleep(700);
+  const pontos = await ev(`(function () {
+    var v = [];
+    ${tela()}.querySelectorAll('.chart-card circle').forEach(function (c) { v.push(c.getAttribute('fill')); });
+    return v.join(',');
+  })()`);
+  const cores = await ev("S.sessions.slice(0, 12).reverse().map(function (s) { return s.color; }).join(',')");
+  ck(pontos === cores,
+    'no volume por treino, cada ponto leva a cor do seu treino (' + pontos + ')');
+  ck(await ev(`${tela()}.querySelector('.chart-card path[stroke]').getAttribute('stroke') === 'var(--txt-3)'`),
+    'e a linha que os liga fica neutra, sem herdar cor de treino nenhum');
+
+  console.log('\ncor da agua:');
+  await irAba('nutricao'); await sleep(700);
+  const AZUL = (await ev('AZUL_AGUA')).toUpperCase();
+  const azul = (await ev(`getComputedStyle(${tela()}.querySelector('.agua-anel')).getPropertyValue('--accent').trim()`)).toUpperCase();
+  ck(azul === AZUL, 'a agua tem cor propria, azul (' + azul + '), por nao ser treino');
+  ck(azul !== corPull.toUpperCase() && azul !== corPush.toUpperCase(),
+    'e nao segue nenhuma cor de treino');
+  await ev('beberAgua(500); currentScreen().refresh();'); await sleep(500);
+  const barra = await ev(`(function () {
+    var b = ${tela()}.querySelectorAll('.agua-barra i');
+    var u = b[b.length - 1];
+    return [getComputedStyle(u).backgroundColor, u.style.height].join('|');
+  })()`);
+  ck(barra.indexOf('46, 155, 240') >= 0, 'a barra do dia enche em azul (' + barra + ')');
+  ck(parseFloat(barra.split('|')[1]) > 0, 'e cresce conforme o consumido');
+  await shot('d7-agua-azul');
+  await irAba('treinos'); await sleep(400);
 
   console.log('\nproblemas:', bad.length);
   bad.forEach((b) => console.log('  !', b));

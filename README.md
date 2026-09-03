@@ -136,7 +136,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/catalog-test.js](tools/catalog-test.js) | Testa o catálogo, a foto por aparelho, a migração e a cor neutra |
 | [tools/logging-test.js](tools/logging-test.js) | Testa limpar a busca e o início automático do treino ao anotar |
 | [tools/habits-test.js](tools/habits-test.js) | Testa a barra de abas, o dia de descanso e a meta de água |
-| [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia na aba Treinos |
+| [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia, o descanso automático e a cor dos painéis |
 | [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
@@ -167,6 +167,19 @@ Assim a cor significa sempre a mesma coisa, em vez de tingir a interface inteira
 
 O neutro é branco nos temas escuros e escuro no tema Claro (campo `neutro` em
 `TEMAS`) — branco sobre fundo claro sumiria.
+
+Nos painéis, a cor sai **do dia que está sendo visto**, não do último treino
+registrado: `accentPainel(quando)` recebe o dia e pega a cor do treino daquele
+dia. Sem isso, navegando para trás os números de terça apareciam com a cor do
+treino de quinta.
+
+Um gráfico que junta treinos diferentes não tem uma cor só. No *Volume por
+treino*, a linha fica neutra (`--txt-3`) e **cada ponto leva a cor do seu
+treino** — é o parâmetro `cores` do `sparkline`, uma cor por ponto.
+
+A água não é treino, então não segue a cor de nenhum: usa um azul próprio
+(`AZUL_AGUA`, `#2E9BF0`) no anel, nos botões e nas barras dos sete dias. A barra
+enche no azul a 60% e vai para o tom cheio no dia em que a meta foi batida.
 
 ## As fotos dos exercícios
 
@@ -290,7 +303,7 @@ node tools/gym-test.js ./__shots         # trio da academia e análises
 node tools/catalog-test.js ./__shots     # catálogo, fotos por aparelho e migração
 node tools/logging-test.js ./__shots     # busca e início automático
 node tools/habits-test.js ./__shots      # abas, descanso e água
-node tools/dias-test.js ./__shots        # navegação por dia
+node tools/dias-test.js ./__shots        # navegação por dia e cores
 node tools/calc-test.js ./__shots        # descanso global e calculadora
 ```
 

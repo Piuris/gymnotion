@@ -962,9 +962,10 @@ body.arrastando-algo .scroll { overflow: hidden; }
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
+/* enche em azul; o dia que bateu a meta fica no tom cheio */
 .agua-barra i {
   display: block; width: 100%;
-  background: var(--fill-3);
+  background: var(--a60);
   border-radius: 8px;
   transition: height .3s cubic-bezier(.32,.72,0,1);
 }

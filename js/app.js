@@ -132,7 +132,6 @@ function renderTreinos(el, screen) {
     <div class="progress"><i style="width:${Math.min(100, (feitosSemana / meta) * 100)}%"></i></div>
     <div class="plan-foot"><span>${ehHoje ? 'Esta semana' : 'Nessa semana'}</span><span>${feitosSemana}/${meta} treinos</span></div>
   </button>`);
-  setAccent(accentPainel(), plan.querySelector('.progress'));
   plan.addEventListener('click', () => openWorkoutsSheet());
   scroll.appendChild(plan);
 
@@ -256,7 +255,7 @@ function ringsBlock(quando) {
   };
 
   const box = h('<div class="rings"></div>');
-  setAccent(accentPainel(), box);
+  setAccent(accentPainel(ts), box);   // a cor sai do treino daquele dia
   box.innerHTML =
     ring('Calorias', fmtNum(agg.calorias), agg.calorias / best('calorias'), sub('calorias')) +
     ring('Volume', fmtNum(agg.volume), agg.volume / best('volume'), sub('volume')) +
@@ -313,10 +312,15 @@ function renderInicio(el) {
   /* volume das últimas 12 sessões */
   const ult = S.sessions.slice(0, 12).reverse();
   scroll.appendChild(h('<div class="section-title">Volume por treino</div>'));
+  /* O gráfico junta treinos diferentes: a linha fica neutra e cada ponto leva a
+     cor do treino que o gerou, em vez de tudo herdar a cor do último. */
   const chart = h(`<div class="chart-card">${ult.length
-    ? sparkline(ult.map((s) => s.volume), { w: 320, h: 170, pad: 18, dots: true })
+    ? sparkline(ult.map((s) => s.volume), {
+      w: 320, h: 170, pad: 18, dots: true, raioDot: 4.5, stroke: 1.8,
+      corLinha: 'var(--txt-3)',        /* a linha só liga; a cor está nos pontos */
+      cores: ult.map((s) => s.color),
+    })
     : `<div class="chart-empty">${icon('chart')}Sem dados ainda</div>`}</div>`);
-  setAccent(accentPainel(), chart);
   scroll.appendChild(chart);
 
   /* séries por grupo muscular na semana */
@@ -327,8 +331,7 @@ function renderInicio(el) {
     scroll.appendChild(h('<div class="hint" style="padding-bottom:12px">Nenhum treino registrado nesta semana ainda.</div>'));
   } else {
     scroll.appendChild(h(`<div class="hint" style="padding-bottom:10px">Só séries válidas. A faixa de ${SERIES_MIN} a ${SERIES_MAX} séries semanais por grupo é a referência mais citada para hipertrofia.</div>`));
-    const caixa = h('<div class="grupos"></div>');
-    setAccent(accentPainel(), caixa);
+    const caixa = h('<div class="grupos"></div>');   // agregado de vários treinos: fica neutro
     const teto = Math.max(SERIES_MAX, ...porGrupo.map((g) => g.series));
     porGrupo.forEach((g) => {
       const nivel = g.series < SERIES_MIN ? 'baixo' : (g.series > SERIES_MAX ? 'alto' : 'ok');
@@ -505,6 +508,8 @@ function renderAgua(el, screen) {
   setAccent(contextAccent());
   el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Água</div><div style="width:44px"></div></div>`));
   const scroll = h('<div class="scroll"></div>');
+  /* água não é treino: tem cor própria, e o anel enche em azul */
+  setAccent(AZUL_AGUA, scroll);
 
   const meta = metaAgua();
   const hoje = aguaDoDia();

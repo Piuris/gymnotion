@@ -112,13 +112,22 @@ function contextAccent() {
   return temaAtual().neutro || '#FFFFFF';
 }
 
-/* Cor dos painéis de números e gráficos: a do treino que gerou os dados, o que
-   torna a leitura imediata. Sem dados, cai no neutro. */
-function accentPainel() {
+/* Cor de um painel: a do treino que gerou aqueles números. Recebendo um dia,
+   usa o treino daquele dia — antes puxava sempre o último treino registrado,
+   e os gráficos de terça apareciam com a cor do treino de quinta. */
+function accentPainel(quando) {
+  if (quando != null) {
+    const doDia = sessionsOn(quando);
+    if (doDia.length) return doDia[0].color;
+    return contextAccent();
+  }
   if (S.active) return S.active.color;
   if (S.sessions.length) return S.sessions[0].color;
   return contextAccent();
 }
+
+/* Azul da água: não é treino, então não segue a cor de nenhum. */
+const AZUL_AGUA = '#2E9BF0';
 
 /* ---------- helpers DOM ---------- */
 
@@ -213,7 +222,8 @@ function smoothPath(pts) {
 
 /* gera <svg> de linha com preenchimento em degradê do acento */
 function sparkline(values, opts) {
-  const o = Object.assign({ w: 200, h: 78, pad: 8, fill: true, dots: false, stroke: 2.2 }, opts || {});
+  const o = Object.assign({ w: 200, h: 78, pad: 8, fill: true, dots: false, stroke: 2.2,
+    cores: null, corLinha: 'var(--accent)' }, opts || {});
   const gid = 'g' + Math.random().toString(36).slice(2, 8);
   let vals = values.slice();
 
@@ -237,17 +247,22 @@ function sparkline(values, opts) {
   const line = smoothPath(pts);
   const area = `${line} L ${o.w - o.pad} ${o.h} L ${o.pad} ${o.h} Z`;
 
+  /* Uma cor por ponto: num gráfico que junta treinos diferentes, cada ponto
+     carrega a cor do treino que o gerou. Sem cores, tudo usa o acento. */
   const dots = o.dots
-    ? pts.map((p) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="var(--accent)"/>`).join('')
+    ? pts.map((p, i) => {
+      const cor = (o.cores && o.cores[i]) || 'var(--accent)';
+      return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${o.raioDot || 3}" fill="${cor}"/>`;
+    }).join('')
     : '';
 
   return `<svg viewBox="0 0 ${o.w} ${o.h}" preserveAspectRatio="none">
     <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="var(--accent)" stop-opacity=".45"/>
-      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      <stop offset="0%" stop-color="${o.corLinha}" stop-opacity=".45"/>
+      <stop offset="100%" stop-color="${o.corLinha}" stop-opacity="0"/>
     </linearGradient></defs>
     ${o.fill ? `<path d="${area}" fill="url(#${gid})"/>` : ''}
-    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="${o.stroke}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <path d="${line}" fill="none" stroke="${o.corLinha}" stroke-width="${o.stroke}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     ${dots}
   </svg>`;
 }
