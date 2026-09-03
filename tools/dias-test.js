@@ -109,10 +109,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(500);
 
   console.log('hoje, sem treino:');
-  ck(await ev(`${tela()}.textContent.includes('Treinos disponíveis')`),
-    'mostra os treinos disponíveis');
-  ck(await ev(`${tela()}.querySelectorAll('.folders .folder').length === 3`),
-    'os 3 treinos aparecem como pastas');
+  /* o dia sem treino traz o sugerido em linha do tempo e os outros como pastas */
+  ck(await ev(`${tela()}.textContent.includes('Seus exercícios')`),
+    'mostra o plano do dia');
+  ck(await ev(`${tela()}.querySelectorAll('.linha-tempo .lt-item').length > 0`),
+    'com os exercícios do treino sugerido');
+  ck(await ev(`${tela()}.querySelectorAll('.folders .folder').length === 2`),
+    'e os outros 2 treinos como pastas');
   ck(await ev(`!${tela()}.querySelector('.rings')`), 'sem gráficos num dia sem treino');
   ck(await ev(`!!${tela()}.querySelector('.descanso-aviso')`), 'avisa sobre a meta da semana');
   ck(await ev(`!${tela()}.querySelector('.voltar-hoje')`), 'sem atalho de volta, porque já é hoje');
@@ -191,7 +194,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\nhistórico completo:');
   ck(await ev(`${tela()}.textContent.includes('Todos os registros')`), 'há um caminho para a lista inteira');
-  await ev(`${tela()}.querySelectorAll('.ex-item').forEach(function (b) {
+  await ev(`${tela()}.querySelectorAll('.acao').forEach(function (b) {
     if (b.textContent.includes('Todos os registros')) b.click();
   })`);
   await sleep(600);

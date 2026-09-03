@@ -135,7 +135,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas e as regras dos seis módulos |
 | [js/cloud.js](js/cloud.js) | Backup na nuvem pela API REST do Firebase |
 | [js/firebase-config.js](js/firebase-config.js) | Suas chaves do Firebase (vazio = nuvem desligada) |
-| [js/ui.js](js/ui.js) | Ícones, navegação em pilha, gráficos, folhas modais |
+| [js/ui.js](js/ui.js) | Ícones, navegação em pilha, gráficos, folhas modais, menu suspenso e as peças visuais |
 | [js/organizacao.js](js/organizacao.js) | Telas de cronograma, metas e estudos |
 | [js/app.js](js/app.js) | Início, Menu, academia, água, resumo e configurações |
 | [sw.js](sw.js) | Cache offline (rede primeiro, cache como reserva) |
@@ -156,7 +156,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia, o descanso automático e a cor dos painéis |
 | [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
 | [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
-| [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro num iPhone 15 Pro, com e sem teclado na frente |
+| [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -238,11 +238,13 @@ Trocar a paleta deixa de fora hexadecimais que itens antigos já usam.
 ela não está mais na lista — sem isso o item pareceria não ter cor escolhida e
 trocaria de cor no primeiro toque.
 
-O seletor também encolheu. O botão passou a ser só o alvo de toque (42px) e a
-bola colorida vive dentro dele com 74% desse tamanho; a largura sai de
-`min(42px, 100%)`, então numa folha estreita quem manda é a coluna e a grade
-nunca transborda. Antes o botão ocupava a coluna inteira, e numa folha
-centralizada as bolas ficavam enormes e geravam rolagem.
+O seletor deixou de ser uma grade. Doze bolinhas ocupavam duas fileiras, não
+diziam o nome de nada e ainda faziam a folha rolar. No lugar delas há um
+**campo com menu suspenso** (`campoCor()`): uma linha só, da altura dos outros
+campos, que mostra a cor escolhida pelo nome e abre a lista ao ser tocada. Uma
+cor que saiu da paleta aparece como *Cor própria*, no fim da lista e já marcada
+— sem isso o item pareceria não ter cor escolhida e trocaria de cor no primeiro
+toque.
 
 ## As fotos dos exercícios
 
@@ -466,23 +468,77 @@ rótulo do botão acompanha (`Desfazer 300 ml`).
 O anel, os botões e as barras usam um azul próprio (`AZUL_AGUA`): água não é
 treino, então não herda a cor de nenhum.
 
-## Navegação: dois níveis
+## O sistema visual
 
-A barra de baixo tem **duas abas**, Início e Menu, e todo o resto é tela
-empilhada. Quando o app era só academia, quatro abas escolhidas a dedo faziam
-sentido; com seis módulos, promover quatro deles à barra diria que os outros
-dois valem menos — e a barra não cresce sem virar um mostruário de ícones.
+Cinco peças, usadas por todas as telas. Trocar uma delas troca o app inteiro,
+que é o ponto de terem virado peça em vez de marcação solta em cada tela.
 
-- **Início** — saudação, a grade de atalhos e as tarefas de hoje.
-- **Menu** — a lista inteira, mais os atalhos de resumo e histórico da academia.
-- Cada módulo abre por `abrirModulo(id)`, que empilha a tela por cima da raiz.
+**Cabeçalho de seção** (`secao()`) — uma sobrancelha curta em maiúsculas, na cor
+do contexto, e um título grande logo abaixo. Ocupa menos que uma barra de título
+fixa e diz mais: *PLANO DO DIA / Seus exercícios*.
 
-As duas telas leem a mesma lista, `MODULOS` em [js/app.js](js/app.js): id, nome,
-ícone, uma função de cor e uma de resumo. Acrescentar um módulo é acrescentar uma
-linha, em vez de mexer em duas telas que precisam concordar uma com a outra.
+**Cartão-herói** (`heroi()`) — o número que importa naquela tela, ocupando o
+topo, pintado com a cor do item que o gerou: o treino do dia, o total do
+cofrinho, as horas da semana. O texto usa `--on-accent`, que já é calculado por
+luminância, então sobre lima ele sai preto e sobre roxo, branco. Os anéis do
+canto são desenhados com `currentColor`, então acompanham esse contraste em vez
+de precisarem de um tom fixo. Um título com mais de 15 caracteres cai de corpo
+40 para 30 sozinho — "Push" pede o corpo grande, "Quinta-feira, 03 de set." não.
+
+**Pílulas de ação** (`.acoes`) — o que era linha de lista com seta virou botão
+redondo: *Ver evolução*, *1/2 na semana*, *Todos os registros*.
+
+**Linha do tempo** (`.linha-tempo`) — os exercícios do treino como um roteiro: a
+bolha traz a foto do movimento e um fio liga um ao outro. Uma sequência lê como
+sequência, e não como linhas soltas.
+
+**Ícones de contorno** (`iconO()`) — traço de 1.7px para a cápsula de baixo e o
+menu suspenso. Os cheios continuam onde estão: num quadradinho de 20px sobre
+fundo colorido, o cheio ainda lê melhor.
+
+## Navegação: cápsula e menu suspenso
+
+A barra virou uma **cápsula flutuante** com as quatro telas de uso diário —
+Início, Cronograma, Academia, Hidratação — mais um botão de menu. O conteúdo
+passa por baixo dela, o que dá profundidade e devolve altura à lista.
+
+O botão do menu **não navega**: abre um painel por cima e vira ✕ enquanto está
+aberto. É a diferença entre navegar e escolher. O painel lista todos os módulos,
+inclusive os que já estão na cápsula — quem procura uma tela pelo nome não
+deveria precisar saber se ela virou ícone lá embaixo — mais o resumo e o
+histórico da academia. A cápsula fica num `z-index` acima do painel, senão o ✕
+sumiria justamente quando é preciso tocá-lo.
+
+`menuSuspenso()` se ancora em quem o chamou e se prende dentro da tela: trava a
+altura antes de medir e recorta nos dois eixos. Um detalhe custou uma correção —
+o painel era medido com `getBoundingClientRect()` **durante** a animação de
+entrada, que começa em `scale(.92)`, então o recorte calculava com 46px a menos
+e a lista de doze cores vazava 34px por baixo da tela. `offsetHeight` ignora a
+transformação e resolve.
+
+As telas de aba não têm mais barra de título, e era ela que reservava a faixa do
+relógio e da câmera: esse recuo passou para `.screen.com-abas > .scroll`.
 
 Concluir um treino chama `voltarPara('academia')`, não `popToRoot()`: quem
-acabou de treinar quer cair de volta na academia, não no Início.
+acabou de treinar quer cair de volta na academia.
+
+## A academia em um cartão
+
+O topo da tela é um herói só, que muda de papel conforme o estado — treino
+rolando, treino registrado ou plano à espera. Antes eram três cartões empilhados
+dizendo quase a mesma coisa.
+
+Quando não há registro no dia, o herói mostra o **treino sugerido**:
+`treinoSugerido()` devolve o que está há mais tempo sem ser feito. É um rodízio
+simples, que funciona sem exigir uma agenda fixa. Os exercícios dele aparecem na
+linha do tempo logo abaixo, e os outros treinos viram pastas.
+
+O disco do dia aberto na faixa da semana usa a mesma cor do herói
+(`corAcademia()`), em vez do branco neutro — o atalho do Início lê a mesma
+função, senão ele apareceria verde enquanto o herói mostrava amarelo.
+
+O botão flutuante saiu: *Meus treinos*, no topo, abre a mesma folha, e a tela
+vazia traz o próprio botão de montar o primeiro treino.
 
 ## Cronograma
 
@@ -520,15 +576,17 @@ O gráfico de 14 dias junta matérias, então não tem uma cor só: **cada barra
 a cor da matéria que mais rendeu naquele dia**, pela mesma regra do gráfico de
 volume da academia.
 
-## Barra de abas
+## Barra de abas: o que sobrou de duas correções antigas
 
-Dois problemas diferentes, com causas diferentes:
+Dois problemas diferentes, com causas diferentes, resolvidos quando a barra
+ainda era uma faixa colada na borda. As duas correções continuam valendo para a
+cápsula que a substituiu.
 
 **O último registro ficava escondido.** A barra é `position: absolute`, logo sai
-do fluxo e a lista ia até o fim da tela por baixo dela. A classe `com-abas` na
-tela raiz reserva a altura da barra no `padding-bottom` da lista; só as telas que
-têm a barra pagam esse espaço — hoje, as duas raízes. Nas telas empilhadas, que
-não têm barra, o botão flutuante também desce (`.screen:not(.com-abas) .fab`).
+do fluxo e a lista ia até o fim da tela por baixo dela. A classe `com-abas` nas
+telas de aba reserva a altura da barra no `padding-bottom` da lista; só elas
+pagam esse espaço. Nas telas empilhadas, que não têm barra, o botão flutuante
+também desce (`.screen:not(.com-abas) .fab`).
 
 **Sobrava uma faixa vazia embaixo, mas só no iPhone.** O `safe-area-inset-bottom`
 vale 34px no aparelho e **0 no navegador**, então o defeito era invisível em

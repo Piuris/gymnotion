@@ -187,8 +187,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\ncor neutra fora do treino:');
   await ev("popToRoot(); abrirModulo('academia');"); await sleep(400);
-  const fab = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
-  ck(fab === 'rgb(255, 255, 255)', 'o botão de ação é branco (veio ' + fab + ')');
+  const fab = await ev("getComputedStyle(currentScreen().el.querySelector('.streak svg')).fill");
+  ck(fab === 'rgb(255, 255, 255)', 'a chama da ofensiva é branca (veio ' + fab + ')');
   ck(await ev("contextAccent() === '#FFFFFF'"), 'o acento padrão é branco');
   await shot('cat3-treinos-neutro');
 
@@ -200,7 +200,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); abrirModulo('academia');");
   await sleep(400);
-  const claro = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
+  const claro = await ev("getComputedStyle(currentScreen().el.querySelector('.streak svg')).fill");
   ck(claro !== 'rgb(255, 255, 255)', 'no tema claro o neutro escurece, senão sumiria (veio ' + claro + ')');
   await ev("S.settings.tema = 'preto'; aplicarTema('preto');");
 

@@ -12,19 +12,24 @@
    `#FF3B30` eram praticamente o mesmo laranja-vermelho). `folhas-test.js`
    refaz essa conta e falha se alguém encostar duas cores de novo. */
 const COLORS = [
-  { id: 'vermelho', hex: '#FF3B30' },
-  { id: 'laranja', hex: '#FF8A00' },
-  { id: 'amarelo', hex: '#FFD60A' },
-  { id: 'lima', hex: '#A8ED2E' },
-  { id: 'verde', hex: '#25E36B' },
-  { id: 'esmeralda', hex: '#0B8F52' },
-  { id: 'turquesa', hex: '#00D2C4' },
-  { id: 'azul', hex: '#0A84FF' },
-  { id: 'indigo', hex: '#3F4FE0' },
-  { id: 'roxo', hex: '#A020F0' },
-  { id: 'orquidea', hex: '#F05BE0' },
-  { id: 'magenta', hex: '#FF2D96' },
+  { id: 'vermelho', nome: 'Vermelho', hex: '#FF3B30' },
+  { id: 'laranja', nome: 'Laranja', hex: '#FF8A00' },
+  { id: 'amarelo', nome: 'Amarelo', hex: '#FFD60A' },
+  { id: 'lima', nome: 'Lima', hex: '#A8ED2E' },
+  { id: 'verde', nome: 'Verde claro', hex: '#25E36B' },
+  { id: 'esmeralda', nome: 'Verde escuro', hex: '#0B8F52' },
+  { id: 'turquesa', nome: 'Turquesa', hex: '#00D2C4' },
+  { id: 'azul', nome: 'Azul', hex: '#0A84FF' },
+  { id: 'indigo', nome: 'Índigo', hex: '#3F4FE0' },
+  { id: 'roxo', nome: 'Roxo', hex: '#A020F0' },
+  { id: 'orquidea', nome: 'Orquídea', hex: '#F05BE0' },
+  { id: 'magenta', nome: 'Magenta', hex: '#FF2D96' },
 ];
+
+const nomeDaCor = (hex) => {
+  const c = COLORS.find((x) => x.hex === hex);
+  return c ? c.nome : 'Cor própria';
+};
 
 const ICONS = {
   halter: '<path d="M4 9h2v6H4zM2 10.5h2v3H2zM18 9h2v6h-2zM20 10.5h2v3h-2zM6.5 11h11v2h-11z"/>',
@@ -243,6 +248,19 @@ function newWorkout() {
 }
 
 function getWorkout(id) { return S.workouts.find((w) => w.id === id); }
+
+/* Treino sugerido para hoje: o que está há mais tempo sem ser feito. É um
+   rodízio simples, que funciona sem exigir que ele monte uma agenda fixa. */
+function treinoSugerido() {
+  if (!S.workouts.length) return null;
+  const ultimo = {};
+  /* S.sessions vem do mais novo para o mais velho, então o primeiro que
+     aparece de cada treino já é a última vez que ele foi feito */
+  S.sessions.forEach((sess) => {
+    if (ultimo[sess.workoutId] == null) ultimo[sess.workoutId] = sess.date;
+  });
+  return S.workouts.slice().sort((a, b) => (ultimo[a.id] || 0) - (ultimo[b.id] || 0))[0];
+}
 
 function deleteWorkout(id) {
   S.workouts = S.workouts.filter((w) => w.id !== id);

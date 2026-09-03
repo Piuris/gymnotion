@@ -94,10 +94,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
      INÍCIO
      ============================================================ */
   console.log('tela de início:');
-  ck(await ev("currentScreen().name === 'root'"), 'o app abre na raiz');
-  ck(await ev("TAB === 'inicio'"), 'e a aba inicial é o Início');
-  ck(await ev(`${tela()}.querySelectorAll('.tab').length === 2`),
-    'a barra de abas ficou com duas abas');
+  ck(await ev("TAB === 'inicio'"), 'o app abre no Início');
+  ck(await ev("currentScreen().name === 'inicio'"), 'e a raiz se chama pela aba aberta');
+  ck(await ev(`${tela()}.querySelectorAll('.tab').length === ABAS.length + 1`),
+    'a cápsula traz as ' + await ev('ABAS.length') + ' abas mais o botão do menu');
   const nAtalhos = await ev(`${tela()}.querySelectorAll('.hub-card').length`);
   ck(nAtalhos === await ev('MODULOS.length'),
     'há um atalho para cada módulo (' + nAtalhos + ')');
@@ -121,12 +121,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   await shot('v1-inicio');
 
-  console.log('\nmenu:');
-  await ev("TAB = 'menu'; currentScreen().refresh();"); await sleep(500);
-  ck(await ev(`${tela()}.querySelectorAll('.mod-row').length === MODULOS.length`),
-    'o Menu lista os mesmos módulos');
-  ck(await ev(`${tela()}.textContent.includes('Resumo e recordes')`),
-    'e guarda os atalhos da academia');
+  console.log('');
+  console.log('menu suspenso:');
+  await ev(`${tela()}.querySelectorAll('.tabbar .tab')[ABAS.length].click()`); await sleep(600);
+  ck(await ev("!!document.querySelector('.pop')"), 'o último botão da cápsula abre um painel');
+  ck(await ev("document.querySelectorAll('.pop .pop-item').length >= MODULOS.length"),
+    'que lista todos os módulos');
+  ck(await ev("document.querySelector('.pop').textContent.includes('Resumo da academia')"),
+    'e mais os atalhos da academia');
+  ck(await ev("!document.querySelector('.pop-item.on')"),
+    'sem marca nenhuma, porque o Início não é um módulo da lista');
+  /* a cápsula tem de continuar por cima do painel, senão o ✕ some */
+  ck(await ev(`(function () {
+    var b = parseInt(getComputedStyle(document.querySelector('.tabbar')).zIndex, 10);
+    var p = parseInt(getComputedStyle(document.querySelector('.pop-fundo')).zIndex, 10);
+    return b > p;
+  })()`), 'a cápsula fica acima do painel, para o ✕ continuar clicável');
+  await ev("TAB = 'inicio'; popToRoot();"); await sleep(400);
   const folga = await ev(`(function () {
     var sc = ${tela()}.querySelector('.scroll');
     sc.scrollTop = sc.scrollHeight;
@@ -136,6 +147,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   })()`);
   ck(folga >= 0, 'a barra de abas nao cobre o fim da lista (' + folga + 'px de folga)');
   await shot('v2-menu');
+  await ev("document.querySelector('.pop-fundo').click()"); await sleep(400);
+  ck(await ev("!document.querySelector('.pop')"), 'tocar fora fecha o painel');
 
   /* ============================================================
      CRONOGRAMA
@@ -198,16 +211,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     f.querySelector('[data-c="titulo"]').value = 'Consulta';
     f.querySelector('[data-tipo="compromisso"]').click();
     f.querySelector('[data-c="hora"]').value = '16:30';
-    f.querySelectorAll('[data-cor]')[4].click();
-    f.querySelector('[data-x="yes"]').click();
+    f.querySelector('.campo-cor').click();
   })()`);
+  await sleep(600);
+  await ev("document.querySelectorAll('.pop .pop-item')[4].click()"); await sleep(500);
+  await ev(`document.querySelector('.sheet [data-x="yes"]').click()`);
   await sleep(800);
   const nova = await ev(`JSON.stringify(tarefasDoDia().find(function (t) { return t.titulo === 'Consulta'; }) || null)`);
   const t = JSON.parse(nova || 'null');
   ck(!!t, 'salvar cria a tarefa');
   ck(t && t.hora === '16:30', 'com a hora escolhida (' + (t && t.hora) + ')');
   ck(t && t.tipo === 'compromisso', 'e com o tipo marcado nos chips');
-  ck(t && t.cor === await ev('COLORS[4].hex'), 'e com a cor escolhida na paleta (' + (t && t.cor) + ')');
+  ck(t && t.cor === await ev('COLORS[4].hex'), 'e com a cor escolhida no menu (' + (t && t.cor) + ')');
   ck(await ev("!document.querySelector('.sheet')"), 'o editor fecha depois de salvar');
   ck(await ev(`${tela()}.querySelectorAll('.tarefa')[1].querySelector('.tarefa-txt b').textContent === 'Consulta'`),
     'e ela entra na lista já na posição do horário, entre as 14h e a feita');
@@ -349,14 +364,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
      ============================================================ */
   console.log('\nacademia e dados:');
   await ev("popToRoot(); abrirModulo('academia');"); await sleep(600);
-  ck(await ev("currentScreen().name === 'academia'"), 'a academia virou tela empilhada');
+  ck(await ev("currentScreen().name === 'academia'"), 'a academia é uma das abas');
   ck(await ev(`!!${tela()}.querySelector('.week')`), 'com a faixa da semana no lugar');
-  ck(await ev(`!!${tela()}.querySelector('.acad-barra .streak')`), 'e a ofensiva na barra de cima');
-  await ev(`${tela()}.querySelector('.acad-barra [data-act="resumo"]').click()`); await sleep(600);
-  ck(await ev("currentScreen().name === 'resumo'"), 'o botão abre o resumo da academia');
-  await ev('popScreen();'); await sleep(500);
+  ck(await ev(`!!${tela()}.querySelector('.acad-barra .streak')`), 'e a ofensiva no topo');
+  /* sem treino montado nao ha cartao do dia; o que tem de existir e o caminho
+     para montar um e as pilulas de acao */
+  ck(await ev(`!!${tela()}.querySelector('[data-act="criar"]')`),
+    'sem treino montado, a tela oferece montar o primeiro');
+  ck(await ev(`${tela()}.querySelectorAll('.acoes .acao').length >= 2`),
+    'com as pílulas de evolução e da semana');
+  await ev(`${tela()}.querySelector('.acoes [data-act="evolucao"]').click()`); await sleep(600);
+  ck(await ev("currentScreen().name === 'resumo'"), 'a pílula abre o resumo da academia');
   await ev(`${tela()}.querySelector('.nav [data-act="back"]').click()`); await sleep(500);
-  ck(await ev("currentScreen().name === 'root'"), 'e o voltar devolve para o Início');
+  ck(await ev("currentScreen().name === 'academia'"), 'e o voltar devolve para a academia');
+  await ev("TAB = 'inicio'; popToRoot();"); await sleep(400);
 
   await ev("popToRoot(); abrirModulo('config');"); await sleep(600);
   ck(await ev("currentScreen().name === 'config'"), 'as configurações abrem pelo módulo');

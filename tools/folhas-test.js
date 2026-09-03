@@ -174,26 +174,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       'e o botão Salvar continua alcançável (' + (m && m.acaoBase) + ')');
 
     /* Quem rola é o miolo; a folha em si não. Se ela rolasse, os botões
-       fixos passariam por cima da paleta em vez de ficarem abaixo dela. */
+       fixos passariam por cima do último campo em vez de ficarem abaixo. */
     const rolagem = JSON.parse(await ev(`(function () {
       var sh = document.querySelector('.sheet');
       var corpo = sh.querySelector('.form-corpo');
       corpo.scrollTop = corpo.scrollHeight;
       var acao = sh.querySelector('.sheet-actions').getBoundingClientRect();
-      var sw = sh.querySelectorAll('.swatch-btn');
-      var ultimo = sw[sw.length - 1].getBoundingClientRect();
+      var campos = corpo.querySelectorAll('.text-input, .campo-cor');
+      var ultimo = campos[campos.length - 1].getBoundingClientRect();
       return JSON.stringify({
         folhaRola: sh.scrollHeight > sh.clientHeight,
         corpoRola: corpo.scrollHeight > corpo.clientHeight,
         sobreposicao: Math.round(ultimo.bottom - acao.top),
-        paletaVisivel: ultimo.bottom <= acao.top + 0.5 && ultimo.top >= corpo.getBoundingClientRect().top - 0.5,
       });
     })()`));
     ck(!rolagem.folhaRola, 'a folha inteira não rola, só o miolo dela');
     console.log('        (miolo ' + (rolagem.corpoRola ? 'rola' : 'cabe inteiro') + ' nesta folha)');
     ck(rolagem.sobreposicao <= 0,
-      'os botões não cobrem a paleta (' + (rolagem.sobreposicao > 0 ? rolagem.sobreposicao + 'px por cima' : 'sem sobreposição') + ')');
-    ck(rolagem.paletaVisivel, 'e a última cor da paleta é alcançável rolando');
+      'os botões não cobrem o último campo (' + (rolagem.sobreposicao > 0 ? rolagem.sobreposicao + 'px por cima' : 'sem sobreposição') + ')');
     await shot('s-' + nome + '-2-com-teclado');
 
     /* fechar o teclado tem de devolver a folha ao tamanho normal */
@@ -230,38 +228,41 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('seletor de cores:');
   await abrirEditor('metas');
   const pal = JSON.parse(await ev(`(function () {
-    var g = document.querySelector('.sheet .swatches');
-    var b = g.querySelectorAll('.swatch-btn');
-    var um = b[0].getBoundingClientRect();
-    var corpo = document.querySelector('.sheet .form-corpo');
-    var largura = 0;
-    b.forEach(function (x) {
-      var r = x.getBoundingClientRect();
-      if (r.right > largura) largura = r.right;
-    });
+    var campo = document.querySelector('.sheet .campo-cor');
+    var r = campo.getBoundingClientRect();
     return JSON.stringify({
-      quantas: b.length,
-      bola: Math.round(um.width),
-      grade: [Math.round(g.scrollWidth), Math.round(g.clientWidth)],
-      corpoX: [Math.round(corpo.scrollWidth), Math.round(corpo.clientWidth)],
-      folhaX: [Math.round(document.body.scrollWidth), Math.round(window.innerWidth)],
-      maisADireita: Math.round(largura),
-      fileiras: Math.round(g.getBoundingClientRect().height / um.height),
+      existe: !!campo,
+      nome: campo.querySelector('.lab').textContent,
+      dentro: r.right <= window.innerWidth + 0.5 && r.left >= -0.5,
+      altura: Math.round(r.height),
     });
   })()`));
-  ck(pal.quantas === await ev('COLORS.length'),
-    'a paleta mostra as ' + pal.quantas + ' cores');
-  ck(pal.grade[0] <= pal.grade[1] + 1,
-    'a grade nao rola de lado (' + pal.grade.join(' de ') + ')');
-  ck(pal.corpoX[0] <= pal.corpoX[1] + 1,
-    'nem o miolo da folha (' + pal.corpoX.join(' de ') + ')');
-  ck(pal.folhaX[0] <= pal.folhaX[1] + 1,
-    'nem a pagina inteira (' + pal.folhaX.join(' de ') + ')');
-  ck(pal.maisADireita <= TELA.w,
-    'a ultima bola termina dentro da tela (' + pal.maisADireita + ' de ' + TELA.w + ')');
-  ck(pal.bola <= 44 && pal.bola >= 26,
-    'e o alvo de toque fica num tamanho razoavel (' + pal.bola + 'px)');
+  ck(pal.existe, 'o editor traz um campo de cor, não a grade de bolinhas');
+  ck(pal.dentro, 'que cabe na largura da folha');
+  ck(pal.altura === 50, 'com a mesma altura dos outros campos (' + pal.altura + 'px)');
+
+  await ev("document.querySelector('.sheet .campo-cor').click()"); await sleep(600);
+  const menu = JSON.parse(await ev(`(function () {
+    var pop = document.querySelector('.pop');
+    var r = pop.getBoundingClientRect();
+    var itens = pop.querySelectorAll('.pop-item');
+    return JSON.stringify({
+      quantos: itens.length,
+      dentro: r.left >= 11 && r.right <= window.innerWidth - 11
+        && r.top >= 11 && r.bottom <= window.innerHeight - 11,
+      marcado: (pop.querySelector('.pop-item.on') || {}).textContent || '',
+      caixa: [Math.round(r.width), Math.round(r.height)],
+      pos: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
+      tela: [window.innerWidth, window.innerHeight],
+    });
+  })()`));
+  ck(menu.quantos === await ev('COLORS.length'),
+    'o menu suspenso traz as ' + menu.quantos + ' cores com nome');
+  ck(menu.dentro, 'e cabe inteiro na tela (' + menu.caixa.join('x') + ' em ' + menu.pos.join(',') + ' de ' + menu.tela.join('x') + ')');
+  ck(menu.marcado.indexOf('Verde') >= 0 || menu.marcado.length > 0,
+    'com a cor atual marcada (' + menu.marcado.trim() + ')');
   await shot('s-paleta');
+  await ev("document.querySelector('.pop-fundo').click()"); await sleep(400);
   await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(400);
 
   console.log('');
@@ -323,10 +324,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('cor antiga, fora da paleta:');
   await ev(`novaMeta('Antiga', 100, '#8E9AAF'); saveNow(); popToRoot(); abrirModulo('metas');`);
   await sleep(650);
-  await ev(`(function () {
-    var cards = currentScreen().el.querySelectorAll('.meta-card');
-    cards[0].click();
-  })()`); await sleep(650);
+  await ev(`currentScreen().el.querySelectorAll('.meta-card')[0].click()`); await sleep(650);
   await ev(`currentScreen().el.querySelector('.nav [data-act="dir"]').click()`); await sleep(500);
   await ev(`(function () {
     var itens = document.querySelectorAll('.sheet-item');
@@ -335,22 +333,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     return 'nao achou';
   })()`); await sleep(700);
+  const rotulo = await ev(`document.querySelector('.sheet .campo-cor .lab').textContent`);
+  ck(rotulo === 'Cor própria',
+    'uma cor fora da paleta se identifica em vez de sumir (' + rotulo + ')');
+  await ev("document.querySelector('.sheet .campo-cor').click()"); await sleep(600);
   const antiga = JSON.parse(await ev(`(function () {
-    var g = document.querySelector('.sheet .swatches');
-    var b = g.querySelectorAll('.swatch-btn');
-    var marcada = g.querySelector('.swatch-btn.on');
+    var pop = document.querySelector('.pop');
+    var marcada = pop.querySelector('.pop-item.on');
     return JSON.stringify({
-      quantas: b.length,
-      marcada: marcada ? marcada.dataset.cor : null,
-      rola: g.scrollWidth > g.clientWidth + 1,
+      quantos: pop.querySelectorAll('.pop-item').length,
+      marcada: marcada ? marcada.textContent.trim() : null,
+      cor: marcada ? marcada.querySelector('.dot').style.background : null,
     });
   })()`));
-  ck(antiga.quantas === await ev('COLORS.length + 1'),
-    'uma cor que saiu da paleta entra no fim dela (' + antiga.quantas + ' bolas)');
-  ck(antiga.marcada === '#8E9AAF',
+  ck(antiga.quantos === await ev('COLORS.length + 1'),
+    'ela entra no fim da lista (' + antiga.quantos + ' opções)');
+  ck(antiga.marcada === 'Cor própria',
     'e continua marcada como a escolhida, em vez de o item parecer sem cor');
-  ck(!antiga.rola, 'a fileira extra tambem nao faz a grade rolar de lado');
   await shot('s-paleta-cor-antiga');
+  await ev("document.querySelector('.pop-fundo').click()"); await sleep(400);
   await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(400);
 
   console.log('\nas outras folhas do app também acompanham:');

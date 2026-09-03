@@ -98,23 +98,29 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     var barra = currentScreen().el.querySelector('.tabbar').getBoundingClientRect();
     var icone = currentScreen().el.querySelector('.tab svg').getBoundingClientRect();
     var tela = window.innerHeight;
+    var larg = window.innerWidth;
     return JSON.stringify({
       altura: Math.round(barra.height),
+      largura: Math.round(barra.width),
+      folgaAbaixoDaBarra: Math.round(tela - barra.bottom),
       folgaAbaixoDoIcone: Math.round(tela - icone.bottom),
+      centrada: Math.abs((barra.left + barra.right) / 2 - larg / 2) < 1.5,
+      raio: getComputedStyle(currentScreen().el.querySelector('.tabbar')).borderTopLeftRadius,
     });
   })()`));
-  ck(geo.altura <= 62, 'a barra inteira mede ' + geo.altura + 'px com o safe area do iPhone');
-  ck(geo.folgaAbaixoDoIcone <= 30,
-    'o ícone fica a ' + geo.folgaAbaixoDoIcone + 'px do fim da tela, sem faixa vazia sobrando');
-  ck(geo.folgaAbaixoDoIcone >= 12,
-    'e ainda deixa espaço para o indicador de gesto (' + geo.folgaAbaixoDoIcone + 'px)');
+  ck(geo.altura <= 60, 'a cápsula mede ' + geo.altura + 'px de altura');
+  ck(geo.largura < 393 - 24, 'e flutua sem encostar nas bordas (' + geo.largura + 'px de largura)');
+  ck(geo.centrada, 'centrada na tela');
+  ck(parseInt(geo.raio, 10) >= 24, 'com as pontas arredondadas em cápsula (' + geo.raio + ')');
+  ck(geo.folgaAbaixoDaBarra >= 12,
+    'deixando espaço para o indicador de gesto (' + geo.folgaAbaixoDaBarra + 'px)');
+  ck(geo.folgaAbaixoDaBarra <= 34,
+    'sem sobrar faixa preta embaixo (' + geo.folgaAbaixoDaBarra + 'px)');
   await ev("document.documentElement.style.removeProperty('--safe-b');");
   await sleep(200);
-
-  const altura = await ev("parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h'))");
-  ck(altura === 44, 'a faixa dos ícones mede ' + altura + 'px (era 56 no começo)');
   const reserva = await ev("parseInt(getComputedStyle(currentScreen().el.querySelector('.scroll')).paddingBottom)");
-  ck(reserva >= altura, 'a lista reserva ' + reserva + 'px, cobrindo a barra de ' + altura + 'px');
+  ck(reserva >= geo.altura,
+    'a lista reserva ' + reserva + 'px, cobrindo a cápsula de ' + geo.altura + 'px');
   ck(await ev("currentScreen().el.classList.contains('com-abas')"), 'a tela raiz se marca como tendo abas');
   /* a última linha da lista não pode ficar por baixo da barra */
   await ev(`
@@ -199,8 +205,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\nmeta de água:');
   await ev("popToRoot(); abrirModulo('agua');"); await sleep(500);
-  ck(await ev("currentScreen().el.querySelector('.nav .title').textContent.trim() === 'Hidratação'"),
-    'o módulo de hidratação abre na tela da água');
+  ck(await ev("TAB === 'agua'"), 'hidratação é uma das abas da cápsula');
+  ck(await ev("currentScreen().el.querySelector('.sec h2').textContent.trim() === 'Hidratação'"),
+    'e o módulo abre na tela da água');
   ck(await ev("!currentScreen().el.textContent.includes('Em breve')"), 'o "Em breve" saiu');
   ck(await ev('metaAgua() === 2600'), '75 kg × 35 ml dá meta de ' + await ev('metaAgua()') + ' ml');
   ck(await ev('aguaDoDia() === 0'), 'o dia começa zerado');

@@ -119,7 +119,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check(await ev("!!document.querySelector('.empty')"), 'tela vazia orienta o primeiro passo');
   await shot('f01-vazio');
 
-  await ev("document.querySelector('.fab').click()");
+  /* a academia deixou de ter botao flutuante: a tela vazia traz o proprio
+     botao, e ele abre a mesma folha de treinos */
+  await ev("document.querySelector('[data-act=criar]').click()");
   await sleep(500);
   await ev("document.querySelector('[data-act=new]').click()");
   await sleep(600);
@@ -127,7 +129,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('f02-editor');
 
   await ev("S.workouts[0].name = 'Peito e Tríceps'; S.workouts[0].color = '#0A84FF'; saveNow(); currentScreen().refresh();");
-  check(await ev("getComputedStyle(document.querySelector('.folder-foot')).color !== ''"), 'cor aplicada ao cartão');
+  check(await ev("getComputedStyle(document.querySelector('.folder')).getPropertyValue('--accent').trim() === '#0A84FF'"),
+    'a cor escolhida ja aparece na previa do editor');
   await shot('f03-nome-e-cor');
 
   await ev("document.querySelector('[data-act=done]').click()");

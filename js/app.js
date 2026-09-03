@@ -9,31 +9,74 @@ let DIA_SEL = Date.now();   // dia mostrado na aba Treinos; volta para hoje ao a
    RAIZ / ABAS
    ========================================================= */
 
-/* Duas abas só: o app virou um punhado de módulos, e uma barra com quatro
-   deles escolhidos a dedo daria a entender que os outros valem menos. Início
-   traz os atalhos, Menu traz a lista inteira; o resto é empilhado por cima. */
+/* As quatro telas de uso diário ficam na cápsula de baixo; o resto mora no
+   menu suspenso, que é um painel por cima e não uma quinta aba. É a diferença
+   entre navegar e escolher: o botão do menu não troca de tela, abre uma lista. */
+const ABAS = [
+  { id: 'inicio', icone: 'casa' },
+  { id: 'cronograma', icone: 'tarefas' },
+  { id: 'academia', icone: 'haltere' },
+  { id: 'agua', icone: 'gota' },
+];
+
+let MENU_ABERTO = null;
+
 function tabbar() {
-  const items = [
-    ['inicio', 'home'],
-    ['menu', 'grade'],
-  ];
   const bar = h('<nav class="tabbar"></nav>');
-  items.forEach(([id, ic]) => {
-    const b = h(`<button class="tab${TAB === id ? ' on' : ''}">${icon(ic)}</button>`);
+  ABAS.forEach((a) => {
+    const b = h(`<button class="tab${TAB === a.id ? ' on' : ''}">${iconO(a.icone)}</button>`);
     b.addEventListener('click', () => {
-      if (TAB === id) return;
-      TAB = id; haptic();
-      currentScreen().refresh();
+      if (MENU_ABERTO) MENU_ABERTO.fechar();
+      if (TAB === a.id) { popToRoot(); return; }
+      TAB = a.id; haptic();
+      popToRoot();
     });
     bar.appendChild(b);
   });
+
+  const menu = h(`<button class="tab${MENU_ABERTO ? ' aberto' : ''}">${iconO(MENU_ABERTO ? 'fechar' : 'menu')}</button>`);
+  menu.addEventListener('click', () => {
+    if (MENU_ABERTO) { MENU_ABERTO.fechar(); return; }
+    haptic();
+    abrirMenuModulos(menu);
+  });
+  bar.appendChild(menu);
   return bar;
+}
+
+/* O menu lista tudo, inclusive o que já está na cápsula: quem procura uma tela
+   pelo nome não deveria precisar saber se ela virou ícone lá embaixo. */
+function abrirMenuModulos(ancora) {
+  const itens = MODULOS.map((m) => ({
+    label: m.nome, icone: m.iconeO, on: m.id === TAB,
+    onClick: () => m.abrir(),
+  }));
+  itens.push({ label: 'Resumo da academia', icone: 'grafico', onClick: () => telaResumo() });
+  if (S.sessions.length) {
+    itens.push({ label: 'Todos os registros', icone: 'lista', onClick: () => openHistorico() });
+  }
+
+  ancora.classList.add('aberto');
+  ancora.innerHTML = iconO('fechar');
+  MENU_ABERTO = menuSuspenso(itens, {
+    ancora,
+    aoFechar: () => {
+      MENU_ABERTO = null;
+      ancora.classList.remove('aberto');
+      ancora.innerHTML = iconO('menu');
+    },
+  });
 }
 
 function buildRoot(el, screen) {
   setAccent(contextAccent());
   el.className = 'screen com-abas';
-  if (TAB === 'menu') renderMenu(el, screen);
+  /* o nome da raiz acompanha a aba: quem pergunta em que tela está recebe
+     'academia', não 'root' */
+  screen.name = TAB;
+  if (TAB === 'cronograma') renderCronograma(el, screen, true);
+  else if (TAB === 'academia') renderAcademia(el, screen, true);
+  else if (TAB === 'agua') renderAgua(el, screen, true);
   else renderInicio(el, screen);
   el.appendChild(tabbar());
 }
@@ -48,19 +91,20 @@ function buildRoot(el, screen) {
 
 const MODULOS = [
   {
-    id: 'academia', nome: 'Academia', icone: 'dumbbell',
-    cor: () => accentPainel(),           // única que herda a cor de um treino
+    id: 'academia', nome: 'Academia', icone: 'dumbbell', iconeO: 'haltere',
+    cor: () => corAcademia(),            // única que herda a cor de um treino
     resumo: () => {
       if (S.active) return S.active.name + ' em andamento';
       if (sessionsOn(Date.now()).length) return 'Treino de hoje registrado';
       if (!S.workouts.length) return 'Monte o primeiro treino';
       const f = faltamNaSemana(Date.now());
-      return f ? 'Faltam ' + f + ' treino(s) na semana' : 'Meta da semana batida';
+      if (!f) return 'Meta da semana batida';
+      return f === 1 ? 'Falta 1 treino nesta semana' : 'Faltam ' + f + ' treinos nesta semana';
     },
-    abrir: () => telaAcademia(),
+    abrir: () => irParaAba('academia'),
   },
   {
-    id: 'cronograma', nome: 'Cronograma', icone: 'calendario',
+    id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario',
     cor: () => COR_AGENDA,
     resumo: () => {
       const abertas = pendentesDoDia();
@@ -70,33 +114,51 @@ const MODULOS = [
       if (atras) partes.push(atras + (atras > 1 ? ' atrasadas' : ' atrasada'));
       return partes.length ? partes.join(' · ') : 'Nada marcado para hoje';
     },
-    abrir: () => telaCronograma(),
+    abrir: () => irParaAba('cronograma'),
   },
   {
-    id: 'agua', nome: 'Hidratação', icone: 'gota',
+    id: 'agua', nome: 'Hidratação', icone: 'gota', iconeO: 'gota',
     cor: () => AZUL_AGUA,
     resumo: () => fmtLitros(aguaDoDia()) + ' de ' + fmtLitros(metaAgua()) + ' L',
-    abrir: () => telaAgua(),
+    abrir: () => irParaAba('agua'),
   },
   {
-    id: 'metas', nome: 'Metas', icone: 'cofre',
+    id: 'metas', nome: 'Metas', icone: 'cofre', iconeO: 'cofre',
     cor: () => COR_METAS,
     resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),
     abrir: () => telaMetas(),
   },
   {
-    id: 'estudos', nome: 'Estudos', icone: 'livro',
+    id: 'estudos', nome: 'Estudos', icone: 'livro', iconeO: 'livro',
     cor: () => COR_ESTUDOS,
     resumo: () => (S.materias.length ? fmtMin(estudoDaSemana()) + ' nesta semana' : 'Nenhuma matéria ainda'),
     abrir: () => telaEstudos(),
   },
   {
-    id: 'config', nome: 'Configurações', icone: 'engrenagem',
+    id: 'config', nome: 'Configurações', icone: 'engrenagem', iconeO: 'ajustes',
     cor: () => contextAccent(),
     resumo: () => 'Tema, conta e backup',
     abrir: () => telaConfig(),
   },
 ];
+
+/* Trocar de aba é trocar a raiz, não empilhar mais uma tela por cima. */
+/* A cor da academia é a do treino que está em pauta: o que está rolando, o que
+   foi registrado hoje ou, na falta dos dois, o sugerido. O atalho do Início e o
+   herói da tela precisam concordar — antes o atalho puxava o último treino
+   registrado e aparecia verde enquanto o herói mostrava o amarelo de hoje. */
+function corAcademia() {
+  if (S.active) return S.active.color;
+  const hoje = sessionsOn(Date.now());
+  if (hoje.length) return hoje[0].color;
+  const w = treinoSugerido();
+  return w ? w.color : contextAccent();
+}
+
+function irParaAba(id) {
+  TAB = id;
+  popToRoot();
+}
 
 function abrirModulo(id) {
   const m = MODULOS.find((x) => x.id === id);
@@ -120,13 +182,8 @@ function saudacao() {
    ========================================================= */
 
 function renderInicio(el, screen) {
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Início</div><div style="width:44px"></div></div>`));
   const scroll = h('<div class="scroll"></div>');
-
-  scroll.appendChild(h(`<div class="hub-saudacao">
-    <b>${saudacao()}</b>
-    <span>${esc(fmtDataLonga(Date.now()))}</span>
-  </div>`));
+  scroll.appendChild(h(secao(fmtDataLonga(Date.now()), saudacao())));
 
   /* Cada atalho leva a cor do seu módulo — é o que faz a grade ser reconhecida
      de relance, sem ler os nomes. */
@@ -145,55 +202,16 @@ function renderInicio(el, screen) {
 
   const abertas = tarefasDoDia().filter((t) => !t.feito);
   const atrasadas = tarefasAtrasadas();
-  scroll.appendChild(h('<div class="section-title">Hoje</div>'));
+  scroll.appendChild(h(secao('Cronograma', 'Hoje')));
   if (!abertas.length && !atrasadas.length) {
     scroll.appendChild(h('<div class="hint">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
   }
   abertas.slice(0, 5).forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
   if (atrasadas.length) {
     const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} tarefa${atrasadas.length > 1 ? 's' : ''} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} aberta${atrasadas.length > 1 ? 's' : ''}. Toque para abrir o cronograma.</span></div>`);
-    aviso.addEventListener('click', () => telaCronograma());
+    aviso.addEventListener('click', () => irParaAba('cronograma'));
     scroll.appendChild(aviso);
   }
-
-  el.appendChild(scroll);
-}
-
-/* =========================================================
-   ABA MENU — o seletor
-   ========================================================= */
-
-function renderMenu(el, screen) {
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Menu</div><div style="width:44px"></div></div>`));
-  const scroll = h('<div class="scroll"></div>');
-
-  MODULOS.forEach((m) => {
-    const row = h(`<button class="mod-row">
-      <div class="mod-ico">${icon(m.icone)}</div>
-      <div class="mod-txt"><b>${esc(m.nome)}</b><span>${esc(m.resumo())}</span></div>
-      ${icon('chev').replace('<svg', '<svg class="chev"')}
-    </button>`);
-    setAccent(m.cor(), row);
-    row.addEventListener('click', () => { haptic(); m.abrir(); });
-    scroll.appendChild(row);
-  });
-
-  scroll.appendChild(h('<div class="section-title">Atalhos da academia</div>'));
-  const atalho = (nome, nota, act) => {
-    const r = h(`<button class="ex-item" style="width:100%;text-align:left">
-      <div class="name" style="white-space:normal">${esc(nome)}
-        <i style="display:block;font-style:normal;font-size:13px;color:var(--txt-3);margin-top:2px">${esc(nota)}</i>
-      </div>${icon('chev').replace('<svg', '<svg class="chev"')}</button>`);
-    r.addEventListener('click', act);
-    scroll.appendChild(r);
-  };
-  atalho('Resumo e recordes', 'Volume, séries por grupo e cargas máximas', () => telaResumo());
-  atalho('Todos os registros', S.sessions.length + ' treino(s) salvos', () => openHistorico());
-
-  const naNuvem = cloudConfigurado() && cloudLogado();
-  scroll.appendChild(h(`<div class="hint" style="padding-top:24px">GymNotion • ${naNuvem
-    ? 'dados neste aparelho, com cópia na sua conta.'
-    : 'dados guardados apenas neste aparelho.'}<br/>Adicione à Tela de Início para abrir em tela cheia.</div>`));
 
   el.appendChild(scroll);
 }
@@ -202,38 +220,30 @@ function renderMenu(el, screen) {
    ACADEMIA
    ========================================================= */
 
-function telaAcademia() {
-  DIA_SEL = Date.now();      // abrir a academia sempre cai no dia de hoje
-  pushScreen(renderAcademia, { name: 'academia' });
-}
-
 function renderAcademia(el, screen) {
   const hojeTs = Date.now();
   const selecionado = DIA_SEL;
   const ehHoje = dayKey(selecionado) === dayKey(hojeTs);
 
   setAccent(contextAccent(), el);
-  const nav = h(`<div class="nav">
-    <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
-    <div class="title">Academia</div>
-    <button class="icon-btn stroke" data-act="lista">${icon('burger')}</button>
-  </div>`);
-  acts(nav, { back: () => popScreen(), lista: () => openWorkoutsSheet() });
-  el.appendChild(nav);
-
   const scroll = h('<div class="scroll"></div>');
 
   const barra = h(`<div class="acad-barra">
-    <div class="streak">${icon('flame')}<span>${streak()}</span></div>
-    <button class="pill-btn soft sm" data-act="resumo">${icon('chart')}Resumo</button>
+    <div class="streak">${icon('flame')}<span>${streak()}</span> <u>de ofensiva</u></div>
+    <button class="acao" data-act="lista">${iconO('lista')}Meus treinos</button>
   </div>`);
-  acts(barra, { resumo: () => telaResumo() });
+  acts(barra, { lista: () => openWorkoutsSheet() });
   scroll.appendChild(barra);
 
   /* ---------- faixa da semana: navega entre os dias ---------- */
   const domingo = new Date(inicioDaSemana(selecionado));
   const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
   const week = h('<div class="week"></div>');
+  /* o disco do dia aberto usa a cor do treino dele, casando com o herói logo
+     abaixo em vez de ser um branco solto */
+  setAccent(sessionsOn(selecionado).length
+    ? accentPainel(selecionado)
+    : (treinoSugerido() ? treinoSugerido().color : contextAccent()), week);
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(domingo); d.setDate(domingo.getDate() + i);
@@ -279,55 +289,86 @@ function renderAcademia(el, screen) {
     scroll.appendChild(volta);
   }
 
-  /* ---------- treino em andamento ---------- */
+  /* ---------- o cartão do dia ----------
+     Um herói só, que muda de papel conforme o estado: treino rolando, treino
+     registrado ou plano à espera. Antes eram três cartões empilhados dizendo
+     quase a mesma coisa. A cor sai sempre do treino em questão. */
+  const doDia = sessionsOn(selecionado);
+  const feitosSemana = treinosNaSemana(inicioDaSemana(selecionado));
+  const meta = metaSemanal();
+
   if (S.active) {
     const a = S.active;
-    const card = h(`<button class="card plan-card" style="text-align:left">
-      <div class="plan-row">
-        <div class="plan-ico">${icon('play')}</div>
-        <div class="plan-txt"><b>${esc(a.name)} em andamento</b><span>Toque para continuar</span></div>
-        ${icon('chev').replace('<svg', '<svg class="chev"')}
-      </div></button>`);
+    const card = h(heroi({
+      sobrancelha: 'Em andamento',
+      titulo: a.name,
+      numero: a.exercises.length + ' exercícios',
+      nota: 'Toque para continuar de onde parou',
+    }));
+    setAccent(a.color, card);
     card.addEventListener('click', () => openWorkout(a.workoutId, 'session'));
+    scroll.appendChild(card);
+  } else if (doDia.length) {
+    const sess = doDia[0];
+    const card = h(heroi({
+      sobrancelha: ehHoje ? 'Treino de hoje' : 'Treino do dia',
+      titulo: sess.name,
+      numero: sess.sets + ' séries · ' + fmtNum(sess.volume) + ' kg',
+      nota: doDia.length > 1 ? doDia.length + ' treinos neste dia' : 'Registrado · toque para ver',
+    }));
+    setAccent(sess.color, card);
+    card.addEventListener('click', () => openSessionDetail(sess.id));
+    scroll.appendChild(card);
+  } else if (S.workouts.length) {
+    const w = treinoSugerido();
+    const series = w.exercises.reduce((n, e) => n + e.sets.length, 0);
+    const card = h(heroi({
+      sobrancelha: ehHoje ? 'Treino de hoje' : 'Sugestão do dia',
+      titulo: w.name,
+      numero: w.exercises.length + ' exercícios · ' + series + ' séries',
+      nota: ehHoje ? 'Seu plano está pronto para começar' : 'Nada foi registrado neste dia',
+    }));
+    setAccent(w.color, card);
+    card.addEventListener('click', () => openWorkout(w.id, 'view'));
     scroll.appendChild(card);
   }
 
-  /* ---------- progresso da semana ---------- */
-  const feitosSemana = treinosNaSemana(inicioDaSemana(selecionado));
-  const meta = metaSemanal();
-  const plan = h(`<button class="card plan-card">
-    <div class="plan-row">
-      <div class="plan-ico">${icon('dumbbell')}</div>
-      <div class="plan-txt"><b>Meus treinos</b><span>${S.workouts.length ? 'Ver todos os treinos montados' : 'Monte seu primeiro treino'}</span></div>
-      ${icon('chev').replace('<svg', '<svg class="chev"')}
-    </div>
-    <div class="progress"><i style="width:${Math.min(100, (feitosSemana / meta) * 100)}%"></i></div>
-    <div class="plan-foot"><span>${ehHoje ? 'Esta semana' : 'Nessa semana'}</span><span>${feitosSemana}/${meta} treinos</span></div>
-  </button>`);
-  plan.addEventListener('click', () => openWorkoutsSheet());
-  scroll.appendChild(plan);
+  scroll.appendChild(h(`<div class="acoes">
+    <button class="acao" data-act="evolucao">${iconO('grafico')}Ver evolução</button>
+    <button class="acao" data-act="semana">${iconO('calendario')}${feitosSemana}/${meta} na semana</button>
+  </div>`));
+  acts(scroll, {
+    evolucao: () => telaResumo(),
+    semana: () => openWorkoutsSheet(),
+  });
 
   /* ---------- o dia selecionado ---------- */
-  const doDia = sessionsOn(selecionado);
-
   if (doDia.length) {
     /* dia com treino: os números e o que foi feito */
+    scroll.appendChild(h(secao('Registro do dia', 'O que você fez')));
     scroll.appendChild(ringsBlock(selecionado));
     doDia.forEach((sess) => scroll.appendChild(sessionCard(sess, screen)));
   } else {
     /* dia sem treino: o que dá para fazer */
     if (S.workouts.length) {
-      scroll.appendChild(h(`<div class="section-title">${ehHoje ? 'Treinos disponíveis' : 'Nenhum treino nesse dia'}</div>`));
+      const w = treinoSugerido();
+      scroll.appendChild(h(secao('Plano do dia', 'Seus exercícios')));
+      scroll.appendChild(linhaDoTempo(w, screen));
+      scroll.appendChild(h(`<div class="section-title">${ehHoje ? 'Outros treinos' : 'Trocar de treino'}</div>`));
       const grid = h('<div class="folders"></div>');
-      S.workouts.forEach((w) => grid.appendChild(folderCard(w, screen)));
-      scroll.appendChild(grid);
+      S.workouts.filter((x) => x.id !== w.id).forEach((x) => grid.appendChild(folderCard(x, screen)));
+      if (grid.children.length) scroll.appendChild(grid);
+      else scroll.lastChild.remove();
     } else {
       if (cloudConfigurado() && !cloudLogado()) {
         const volta = h('<button class="pill-btn soft" style="margin:8px 16px 4px;width:calc(100% - 32px)">Já tenho conta — restaurar treinos</button>');
         volta.addEventListener('click', () => telaLogin(screen));
         scroll.appendChild(volta);
       }
-      scroll.appendChild(h(`<div class="empty">${icon('dumbbell')}<b>Nenhum treino montado</b>Toque no botão para montar seu primeiro treino e começar a anotar suas cargas.</div>`));
+      scroll.appendChild(h(`<div class="empty">${icon('dumbbell')}<b>Nenhum treino montado</b>Monte seu primeiro treino para começar a anotar cargas.</div>`));
+      const criar = h('<button class="pill-btn" data-act="criar" style="margin:0 16px;width:calc(100% - 32px)">Montar meu primeiro treino</button>');
+      criar.addEventListener('click', () => { haptic(); openWorkoutsSheet(); });
+      scroll.appendChild(criar);
     }
 
     /* Não há o que marcar: o dia sem treino já é descanso. O que vale dizer é
@@ -362,20 +403,42 @@ function renderAcademia(el, screen) {
 
   /* ---------- histórico completo ---------- */
   if (S.sessions.length) {
-    const todos = h(`<button class="ex-item" style="width:100%;margin-top:8px;text-align:left">
-      <div class="name">Todos os registros</div>
-      <div style="color:var(--txt-2)">${S.sessions.length}</div>
-      ${icon('chev').replace('<svg', '<svg class="chev"')}
-    </button>`);
-    todos.addEventListener('click', () => openHistorico());
+    const todos = h(`<div class="acoes" style="padding-top:12px">
+      <button class="acao" data-act="hist">${iconO('lista')}Todos os registros · ${S.sessions.length}</button>
+    </div>`);
+    acts(todos, { hist: () => openHistorico() });
     scroll.appendChild(todos);
   }
 
   el.appendChild(scroll);
+}
 
-  const fab = h(`<button class="fab">${icon('dumbbell')}</button>`);
-  fab.addEventListener('click', () => { haptic(); openWorkoutsSheet(); });
-  el.appendChild(fab);
+/* Os exercícios do treino como um roteiro: a bolha traz a foto do movimento e
+   o fio liga um ao outro, deixando claro que é uma sequência. */
+function linhaDoTempo(w, screen) {
+  const box = h('<div class="linha-tempo"></div>');
+  setAccent(w.color, box);
+  if (!w.exercises.length) {
+    box.appendChild(h('<div class="hint">Este treino ainda não tem exercícios.</div>'));
+    return box;
+  }
+  w.exercises.forEach((e) => {
+    const val = e.sets.filter(ehValida);
+    const base = val[0] || e.sets[0] || {};
+    const detalhe = [
+      e.sets.length + (e.sets.length === 1 ? ' série' : ' séries'),
+      base.reps ? base.reps + ' reps' : '',
+    ].filter(Boolean).join(' × ');
+    const carga = base.peso ? ' · ' + fmtWeight(base.peso) + ' kg' : '';
+    const item = h(`<button class="lt-item">
+      <div class="lt-bolha">${exThumb(e.exId, e.grupo, e.equip)}</div>
+      <div class="lt-txt"><b>${esc(e.nome)}</b><span>${esc(detalhe + carga)}</span></div>
+      <div class="lt-acao">${iconO('lapis')}</div>
+    </button>`);
+    item.addEventListener('click', () => openExercise(w.id, e.uid, false));
+    box.appendChild(item);
+  });
+  return box;
 }
 
 /* Lista corrida de tudo que foi registrado, fora da navegação por dia. */
@@ -474,6 +537,7 @@ function renderResumo(el) {
   setAccent(contextAccent(), el);
   el.appendChild(navBar('Resumo'));
   const scroll = h('<div class="scroll"></div>');
+  scroll.appendChild(h(secao('Academia', 'Sua evolução')));
 
   const total = S.sessions.length;
   const volTotal = S.sessions.reduce((a, s) => a + s.volume, 0);
@@ -688,14 +752,10 @@ function trocarEquipamento(e, aoMudar) {
 const COPOS = [300, 500, 800];
 const COPO_PADRAO = 800;
 
-function telaAgua() {
-  pushScreen(renderAgua, { name: 'agua' });
-}
-
 function renderAgua(el, screen) {
   setAccent(contextAccent(), el);
-  el.appendChild(navBar('Hidratação'));
   const scroll = h('<div class="scroll"></div>');
+  scroll.appendChild(h(secao('Nutrição', 'Hidratação')));
   /* água não é treino: tem cor própria, e o anel enche em azul */
   setAccent(AZUL_AGUA, scroll);
 
@@ -1191,21 +1251,20 @@ function openWorkoutEditor(workoutId, isNew) {
     </div>`);
     acts(tools, {
       nome: () => promptSheet('Nome do treino', w.name, 'Ex.: Push, Pull, Perna', (v) => { w.name = v; saveNow(); screen.refresh(); }),
-      cor: () => pickColor(w, screen),
+      cor: (btn) => pickColor(w, screen, btn),
       icone: () => pickIcon(w, screen),
     });
     el.appendChild(tools);
   }, { name: 'editor' });
 }
 
-function pickColor(w, screen) {
-  const box = h(`<div><h3>Cor do treino</h3>${paletaHTML(w.color)}</div>`);
-  const ov = openSheet(box);
-  on(box, '[data-cor]', 'click', (e) => {
-    w.color = e.currentTarget.dataset.cor;
-    saveNow(); haptic();
-    ov.close(); screen.refresh();
-  });
+function pickColor(w, screen, ancora) {
+  const cores = COLORS.slice();
+  if (!cores.some((c) => c.hex === w.color)) cores.push({ hex: w.color, nome: 'Cor própria' });
+  menuSuspenso(cores.map((c) => ({
+    label: c.nome, cor: c.hex, on: c.hex === w.color,
+    onClick: () => { w.color = c.hex; saveNow(); haptic(); screen.refresh(); },
+  })), { ancora });
 }
 
 function pickIcon(w, screen) {

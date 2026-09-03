@@ -123,7 +123,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   /* o acento do treino tem de sobreviver à troca de tema */
   await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); abrirModulo('academia');");
   await sleep(400);
-  const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
+  /* o botao flutuante saiu da academia; a chama da ofensiva usa o mesmo acento */
+  const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.streak svg')).fill");
   ck(acento === 'rgb(28, 28, 30)',
     'fora do treino o detalhe e neutro, e no tema claro ele escurece (veio ' + acento + ')');
   await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(500);

@@ -13,46 +13,57 @@ let MES_AGENDA = Date.now();    // mês desenhado na grade
 
 const DOW_CURTO = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-function telaCronograma() {
-  DIA_AGENDA = Date.now();
-  MES_AGENDA = Date.now();
-  pushScreen((el, screen) => {
-    setAccent(COR_AGENDA, el);
-    el.appendChild(navBar('Cronograma'));
+function renderCronograma(el, screen) {
+  setAccent(COR_AGENDA, el);
 
-    const scroll = h('<div class="scroll"></div>');
-    scroll.appendChild(calendarioMes(screen));
+  const scroll = h('<div class="scroll"></div>');
+  const abertas = pendentesDoDia(DIA_AGENDA);
+  const doDia = tarefasDoDia(DIA_AGENDA);
 
-    /* ---------- o dia aberto ---------- */
-    const doDia = tarefasDoDia(DIA_AGENDA);
-    scroll.appendChild(h(`<div class="section-title">${esc(fmtDataLonga(DIA_AGENDA))}</div>`));
-    if (!doDia.length) {
-      scroll.appendChild(h('<div class="hint">Nada marcado para este dia.</div>'));
-    } else {
-      doDia.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
-    }
+  /* O herói responde à única pergunta que se faz abrindo a agenda: o que tem
+     para hoje. A cor é a do módulo, porque o dia junta tarefas de cores
+     diferentes e nenhuma delas manda sozinha. */
+  const atrasadas = tarefasAtrasadas();
+  const ehHoje = dayKey(DIA_AGENDA) === dayKey(Date.now());
+  scroll.appendChild(h(heroi({
+    sobrancelha: (ehHoje ? 'Hoje · ' : '') + fmtDataLonga(DIA_AGENDA),
+    titulo: abertas
+      ? abertas + (abertas > 1 ? ' tarefas' : ' tarefa')
+      : (doDia.length ? 'Tudo feito' : 'Dia livre'),
+    numero: doDia.length ? doDia.length + (doDia.length > 1 ? ' marcadas no dia' : ' marcada no dia') : 'Nada marcado',
+    nota: atrasadas.length
+      ? atrasadas.length + (atrasadas.length > 1 ? ' atrasadas de outros dias' : ' atrasada de outro dia')
+      : '',
+  })));
 
-    /* ---------- o que ficou para trás ---------- */
-    const atrasadas = tarefasAtrasadas();
-    if (atrasadas.length) {
-      scroll.appendChild(h(`<div class="section-title">Atrasadas · ${atrasadas.length}</div>`));
-      scroll.appendChild(h('<div class="hint" style="padding-bottom:8px">Ficaram abertas em dias que já passaram.</div>'));
-      atrasadas.slice(0, 8).forEach((t) => scroll.appendChild(linhaTarefa(t, screen, true)));
-    }
+  scroll.appendChild(calendarioMes(screen));
 
-    /* ---------- sem dia marcado ---------- */
-    const soltas = tarefasSemData();
-    if (soltas.length) {
-      scroll.appendChild(h('<div class="section-title">Sem data</div>'));
-      soltas.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
-    }
+  scroll.appendChild(h(secao('Plano do dia', 'Suas tarefas')));
+  if (!doDia.length) {
+    scroll.appendChild(h('<div class="hint">Nada marcado para este dia.</div>'));
+  } else {
+    doDia.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
+  }
 
-    el.appendChild(scroll);
+  /* ---------- o que ficou para trás ---------- */
+  if (atrasadas.length) {
+    scroll.appendChild(h(secao('Ficou para trás', 'Atrasadas · ' + atrasadas.length)));
+    scroll.appendChild(h('<div class="hint" style="padding-bottom:8px">Abertas em dias que já passaram.</div>'));
+    atrasadas.slice(0, 8).forEach((t) => scroll.appendChild(linhaTarefa(t, screen, true)));
+  }
 
-    const fab = h(`<button class="fab">${icon('plus')}</button>`);
-    fab.addEventListener('click', () => editorTarefa(null, dayKey(DIA_AGENDA), screen));
-    el.appendChild(fab);
-  }, { name: 'cronograma' });
+  /* ---------- sem dia marcado ---------- */
+  const soltas = tarefasSemData();
+  if (soltas.length) {
+    scroll.appendChild(h(secao('Quando der', 'Sem data')));
+    soltas.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
+  }
+
+  el.appendChild(scroll);
+
+  const fab = h(`<button class="fab">${icon('plus')}</button>`);
+  fab.addEventListener('click', () => editorTarefa(null, dayKey(DIA_AGENDA), screen));
+  el.appendChild(fab);
 }
 
 /* Grade do mês. Cada dia mostra até três pontinhos com a cor das tarefas dele,
@@ -159,7 +170,7 @@ function editorTarefa(tarefa, dataPadrao, screen) {
       <label>Hora<input class="text-input" type="time" data-c="hora" value="${esc(t.hora || '')}"/></label>
     </div>
     <input class="text-input" data-c="nota" placeholder="Observação (opcional)" value="${esc(t.nota)}"/>
-    ${paletaHTML(cor)}
+    <div class="lugar-cor"></div>
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
@@ -178,11 +189,10 @@ function editorTarefa(tarefa, dataPadrao, screen) {
     tipo = e.currentTarget.dataset.tipo;
     box.querySelectorAll('[data-tipo]').forEach((x) => x.classList.toggle('on', x.dataset.tipo === tipo));
   });
-  on(box, '[data-cor]', 'click', (e) => {
-    cor = e.currentTarget.dataset.cor;
-    box.querySelectorAll('[data-cor]').forEach((x) => x.classList.toggle('on', x.dataset.cor === cor));
+  box.querySelector('.lugar-cor').replaceWith(campoCor(cor, (nova) => {
+    cor = nova;
     setAccent(cor, box);
-  });
+  }));
 
   box.querySelector('[data-x="no"]').addEventListener('click', r.close);
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
@@ -219,15 +229,19 @@ function telaMetas() {
     const guardado = totalGuardado();
     const alvo = totalDasMetas();
 
-    /* O resumo junta metas de cores diferentes, então fica no tom do módulo. */
-    scroll.appendChild(h(`<div class="card">
-      <div class="plan-foot" style="margin-bottom:10px"><span>Guardado</span><span>${fmtBRL(guardado)}</span></div>
-      <div class="progress" style="margin:4px 0 12px"><i style="width:${alvo ? Math.min(100, (guardado / alvo) * 100) : 0}%"></i></div>
-      <div class="plan-foot"><span>Soma das metas</span><span>${fmtBRL(alvo)}</span></div>
-    </div>`));
+    /* O herói junta metas de cores diferentes, então fica no tom do módulo. */
+    scroll.appendChild(h(heroi({
+      sobrancelha: 'Cofrinho',
+      titulo: fmtBRL(guardado),
+      classe: 'compacto',
+      numero: alvo ? 'de ' + fmtBRL(alvo) + ' somados' : 'Nenhuma meta ainda',
+      nota: alvo ? Math.round((guardado / alvo) * 100) + '% do total guardado' : '',
+    })));
 
     if (!S.metas.length) {
       scroll.appendChild(h('<div class="hint">Cada meta é um cofrinho: você separa um valor por vez e acompanha o quanto falta. Toque no + para criar a primeira.</div>'));
+    } else {
+      scroll.appendChild(h(secao('Seus objetivos', 'Metas')));
     }
 
     S.metas.forEach((m) => {
@@ -348,7 +362,7 @@ function editorMeta(meta, screen) {
     <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: viagem, notebook" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="alvo" inputmode="decimal" placeholder="Quanto quer juntar (R$)" value="${m.alvo || ''}"/>
-    ${paletaHTML(cor)}
+    <div class="lugar-cor"></div>
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
@@ -360,11 +374,10 @@ function editorMeta(meta, screen) {
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   setAccent(cor, box);
 
-  on(box, '[data-cor]', 'click', (e) => {
-    cor = e.currentTarget.dataset.cor;
-    box.querySelectorAll('[data-cor]').forEach((x) => x.classList.toggle('on', x.dataset.cor === cor));
+  box.querySelector('.lugar-cor').replaceWith(campoCor(cor, (nova) => {
+    cor = nova;
     setAccent(cor, box);
-  });
+  }));
   box.querySelector('[data-x="no"]').addEventListener('click', r.close);
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
     const nome = campo('nome').value.trim();
@@ -393,18 +406,20 @@ function telaEstudos() {
     const semana = estudoDaSemana();
     const meta = metaEstudoSemana();
 
-    scroll.appendChild(h(`<div class="card">
-      <div class="plan-foot" style="margin-bottom:10px"><span>Nesta semana</span><span>${fmtMin(semana)}</span></div>
-      <div class="progress" style="margin:4px 0 12px"><i style="width:${meta ? Math.min(100, (semana / meta) * 100) : 0}%"></i></div>
-      <div class="plan-foot"><span>Meta somada</span><span>${meta ? fmtMin(meta) : 'sem meta'}</span></div>
-    </div>`));
+    scroll.appendChild(h(heroi({
+      sobrancelha: 'Nesta semana',
+      titulo: fmtMin(semana),
+      classe: 'compacto',
+      numero: meta ? 'de ' + fmtMin(meta) + ' de meta' : 'Sem meta definida',
+      nota: meta ? Math.round((semana / meta) * 100) + '% da meta somada' : '',
+    })));
 
     /* Barras dos últimos 14 dias. Cada uma leva a cor da matéria que mais
        rendeu naquele dia — o gráfico junta matérias e não teria cor própria. */
     const dias = estudoPorDia(14);
     const teto = Math.max(30, ...dias.map((d) => d.min));
     if (dias.some((d) => d.min)) {
-      scroll.appendChild(h('<div class="section-title">Últimos 14 dias</div>'));
+      scroll.appendChild(h(secao('Ritmo', 'Últimos 14 dias')));
       const barras = h('<div class="estudo-semana"></div>');
       dias.forEach((d) => {
         const bar = h(`<div class="estudo-dia" title="${fmtMin(d.min)}">
@@ -415,7 +430,7 @@ function telaEstudos() {
       scroll.appendChild(barras);
     }
 
-    scroll.appendChild(h('<div class="section-title">Matérias</div>'));
+    scroll.appendChild(h(secao('O que você estuda', 'Matérias')));
     if (!S.materias.length) {
       scroll.appendChild(h('<div class="hint">Uma matéria guarda os tópicos que você precisa vencer e as horas que já colocou nela. Toque no + para criar a primeira.</div>'));
     }
@@ -546,7 +561,7 @@ function editorMateria(materia, screen) {
     <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: cálculo, inglês" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="meta" inputmode="numeric" placeholder="Minutos por semana" value="${m.metaSemanal || ''}"/>
-    ${paletaHTML(cor)}
+    <div class="lugar-cor"></div>
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
@@ -558,11 +573,10 @@ function editorMateria(materia, screen) {
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   setAccent(cor, box);
 
-  on(box, '[data-cor]', 'click', (e) => {
-    cor = e.currentTarget.dataset.cor;
-    box.querySelectorAll('[data-cor]').forEach((x) => x.classList.toggle('on', x.dataset.cor === cor));
+  box.querySelector('.lugar-cor').replaceWith(campoCor(cor, (nova) => {
+    cor = nova;
     setAccent(cor, box);
-  });
+  }));
   box.querySelector('[data-x="no"]').addEventListener('click', r.close);
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
     const nome = campo('nome').value.trim();

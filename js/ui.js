@@ -46,6 +46,32 @@ const I = {
   grade: '<svg viewBox="0 0 24 24"><path d="M3.4 3.4h7v7h-7zM13.6 3.4h7v7h-7zM3.4 13.6h7v7h-7zM13.6 13.6h7v7h-7z"/></svg>',
 };
 
+/* Ícones de contorno, para a barra flutuante e o menu suspenso. Os cheios
+   continuam onde estão: num traço fino de 1.7px o desenho respira, e é isso
+   que dá o ar leve da barra em cápsula — mas num quadradinho de 20px sobre
+   fundo colorido o cheio ainda lê melhor. */
+const TRACO = 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+const O = {
+  casa: `<path d="M3.6 10.4 12 3.6l8.4 6.8"/><path d="M5.7 9v10a1.3 1.3 0 0 0 1.3 1.3h9.9a1.3 1.3 0 0 0 1.4-1.3V9"/>`,
+  tarefas: `<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/>`,
+  haltere: `<path d="M4.2 9.2v5.6M7.4 7.2v9.6M16.6 7.2v9.6M19.8 9.2v5.6M7.4 12h9.2"/>`,
+  gota: `<path d="M12 3.4c3.5 3.9 5.4 6.7 5.4 9.2a5.4 5.4 0 0 1-10.8 0c0-2.5 1.9-5.3 5.4-9.2z"/>`,
+  garfo: `<path d="M6.4 3.2v6.2a2 2 0 0 0 4 0V3.2M8.4 11.6v9.2M17.6 3.2c-1.5 1.4-2.2 3.2-2.2 5.4 0 1.6.6 2.7 1.6 3.2v9M17.6 3.2v6"/>`,
+  menu: `<path d="M4.2 7.2h15.6M4.2 12h15.6M4.2 16.8h15.6"/>`,
+  fechar: `<path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/>`,
+  calendario: `<rect x="3.6" y="5.4" width="16.8" height="15" rx="3.4"/><path d="M7.8 3.2v4M16.2 3.2v4M3.6 9.8h16.8"/>`,
+  cofre: `<path d="M3.6 8.2h14.6a2.2 2.2 0 0 1 2.2 2.2v7.4a2.4 2.4 0 0 1-2.4 2.4H6a2.4 2.4 0 0 1-2.4-2.4z"/><path d="M3.6 8.2V6.6A2.4 2.4 0 0 1 6 4.2h9.6"/><circle cx="16.6" cy="14.2" r="1.3"/>`,
+  livro: `<path d="M12 6.6C10.4 5.1 8.3 4.3 5.9 4.3c-.8 0-1.5.1-2.3.2v13.9c.8-.1 1.5-.2 2.3-.2 2.4 0 4.5.8 6.1 2.3"/><path d="M12 6.6c1.6-1.5 3.7-2.3 6.1-2.3.8 0 1.5.1 2.3.2v13.9c-.8-.1-1.5-.2-2.3-.2-2.4 0-4.5.8-6.1 2.3z"/>`,
+  cronometro: `<circle cx="12" cy="13.4" r="7.6"/><path d="M12 9.6v4l2.4 1.7M9.4 2.6h5.2"/>`,
+  ajustes: `<path d="M4 7.6h7.4M16.6 7.6H20M4 16.4h3.4M12.6 16.4H20"/><circle cx="14" cy="7.6" r="2.6"/><circle cx="10" cy="16.4" r="2.6"/>`,
+  alvo: `<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/>`,
+  grafico: `<path d="M4 20V4M4 20h16"/><path d="M7.6 15.6l3.6-4.4 2.8 2.6 4.4-5.6"/>`,
+  lista: `<path d="M4.4 6.4h15.2M4.4 12h15.2M4.4 17.6h9.4"/>`,
+  lapis: `<path d="M4 20l.9-3.9L15.6 5.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L8.9 20.1z"/>`,
+  check: `<path d="M4.8 12.4l4.6 4.6L19.2 7"/>`,
+};
+const iconO = (k) => (O[k] ? `<svg viewBox="0 0 24 24" ${TRACO}>${O[k]}</svg>` : '');
+
 const icon = (k) => I[k] || '';
 
 /* ---------- miniatura do exercício ---------- */
@@ -401,6 +427,126 @@ function navBar(titulo, direita) {
     dir: () => { if (direita) direita.aoTocar(); },
   });
   return nav;
+}
+
+/* Cabeçalho de seção: uma sobrancelha curta na cor do contexto e um título
+   grande logo abaixo. Diz o que a lista é sem gastar uma barra inteira. */
+function secao(sobrancelha, titulo) {
+  return `<div class="sec">
+    <div class="eyebrow">${esc(sobrancelha)}</div>
+    <h2>${esc(titulo)}</h2>
+  </div>`;
+}
+
+/* Cartão-herói: o número que importa naquela tela, pintado com a cor do item
+   que o gerou — é a mesma regra de sempre, agora ocupando o topo. Os anéis do
+   canto são decoração desenhada com a própria cor do texto, então acompanham
+   o contraste em vez de precisarem de um tom fixo. */
+function heroi(dados) {
+  const d = dados || {};
+  /* Um nome curto como "Push" pede corpo 40; "Quinta-feira, 03 de set." no
+     mesmo corpo quebra em três linhas e engole o cartão. */
+  const longo = String(d.titulo || '').length > 15 ? ' longo' : '';
+  return `<div class="hero${d.classe ? ' ' + d.classe : ''}">
+    <svg class="hero-aneis" viewBox="0 0 300 300" aria-hidden="true">
+      <circle cx="200" cy="150" r="66"/><circle cx="200" cy="150" r="104"/>
+      <circle cx="200" cy="150" r="142"/><circle cx="200" cy="150" r="180"/>
+    </svg>
+    <div class="hero-topo">
+      <div class="hero-eyebrow">${esc(d.sobrancelha || '')}</div>
+      <div class="hero-titulo${longo}">${esc(d.titulo || '')}</div>
+    </div>
+    <div class="hero-base">
+      <div class="hero-num">${d.numero || ''}</div>
+      ${d.nota ? `<div class="hero-nota">${esc(d.nota)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* Menu suspenso: um painel que aparece perto de quem o chamou, em vez de uma
+   folha subindo do rodapé. Serve tanto para navegar quanto para escolher um
+   valor, e é o que substitui a grade de bolinhas do seletor de cores. */
+function menuSuspenso(itens, opts) {
+  const o = opts || {};
+  const fundo = h('<div class="pop-fundo"></div>');
+  const pop = h('<div class="pop"></div>');
+
+  itens.forEach((it) => {
+    const b = h(`<button class="pop-item${it.on ? ' on' : ''}">
+      ${it.cor ? `<i class="dot" style="background:${it.cor}"></i>` : (it.icone ? iconO(it.icone) : '')}
+      <span class="lab">${esc(it.label)}</span>
+      ${it.on ? iconO('check').replace('<svg', '<svg class="ok"') : ''}
+    </button>`);
+    b.addEventListener('click', () => {
+      fechar();
+      if (it.onClick) setTimeout(it.onClick, 110);
+    });
+    pop.appendChild(b);
+  });
+
+  fundo.appendChild(pop);
+  APP.appendChild(fundo);
+
+  /* Ancorado em quem abriu, preso dentro da tela. Sem o recorte, um menu
+     chamado por um botão do rodapé nasceria metade fora dela. */
+  const M = 12;
+  const larg = APP.clientWidth;
+  const alt = APP.clientHeight;
+  /* Trava a altura antes de medir: uma lista de doze cores é mais alta que a
+     tela, e sem isso o painel nasceria com metade dele para fora. */
+  pop.style.maxHeight = (alt - 2 * M) + 'px';
+  /* offsetWidth/Height, e não getBoundingClientRect: a animação de entrada
+     começa com scale(.92), e o rect sai encolhido enquanto ela roda — o
+     recorte então calculava com 46px a menos e deixava o painel vazar. */
+  const larguraPop = pop.offsetWidth;
+  const alturaPop = pop.offsetHeight;
+  if (o.ancora) {
+    const a = o.ancora.getBoundingClientRect();
+    const acimaCabe = a.top - alturaPop - 10 >= M;
+    const y = acimaCabe ? a.top - alturaPop - 10 : a.bottom + 10;
+    pop.style.top = Math.max(M, Math.min(y, alt - alturaPop - M)) + 'px';
+    let x = a.left + a.width / 2 - larguraPop / 2;
+    x = Math.max(M, Math.min(x, larg - larguraPop - M));
+    pop.style.left = x + 'px';
+    pop.classList.add(acimaCabe ? 'de-baixo' : 'de-cima');
+  } else {
+    pop.style.left = Math.max(M, (larg - larguraPop) / 2) + 'px';
+    pop.style.top = Math.max(M, (alt - alturaPop) / 2) + 'px';
+  }
+
+  function fechar() {
+    pop.style.animation = 'popIn .16s reverse';
+    fundo.style.animation = 'fade .16s reverse';
+    setTimeout(() => fundo.remove(), 150);
+    if (o.aoFechar) o.aoFechar();
+  }
+  fundo.addEventListener('click', (e) => { if (e.target === fundo) fechar(); });
+  return { fundo, pop, fechar };
+}
+
+/* Campo de cor: mostra a escolhida e abre o menu suspenso. Substitui a grade
+   de doze bolinhas, que ocupava duas fileiras e ainda deixava a folha rolando. */
+function campoCor(cor, aoEscolher) {
+  const campo = h(`<button class="campo-cor">
+    <i class="dot" style="background:${cor}"></i>
+    <span class="lab">${esc(nomeDaCor(cor))}</span>
+    ${icon('caret')}
+  </button>`);
+  campo.addEventListener('click', () => {
+    const cores = COLORS.slice();
+    /* uma cor que saiu da paleta continua na lista, senão o item pareceria sem
+       cor escolhida e trocaria de cor no primeiro toque */
+    if (!cores.some((c) => c.hex === cor)) cores.push({ hex: cor, nome: 'Cor própria' });
+    menuSuspenso(cores.map((c) => ({
+      label: c.nome, cor: c.hex, on: c.hex === cor,
+      onClick: () => {
+        campo.querySelector('.dot').style.background = c.hex;
+        campo.querySelector('.lab').textContent = c.nome;
+        aoEscolher(c.hex);
+      },
+    })), { ancora: campo });
+  });
+  return campo;
 }
 
 /* Fileira de cores para escolher. Uma cor que não esteja mais na paleta — de um
