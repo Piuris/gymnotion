@@ -403,6 +403,17 @@ function navBar(titulo, direita) {
   return nav;
 }
 
+/* Fileira de cores para escolher. Uma cor que não esteja mais na paleta — de um
+   item criado antes de ela mudar — entra no fim em vez de sumir: sem isso o
+   item pareceria não ter cor escolhida e trocaria de cor no primeiro toque. */
+function paletaHTML(cor) {
+  const cores = COLORS.map((c) => c.hex);
+  if (cor && cores.indexOf(cor) < 0) cores.push(cor);
+  return '<div class="swatches">' + cores.map((hex) =>
+    `<button class="swatch-btn${hex === cor ? ' on' : ''}" data-cor="${hex}"><i style="background:${hex}"></i></button>`
+  ).join('') + '</div>';
+}
+
 /* ---------- overlays ---------- */
 
 /* O teclado do iOS não encolhe a página: em PWA standalone ele apenas cobre a

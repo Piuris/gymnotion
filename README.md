@@ -217,6 +217,33 @@ estudo da semana, a barra semanal da academia — ela fica no tom neutro ou no d
 módulo, nunca na cor de um item só. O editor de tarefa, meta ou matéria já veste
 a cor escolhida enquanto se escolhe, em vez de revelá-la depois de salvar.
 
+## A paleta
+
+Doze cores dando a volta no círculo cromático, na ordem do arco-íris, com o
+verde em dois tons de propósito: um claro (`#25E36B`) e um escuro (`#0B8F52`).
+
+A paleta antiga tinha o problema oposto — dois verdes quase iguais (`verde` e
+`lima`), três laranjas-avermelhados e um cinza-azulado tão apagado que não
+identificava nada. Medindo em **CIE Lab**, o par mais próximo dela ficava em
+**ΔE 16** (`#FF5A1E` e `#FF3B30`, o mesmo laranja para o olho); na nova, o par
+mais próximo está em **ΔE 30**. Matiz sozinho não serve como medida: do
+vermelho ao amarelo cabem quatro cores em 45 graus e todas passariam.
+
+[tools/folhas-test.js](tools/folhas-test.js) refaz essa conta e falha se alguém
+encostar duas cores de novo, além de conferir que os dois verdes continuam
+separados em luminosidade.
+
+Trocar a paleta deixa de fora hexadecimais que itens antigos já usam.
+`paletaHTML()` resolve isso acrescentando a cor atual ao fim da fileira quando
+ela não está mais na lista — sem isso o item pareceria não ter cor escolhida e
+trocaria de cor no primeiro toque.
+
+O seletor também encolheu. O botão passou a ser só o alvo de toque (42px) e a
+bola colorida vive dentro dele com 74% desse tamanho; a largura sai de
+`min(42px, 100%)`, então numa folha estreita quem manda é a coluna e a grade
+nunca transborda. Antes o botão ocupava a coluna inteira, e numa folha
+centralizada as bolas ficavam enormes e geravam rolagem.
+
 ## As fotos dos exercícios
 
 Cada exercício mostra uma foto da execução, na biblioteca, na lista do treino e

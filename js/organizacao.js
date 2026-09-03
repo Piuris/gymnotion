@@ -159,7 +159,7 @@ function editorTarefa(tarefa, dataPadrao, screen) {
       <label>Hora<input class="text-input" type="time" data-c="hora" value="${esc(t.hora || '')}"/></label>
     </div>
     <input class="text-input" data-c="nota" placeholder="Observação (opcional)" value="${esc(t.nota)}"/>
-    <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    ${paletaHTML(cor)}
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
@@ -348,7 +348,7 @@ function editorMeta(meta, screen) {
     <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: viagem, notebook" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="alvo" inputmode="decimal" placeholder="Quanto quer juntar (R$)" value="${m.alvo || ''}"/>
-    <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    ${paletaHTML(cor)}
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
@@ -546,7 +546,7 @@ function editorMateria(materia, screen) {
     <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: cálculo, inglês" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="meta" inputmode="numeric" placeholder="Minutos por semana" value="${m.metaSemanal || ''}"/>
-    <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    ${paletaHTML(cor)}
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>

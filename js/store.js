@@ -1,18 +1,29 @@
 /* Estado + persistência local (localStorage) */
 
+/* Doze cores dando a volta no círculo cromático, na ordem do arco-íris: duas
+   escolhidas em sequência nunca saem parecidas, e a fileira já se lê como uma
+   escala. O verde aparece em dois tons de propósito, um claro e um escuro —
+   antes havia dois verdes quase iguais (`verde` e `lima`) e nenhum verde
+   fechado. Saíram o coral, que era um laranja repetido, e o gelo, que de tão
+   apagado não identificava nada.
+
+   A distância entre os pares foi medida em CIE Lab, não a olho: nenhum par
+   fica abaixo de ΔE 30, contra ΔE 16 da paleta anterior (`#FF5A1E` e
+   `#FF3B30` eram praticamente o mesmo laranja-vermelho). `folhas-test.js`
+   refaz essa conta e falha se alguém encostar duas cores de novo. */
 const COLORS = [
-  { id: 'laranja', hex: '#FF5A1E' },
-  { id: 'roxo', hex: '#A020F0' },
-  { id: 'verde', hex: '#22E04A' },
-  { id: 'azul', hex: '#0A84FF' },
   { id: 'vermelho', hex: '#FF3B30' },
-  { id: 'rosa', hex: '#FF2D96' },
-  { id: 'amarelo', hex: '#FFC300' },
-  { id: 'ciano', hex: '#32D6E0' },
-  { id: 'indigo', hex: '#5E5CE6' },
-  { id: 'lima', hex: '#A8E00F' },
-  { id: 'coral', hex: '#FF7A5A' },
-  { id: 'gelo', hex: '#8E9AAF' },
+  { id: 'laranja', hex: '#FF8A00' },
+  { id: 'amarelo', hex: '#FFD60A' },
+  { id: 'lima', hex: '#A8ED2E' },
+  { id: 'verde', hex: '#25E36B' },
+  { id: 'esmeralda', hex: '#0B8F52' },
+  { id: 'turquesa', hex: '#00D2C4' },
+  { id: 'azul', hex: '#0A84FF' },
+  { id: 'indigo', hex: '#3F4FE0' },
+  { id: 'roxo', hex: '#A020F0' },
+  { id: 'orquidea', hex: '#F05BE0' },
+  { id: 'magenta', hex: '#FF2D96' },
 ];
 
 const ICONS = {
@@ -669,9 +680,9 @@ function marcarBackupFeito() {
    várias coisas disputando a mesma tela.
    ========================================================= */
 
-const COR_AGENDA = '#5E5CE6';
-const COR_METAS = '#22E04A';
-const COR_ESTUDOS = '#FFC300';
+const COR_AGENDA = '#3F4FE0';
+const COR_METAS = '#25E36B';
+const COR_ESTUDOS = '#FFD60A';
 
 /* Primeira cor da paleta ainda não usada na lista, para dois itens novos não
    saírem iguais. */

@@ -1199,18 +1199,13 @@ function openWorkoutEditor(workoutId, isNew) {
 }
 
 function pickColor(w, screen) {
-  const box = h('<div><h3>Cor do treino</h3><div class="swatches"></div></div>');
-  const grid = box.querySelector('.swatches');
-  let ov;
-  COLORS.forEach((c) => {
-    const b = h(`<button class="swatch-btn${w.color === c.hex ? ' on' : ''}"><i style="background:${c.hex}"></i></button>`);
-    b.addEventListener('click', () => {
-      w.color = c.hex; saveNow(); haptic();
-      ov.close(); screen.refresh();
-    });
-    grid.appendChild(b);
+  const box = h(`<div><h3>Cor do treino</h3>${paletaHTML(w.color)}</div>`);
+  const ov = openSheet(box);
+  on(box, '[data-cor]', 'click', (e) => {
+    w.color = e.currentTarget.dataset.cor;
+    saveNow(); haptic();
+    ov.close(); screen.refresh();
   });
-  ov = openSheet(box);
 }
 
 function pickIcon(w, screen) {

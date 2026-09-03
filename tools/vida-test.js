@@ -113,9 +113,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     });
     return v.join(',');
   })()`);
-  ck(coresAtalhos.indexOf('#5E5CE6') >= 0, 'o do cronograma sai no roxo do módulo');
-  ck(coresAtalhos.indexOf('#2E9BF0') >= 0, 'o da hidratação sai no azul da água');
-  ck(coresAtalhos.indexOf('#22E04A') >= 0, 'o das metas sai no verde delas');
+  /* le as constantes em vez de repetir o hexadecimal: a paleta pode ser
+     reafinada sem que o teste passe a cobrar uma cor que nao existe mais */
+  for (const [cor, quem] of [['COR_AGENDA', 'cronograma'], ['AZUL_AGUA', 'hidratação'], ['COR_METAS', 'metas'], ['COR_ESTUDOS', 'estudos']]) {
+    const hex = (await ev(cor)).toUpperCase();
+    ck(coresAtalhos.indexOf(hex) >= 0, 'o atalho de ' + quem + ' sai na cor do módulo (' + hex + ')');
+  }
   await shot('v1-inicio');
 
   console.log('\nmenu:');

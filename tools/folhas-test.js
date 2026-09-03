@@ -226,6 +226,133 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'dividem a linha ao meio (' + campos.larguras.join(' e ') + ')');
   await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(300);
 
+  console.log('');
+  console.log('seletor de cores:');
+  await abrirEditor('metas');
+  const pal = JSON.parse(await ev(`(function () {
+    var g = document.querySelector('.sheet .swatches');
+    var b = g.querySelectorAll('.swatch-btn');
+    var um = b[0].getBoundingClientRect();
+    var corpo = document.querySelector('.sheet .form-corpo');
+    var largura = 0;
+    b.forEach(function (x) {
+      var r = x.getBoundingClientRect();
+      if (r.right > largura) largura = r.right;
+    });
+    return JSON.stringify({
+      quantas: b.length,
+      bola: Math.round(um.width),
+      grade: [Math.round(g.scrollWidth), Math.round(g.clientWidth)],
+      corpoX: [Math.round(corpo.scrollWidth), Math.round(corpo.clientWidth)],
+      folhaX: [Math.round(document.body.scrollWidth), Math.round(window.innerWidth)],
+      maisADireita: Math.round(largura),
+      fileiras: Math.round(g.getBoundingClientRect().height / um.height),
+    });
+  })()`));
+  ck(pal.quantas === await ev('COLORS.length'),
+    'a paleta mostra as ' + pal.quantas + ' cores');
+  ck(pal.grade[0] <= pal.grade[1] + 1,
+    'a grade nao rola de lado (' + pal.grade.join(' de ') + ')');
+  ck(pal.corpoX[0] <= pal.corpoX[1] + 1,
+    'nem o miolo da folha (' + pal.corpoX.join(' de ') + ')');
+  ck(pal.folhaX[0] <= pal.folhaX[1] + 1,
+    'nem a pagina inteira (' + pal.folhaX.join(' de ') + ')');
+  ck(pal.maisADireita <= TELA.w,
+    'a ultima bola termina dentro da tela (' + pal.maisADireita + ' de ' + TELA.w + ')');
+  ck(pal.bola <= 44 && pal.bola >= 26,
+    'e o alvo de toque fica num tamanho razoavel (' + pal.bola + 'px)');
+  await shot('s-paleta');
+  await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(400);
+
+  console.log('');
+  console.log('cores da paleta:');
+  const cores = JSON.parse(await ev('JSON.stringify(COLORS.map(function (c) { return c.hex; }))'));
+  /* Duas cores nao podem sair parecidas numa bolinha de 30px. Matiz sozinho
+     engana: do vermelho ao amarelo cabem quatro cores em 45 graus, e todas
+     pareciam distintas pela conta de matiz. A distancia em CIE Lab mede o que
+     o olho realmente separa. */
+  const lab = (hex) => {
+    const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+    const [r, g, b] = v;
+    const X = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
+    const Y = (0.2126 * r + 0.7152 * g + 0.0722 * b);
+    const Z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+    const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    const fx = f(X), fy = f(Y), fz = f(Z);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+  };
+  const dE = (x, y) => {
+    const A = lab(x), B = lab(y);
+    return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+  };
+  const matiz = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b); const min = Math.min(r, g, b); const d = max - min;
+    if (!d) return 0;
+    let hh;
+    if (max === r) hh = ((g - b) / d) % 6;
+    else if (max === g) hh = (b - r) / d + 2;
+    else hh = (r - g) / d + 4;
+    return (hh * 60 + 360) % 360;
+  };
+
+  const LIMITE = 25;
+  let pior = { d: 1e9, par: '' };
+  const parecidas = [];
+  for (let i = 0; i < cores.length; i++) {
+    for (let j = i + 1; j < cores.length; j++) {
+      const d = dE(cores[i], cores[j]);
+      if (d < pior.d) pior = { d, par: cores[i] + '/' + cores[j] };
+      if (d < LIMITE) parecidas.push(cores[i] + '/' + cores[j] + ' ΔE ' + d.toFixed(0));
+    }
+  }
+  ck(parecidas.length === 0,
+    'nenhum par fica indistinguivel; o mais proximo e ' + pior.par
+    + ' com ΔE ' + pior.d.toFixed(0) + (parecidas.length ? ' — abaixo de ' + LIMITE + ': ' + parecidas.join(', ') : ''));
+
+  const verdes = cores.filter((c) => { const m = matiz(c); return m >= 90 && m <= 165; });
+  ck(verdes.length === 2, 'ha exatamente dois verdes (' + verdes.join(', ') + ')');
+  ck(verdes.length === 2 && Math.abs(lab(verdes[0])[0] - lab(verdes[1])[0]) > 20,
+    'e eles sao um claro e um escuro (L* '
+    + verdes.map((c) => lab(c)[0].toFixed(0)).join(' e ') + ')');
+
+  console.log('');
+  console.log('cor antiga, fora da paleta:');
+  await ev(`novaMeta('Antiga', 100, '#8E9AAF'); saveNow(); popToRoot(); abrirModulo('metas');`);
+  await sleep(650);
+  await ev(`(function () {
+    var cards = currentScreen().el.querySelectorAll('.meta-card');
+    cards[0].click();
+  })()`); await sleep(650);
+  await ev(`currentScreen().el.querySelector('.nav [data-act="dir"]').click()`); await sleep(500);
+  await ev(`(function () {
+    var itens = document.querySelectorAll('.sheet-item');
+    for (var i = 0; i < itens.length; i++) {
+      if (itens[i].textContent.indexOf('Editar') >= 0) { itens[i].click(); return 'ok'; }
+    }
+    return 'nao achou';
+  })()`); await sleep(700);
+  const antiga = JSON.parse(await ev(`(function () {
+    var g = document.querySelector('.sheet .swatches');
+    var b = g.querySelectorAll('.swatch-btn');
+    var marcada = g.querySelector('.swatch-btn.on');
+    return JSON.stringify({
+      quantas: b.length,
+      marcada: marcada ? marcada.dataset.cor : null,
+      rola: g.scrollWidth > g.clientWidth + 1,
+    });
+  })()`));
+  ck(antiga.quantas === await ev('COLORS.length + 1'),
+    'uma cor que saiu da paleta entra no fim dela (' + antiga.quantas + ' bolas)');
+  ck(antiga.marcada === '#8E9AAF',
+    'e continua marcada como a escolhida, em vez de o item parecer sem cor');
+  ck(!antiga.rola, 'a fileira extra tambem nao faz a grade rolar de lado');
+  await shot('s-paleta-cor-antiga');
+  await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(400);
+
   console.log('\nas outras folhas do app também acompanham:');
   await ev("popToRoot(); abrirModulo('config');"); await sleep(650);
   await ev(`(function () {
