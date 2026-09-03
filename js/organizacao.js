@@ -148,8 +148,9 @@ function editorTarefa(tarefa, dataPadrao, screen) {
 
   const box = h(`<div class="form">
     <h3>${tarefa ? 'Editar tarefa' : 'Nova tarefa'}</h3>
+    <div class="form-corpo">
     <input class="text-input" data-c="titulo" placeholder="O que precisa ser feito" value="${esc(t.titulo)}"/>
-    <div class="chips" style="padding:12px 0 4px">
+    <div class="chips">
       <button class="chip${tipo === 'tarefa' ? ' on' : ''}" data-tipo="tarefa">Tarefa</button>
       <button class="chip${tipo === 'compromisso' ? ' on' : ''}" data-tipo="compromisso">Compromisso</button>
     </div>
@@ -159,6 +160,7 @@ function editorTarefa(tarefa, dataPadrao, screen) {
     </div>
     <input class="text-input" data-c="nota" placeholder="Observação (opcional)" value="${esc(t.nota)}"/>
     <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
       <button class="pill-btn" data-x="yes">Salvar</button>
@@ -166,6 +168,7 @@ function editorTarefa(tarefa, dataPadrao, screen) {
   </div>`);
 
   const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   /* o próprio editor já veste a cor escolhida, em vez de só revelá-la depois
      de salvar: botão, chip e foco dos campos mudam junto com a paleta */
@@ -342,15 +345,18 @@ function editorMeta(meta, screen) {
 
   const box = h(`<div class="form">
     <h3>${meta ? 'Editar meta' : 'Nova meta'}</h3>
+    <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: viagem, notebook" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="alvo" inputmode="decimal" placeholder="Quanto quer juntar (R$)" value="${m.alvo || ''}"/>
     <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
       <button class="pill-btn" data-x="yes">Salvar</button>
     </div>
   </div>`);
   const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   setAccent(cor, box);
 
@@ -537,15 +543,18 @@ function editorMateria(materia, screen) {
 
   const box = h(`<div class="form">
     <h3>${materia ? 'Editar matéria' : 'Nova matéria'}</h3>
+    <div class="form-corpo">
     <input class="text-input" data-c="nome" placeholder="Ex.: cálculo, inglês" value="${esc(m.nome)}"/>
     <input class="text-input" data-c="meta" inputmode="numeric" placeholder="Minutos por semana" value="${m.metaSemanal || ''}"/>
     <div class="swatches">${COLORS.map((c) => `<button class="swatch-btn${c.hex === cor ? ' on' : ''}" data-cor="${c.hex}"><i style="background:${c.hex}"></i></button>`).join('')}</div>
+    </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="no">Cancelar</button>
       <button class="pill-btn" data-x="yes">Salvar</button>
     </div>
   </div>`);
   const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   setAccent(cor, box);
 

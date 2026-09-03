@@ -156,6 +156,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia, o descanso automático e a cor dos painéis |
 | [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
 | [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
+| [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro num iPhone 15 Pro, com e sem teclado na frente |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -354,6 +355,7 @@ node tools/habits-test.js ./__shots      # abas, descanso e água
 node tools/dias-test.js ./__shots        # navegação por dia e cores
 node tools/calc-test.js ./__shots        # descanso global e calculadora
 node tools/vida-test.js ./__shots        # módulos de organização e navegação
+node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -511,6 +513,38 @@ chegaram a 27px da borda, contra 46px antes.
 Para ver isso em teste é preciso simular o inset — `habits-test.js` injeta
 `--safe-b: 34px` antes de medir, senão a folga daria zero e o teste passaria com
 o defeito no lugar.
+
+## O teclado do iOS cobre a tela, não a encolhe
+
+Num PWA em tela cheia, abrir o teclado **não muda o tamanho da página**: o
+layout continua achando que tem os 852px do iPhone 15 Pro, e o teclado
+simplesmente se deita por cima dos ~336px de baixo. Uma folha centralizada
+segue centrada na tela inteira — e some atrás do teclado justamente quando se
+está digitando nela.
+
+Medido no editor de tarefa, no código anterior: o botão *Salvar* ficava em
+y=665 com apenas 516px visíveis, ou seja, **149px atrás do teclado**.
+
+A `visualViewport` é a única API que enxerga o que sobrou. Ao abrir qualquer
+folha, `seguirTeclado()` prende o fundo escuro a ela (`top`, `height`) e
+acompanha `resize`/`scroll`; a folha passa a se centrar no espaço visível, não
+na tela. Vale para todas as folhas, inclusive as de ajuste que já existiam.
+
+Duas correções vieram junto, das que só aparecem no aparelho:
+
+- **`-webkit-appearance: none` nos campos.** Sem isso o iOS ignora altura e
+  recuo em `input[type="date"]` e `[type="time"]` e os desenha com a largura
+  intrínseca dele, estourando a linha que divide dia e hora ao meio. No Chrome
+  o defeito não aparece, porque lá o controle nativo já obedece à caixa.
+- **Folha em três faixas.** Título fixo, miolo que rola (`.form-corpo`) e botões
+  fixos embaixo. A primeira tentativa foi grudar os botões com
+  `position: sticky`, e eles passaram a flutuar **por cima** da paleta de cores,
+  cortando-a — sticky tira o elemento do lugar sem abrir espaço para ele.
+
+[tools/folhas-test.js](tools/folhas-test.js) sombreia `visualViewport.height` e
+dispara o evento de `resize`, que é exatamente o que o Safari faz, e verifica
+que a folha inteira, os botões e a última cor da paleta continuam alcançáveis.
+Rodado contra o código anterior, ele acusa 11 falhas.
 
 ## Calculadora de aquecimento e feeder
 

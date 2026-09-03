@@ -405,6 +405,28 @@ function navBar(titulo, direita) {
 
 /* ---------- overlays ---------- */
 
+/* O teclado do iOS não encolhe a página: em PWA standalone ele apenas cobre a
+   parte de baixo, e o layout continua achando que tem 852px. Uma folha
+   centralizada segue centrada na tela inteira e some atrás do teclado
+   justamente quando se está digitando nela. A visualViewport é o único lugar
+   que sabe quanto sobrou de tela visível, então a folha passa a morar nela. */
+function seguirTeclado(bd) {
+  const vv = window.visualViewport;
+  if (!vv) return () => {};
+  const ajustar = () => {
+    bd.style.top = vv.offsetTop + 'px';
+    bd.style.bottom = 'auto';
+    bd.style.height = vv.height + 'px';
+  };
+  ajustar();
+  vv.addEventListener('resize', ajustar);
+  vv.addEventListener('scroll', ajustar);
+  return () => {
+    vv.removeEventListener('resize', ajustar);
+    vv.removeEventListener('scroll', ajustar);
+  };
+}
+
 function openSheet(content, opts) {
   const o = opts || {};
   const bd = h(`<div class="backdrop${o.center ? ' mid' : ''}"></div>`);
@@ -414,10 +436,12 @@ function openSheet(content, opts) {
   bd.appendChild(sheet);
   bd.addEventListener('click', (e) => { if (e.target === bd) closeSheet(bd); });
   APP.appendChild(bd);
+  bd.__soltarTeclado = seguirTeclado(bd);
   return { bd, sheet, close: () => closeSheet(bd) };
 }
 
 function closeSheet(bd) {
+  if (bd.__soltarTeclado) { bd.__soltarTeclado(); bd.__soltarTeclado = null; }
   bd.style.animation = 'fade .18s reverse';
   const s = bd.querySelector('.sheet');
   if (s) s.style.animation = 'sheetIn .2s reverse';

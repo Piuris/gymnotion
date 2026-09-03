@@ -794,6 +794,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tool .bub .swatch { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); }
 
 .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; padding: 8px 20px 20px; }
+.form .swatches { gap: 12px; padding: 2px 20px 14px; }
 .swatch-btn {
   aspect-ratio: 1; border-radius: 50%;
   border: 3px solid transparent;
@@ -1135,6 +1136,9 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .sheet.center {
   margin: auto 16px; border-radius: 20px; max-width: 420px;
+  /* a margem segura de baixo só serve para folha colada na borda da tela;
+     numa centralizada ela vira 34px de vazio embaixo dos botões */
+  padding-bottom: 10px;
   animation: pop .22s cubic-bezier(.32,.72,0,1);
 }
 @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -1159,9 +1163,20 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .text-input {
   width: calc(100% - 40px); margin: 0 20px 16px;
+  min-width: 0;
   height: 50px; border-radius: 14px;
   background: var(--input-bg); border: 1px solid var(--line);
   padding: 0 14px; font-size: 18px; outline: none;
+  /* Sem isto, os campos de data e hora do iOS ignoram altura e recuo e sobem
+     com a largura intrínseca deles, estourando a linha que os divide ao meio.
+     No Chrome o defeito não aparece, porque lá o controle nativo já obedece. */
+  -webkit-appearance: none; appearance: none;
+}
+/* Campo nativo de data/hora: o iOS alinha o texto no topo da caixa se não
+   houver alinhamento explícito. */
+.text-input[type="date"], .text-input[type="time"] {
+  display: flex; align-items: center;
+  text-align: left;
 }
 .text-input:focus { border-color: var(--accent); }
 
@@ -1308,8 +1323,20 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .tarefa.feito { border-left-color: var(--fill-2); }
 .tarefa.feito .tarefa-txt b { color: var(--txt-3); text-decoration: line-through; }
 
-.form h3 { text-transform: none; }
-.form .chips { padding-left: 20px; padding-right: 20px; }
+/* Com o teclado aberto sobra pouca altura, e Salvar não pode depender de rolar
+   até o fim. Em vez de grudar os botões com `sticky` — que os faz flutuar por
+   cima da paleta — a folha vira três faixas: título fixo, miolo que rola e
+   botões fixos. Quem rola é o miolo, não a folha. */
+.sheet.com-form { display: flex; flex-direction: column; overflow: hidden; }
+.form { display: flex; flex-direction: column; min-height: 0; }
+.form h3, .form .sheet-actions { flex: 0 0 auto; }
+.form-corpo {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.form .sheet-actions { padding-top: 12px; border-top: 1px solid var(--line); }
+.form .chips { padding: 0 20px 14px; }
 .form-linha { display: flex; gap: 0; }
 .form-linha label {
   flex: 1; min-width: 0;
