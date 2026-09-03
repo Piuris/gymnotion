@@ -35,6 +35,15 @@ const I = {
   fechar: '<svg viewBox="0 0 24 24"><path d="M12 10.6 7.4 6 6 7.4l4.6 4.6L6 16.6 7.4 18l4.6-4.6 4.6 4.6 1.4-1.4-4.6-4.6L18 7.4 16.6 6z"/></svg>',
   arrastar: '<svg viewBox="0 0 24 24"><path d="M4 7.5h16v2H4zM4 14.5h16v2H4z"/></svg>',
   info: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v2h-2zm0 4h2v7h-2z"/></svg>',
+  /* Os furos destes dois saem de fill-rule="evenodd": subcaminho dentro de
+     outro vira buraco, então o calendário ganha grade e a engrenagem ganha
+     eixo sem precisar de uma segunda cor. */
+  calendario: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M6.6 1.8h2.2v1.7h6.4V1.8h2.2v1.7h1.8A1.8 1.8 0 0 1 21 5.3v14.9A1.8 1.8 0 0 1 19.2 22H4.8A1.8 1.8 0 0 1 3 20.2V5.3a1.8 1.8 0 0 1 1.8-1.8h1.8zM5.2 9.8v10h13.6v-10zm2.1 1.9h2.6v2.5H7.3zm4.6 0h2.6v2.5h-2.6zm-4.6 4.2h2.6v2.5H7.3zm4.6 0h2.6v2.5h-2.6z"/></svg>',
+  cofre: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4.2 3.6h12.4A2.4 2.4 0 0 1 19 6v1.2H6.1a.6.6 0 0 0 0 1.2H20.4A1.6 1.6 0 0 1 22 10v8.4a2.4 2.4 0 0 1-2.4 2.4H4.2A2.4 2.4 0 0 1 1.8 18.4V6a2.4 2.4 0 0 1 2.4-2.4zm12.6 9.2a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+  livro: '<svg viewBox="0 0 24 24"><path d="M11 6.6C9.4 5.2 7.1 4.4 4.6 4.4c-.8 0-1.6.1-2.3.2a1 1 0 0 0-.8 1v12.6a1 1 0 0 0 1.2 1c.6-.1 1.2-.2 1.9-.2 2.3 0 4.3.8 5.6 2a1 1 0 0 0 .8.3zm2 16.7a1 1 0 0 0 .8-.3c1.3-1.2 3.3-2 5.6-2 .7 0 1.3.1 1.9.2a1 1 0 0 0 1.2-1V5.6a1 1 0 0 0-.8-1c-.7-.1-1.5-.2-2.3-.2-2.5 0-4.8.8-6.4 2.2z" transform="translate(-.5 -1.3)"/></svg>',
+  engrenagem: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10.4 1.8h3.2l.4 2.5c.7.2 1.3.5 1.9.8l2.1-1.4 2.3 2.3-1.4 2.1c.3.6.6 1.2.8 1.9l2.5.4v3.2l-2.5.4c-.2.7-.5 1.3-.8 1.9l1.4 2.1-2.3 2.3-2.1-1.4c-.6.3-1.2.6-1.9.8l-.4 2.5h-3.2l-.4-2.5c-.7-.2-1.3-.5-1.9-.8l-2.1 1.4-2.3-2.3 1.4-2.1c-.3-.6-.6-1.2-.8-1.9l-2.5-.4v-3.2l2.5-.4c.2-.7.5-1.3.8-1.9L3.7 6l2.3-2.3 2.1 1.4c.6-.3 1.2-.6 1.9-.8zM12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4z"/></svg>',
+  gota: '<svg viewBox="0 0 24 24"><path d="M12 2.2c4.3 4.8 6.6 8.2 6.6 11.4a6.6 6.6 0 0 1-13.2 0c0-3.2 2.3-6.6 6.6-11.4z"/></svg>',
+  grade: '<svg viewBox="0 0 24 24"><path d="M3.4 3.4h7v7h-7zM13.6 3.4h7v7h-7zM3.4 13.6h7v7h-7zM13.6 13.6h7v7h-7z"/></svg>',
 };
 
 const icon = (k) => I[k] || '';
@@ -195,6 +204,35 @@ function fmtDataLonga(ts) {
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
 
+/* Real com centavos só quando existem: numa lista de metas "R$ 1.240" lê
+   melhor que "R$ 1.240,00", e o centavo aparece quando faz falta. */
+function fmtBRL(v) {
+  const n = Number(v) || 0;
+  const casas = Math.abs(n % 1) > 0.004 ? 2 : 0;
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+
+/* 45 -> "45 min"; 90 -> "1h30"; 120 -> "2h" */
+function fmtMin(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0));
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? h + 'h' + pad2(r) : h + 'h';
+}
+
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MESES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/* "Setembro de 2026": maiuscula so na primeira letra. Deixar isso para o CSS
+   com text-transform: capitalize maiusculiza o "de" junto. */
+const fmtMesAno = (ts) => {
+  const d = new Date(ts);
+  const m = MESES[d.getMonth()];
+  return m.charAt(0).toUpperCase() + m.slice(1) + ' de ' + d.getFullYear();
+};
+
 function fmtWeight(v) {
   const n = Number(v) || 0;
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');
@@ -333,9 +371,36 @@ function popToRoot() {
   currentScreen().refresh();
 }
 
+/* Volta até a tela de um nome, ou até a raiz se ela não estiver mais na pilha.
+   Quem terminou um treino quer cair de volta na Academia, não no Início. */
+function voltarPara(nome) {
+  while (stack.length > 1 && currentScreen().name !== nome) {
+    stack.pop().el.remove();
+  }
+  currentScreen().refresh();
+}
+
 function replaceRoot(builder, name) {
   while (stack.length) { stack.pop().el.remove(); }
   pushScreen(builder, { name });
+}
+
+/* Barra de topo das telas empilhadas: voltar à esquerda, título no meio e, se
+   houver, um botão à direita. Sem o segundo espaçador o título deixa de ficar
+   centrado quando não há botão. */
+function navBar(titulo, direita) {
+  const nav = h(`<div class="nav">
+    <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
+    <div class="title${String(titulo).length > 16 ? ' long' : ''}">${esc(titulo)}</div>
+    ${direita
+      ? `<button class="icon-btn" data-act="dir">${icon(direita.icone)}</button>`
+      : '<div style="width:44px"></div>'}
+  </div>`);
+  acts(nav, {
+    back: () => popScreen(),
+    dir: () => { if (direita) direita.aoTocar(); },
+  });
+  return nav;
 }
 
 /* ---------- overlays ---------- */

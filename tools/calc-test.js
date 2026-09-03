@@ -99,7 +99,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     e.sets[2].tipo = 'f';
     e.sets[3].peso = 100; e.sets[3].reps = 8;
     e.sets[4].peso = 100; e.sets[4].reps = 8;
-    saveNow(); popToRoot(); currentScreen().refresh(); 'ok';
+    saveNow(); popToRoot(); abrirModulo('academia'); 'ok';
   `);
 
   console.log('descanso não atrapalha a busca:');

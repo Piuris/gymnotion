@@ -142,7 +142,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const peito = await ev("(seriesPorGrupo(inicioDaSemana()).find(g => g.grupo === 'Peito') || {}).series");
   ck(peito === 1, 'Peito com 1 série válida na semana (veio ' + peito + ')');
   ck(await ev('SERIES_MIN === 10 && SERIES_MAX === 20'), 'faixa de referência 10–20');
-  await ev("TAB = 'inicio'; popToRoot(); currentScreen().refresh();");
+  await ev("popToRoot(); telaResumo();");
   await sleep(500);
   ck(await ev("currentScreen().el.querySelectorAll('.grupo-row').length > 0"), 'seção aparece na aba Resumo');
   /* o PAP de 90x3 é mais pesado que a válida de 80x10: não pode virar recorde */
@@ -156,7 +156,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\núltima vez:');
   ck(await ev("ultimaExecucao('ex_supino_reto').sets.length === 1"),
     'última execução traz só a série válida');
-  await ev("TAB = 'treinos'; popToRoot(); currentScreen().refresh(); startSession(S.workouts[0].id);");
+  await ev("popToRoot(); abrirModulo('academia'); startSession(S.workouts[0].id);");
   await ev("openWorkout(S.workouts[0].id, 'session')"); await sleep(500);
   await ev("openExercise(S.workouts[0].id, S.active.exercises[0].uid, true)"); await sleep(600);
   ck(await ev('!!' + naTela('.prev-bar')), 'barra do treino anterior aparece');

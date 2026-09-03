@@ -57,11 +57,15 @@ const TEMAS = [
 ];
 
 const DEFAULT_STATE = {
-  version: 2,
+  version: 3,
   workouts: [],
   sessions: [],
   customExercises: [],
+  tarefas: [],            // cronograma: tarefas e compromissos
+  metas: [],              // cofrinho: dinheiro separado por objetivo
+  materias: [],           // estudos: tópicos e horas por matéria
   agua: {},               // ml bebidos por dia, em chave AAAA-MM-DD
+  aguaLog: {},            // cada gole do dia, na ordem, para o desfazer
   settings: {
     unit: 'kg', restDefault: 1, bodyweight: 75,
     lastBackup: 0, backupAvisado: 0, tema: 'preto',
@@ -135,9 +139,24 @@ function migrarParaV2(estado) {
 }
 
 /* Campos que passaram a existir depois: um estado antigo não os tem. */
+/* ---------- migração v2 -> v3 ----------
+   O app deixou de ser só academia. Os módulos novos entram vazios: nada do que
+   já estava salvo muda de forma, só ganha companhia. */
+
+const LISTAS_V3 = ['tarefas', 'metas', 'materias'];
+
+function migrarParaV3(estado) {
+  if ((estado.version || 1) >= 3) return estado;
+  LISTAS_V3.forEach((k) => { if (!Array.isArray(estado[k])) estado[k] = []; });
+  estado.version = 3;
+  return estado;
+}
+
 function completarCampos(estado) {
+  LISTAS_V3.forEach((k) => { if (!Array.isArray(estado[k])) estado[k] = []; });
   delete estado.descansos;   // o descanso passou a ser automático
   if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
+  if (!estado.aguaLog || typeof estado.aguaLog !== 'object') estado.aguaLog = {};
   const p = DEFAULT_STATE.settings;
   Object.keys(p).forEach((k) => {
     if (estado.settings[k] === undefined) estado.settings[k] = p[k];
@@ -154,7 +173,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
-    return completarCampos(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), parsed)));
+    return completarCampos(migrarParaV3(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), parsed))));
   } catch (e) {
     console.warn('estado corrompido, recomeçando', e);
     return structuredClone(DEFAULT_STATE);
@@ -463,8 +482,25 @@ function beberAgua(ml, ts) {
   const k = dayKey(ts == null ? Date.now() : ts);
   S.agua[k] = Math.max(0, (S.agua[k] || 0) + ml);
   if (!S.agua[k]) delete S.agua[k];
+  if (ml > 0) (S.aguaLog[k] = S.aguaLog[k] || []).push(ml);
   saveNow();
   return S.agua[k] || 0;
+}
+
+/* Quanto entrou por último no dia. O desfazer tira exatamente esse valor:
+   descontar um número fixo erraria sempre que o copo anterior foi outro. */
+function aguaUltimo(ts) {
+  const l = S.aguaLog[dayKey(ts == null ? Date.now() : ts)];
+  return (l && l.length) ? l[l.length - 1] : 0;
+}
+
+function desfazerAgua(padrao, ts) {
+  const k = dayKey(ts == null ? Date.now() : ts);
+  const l = S.aguaLog[k];
+  const ml = (l && l.length) ? l.pop() : (padrao || 0);
+  if (l && !l.length) delete S.aguaLog[k];
+  beberAgua(-ml, ts);
+  return ml;
 }
 
 /* histórico de um exercício: [{date, volume, best1rm, topSet}] mais antigo -> mais novo */
@@ -623,6 +659,286 @@ function marcarBackupFeito() {
   saveNow();
 }
 
+
+/* =========================================================
+   CORES DOS MÓDULOS
+
+   A regra da cor continua a mesma: cor identifica a coisa, não decora a tela.
+   A academia herda a cor do treino; água, cronograma, metas e estudos têm cor
+   própria. Em metas e matérias a cor é por item, como nos treinos, porque são
+   várias coisas disputando a mesma tela.
+   ========================================================= */
+
+const COR_AGENDA = '#5E5CE6';
+const COR_METAS = '#22E04A';
+const COR_ESTUDOS = '#FFC300';
+
+/* Primeira cor da paleta ainda não usada na lista, para dois itens novos não
+   saírem iguais. */
+function corLivre(lista) {
+  const usadas = (lista || []).map((x) => x.cor || x.color);
+  return (COLORS.find((c) => !usadas.includes(c.hex)) || COLORS[0]).hex;
+}
+
+/* =========================================================
+   CRONOGRAMA
+
+   A data de uma tarefa é guardada como chave de dia ('AAAA-MM-DD'), não como
+   instante: "dia 3" precisa continuar sendo dia 3 depois de exportar, importar
+   e abrir noutro fuso. De quebra, comparar e ordenar viram comparação de texto.
+   ========================================================= */
+
+const tsDaData = (k) => new Date(k + 'T00:00:00').getTime();
+
+function novaTarefa(dados) {
+  const t = Object.assign({
+    id: uid('t_'),
+    titulo: 'Nova tarefa',
+    nota: '',
+    data: dayKey(Date.now()),   // null = sem dia marcado
+    hora: '',                   // 'HH:MM' quando tem hora marcada
+    tipo: 'tarefa',             // 'tarefa' | 'compromisso'
+    cor: COR_AGENDA,
+    feito: false,
+    feitoEm: 0,
+    criada: Date.now(),
+  }, dados || {});
+  S.tarefas.unshift(t);
+  save();
+  return t;
+}
+
+const getTarefa = (id) => S.tarefas.find((t) => t.id === id);
+
+/* Quem tem hora vem primeiro, na ordem do relógio; depois o que é só tarefa;
+   o que já foi feito desce para o fim em vez de sumir. */
+function ordemTarefa(a, b) {
+  if (a.feito !== b.feito) return a.feito ? 1 : -1;
+  if (!!a.hora !== !!b.hora) return a.hora ? -1 : 1;
+  if (a.hora && b.hora && a.hora !== b.hora) return a.hora < b.hora ? -1 : 1;
+  return a.criada - b.criada;
+}
+
+const tarefasDoDia = (ts) => S.tarefas
+  .filter((t) => t.data === dayKey(ts == null ? Date.now() : ts))
+  .sort(ordemTarefa);
+
+const tarefasSemData = () => S.tarefas.filter((t) => !t.data).sort(ordemTarefa);
+
+const pendentesDoDia = (ts) => tarefasDoDia(ts).filter((t) => !t.feito).length;
+
+/* Aberta num dia que já passou. Fica visível em vez de sumir silenciosamente
+   no passado, que é onde tarefa esquecida costuma morrer. */
+function tarefasAtrasadas(ts) {
+  const hoje = dayKey(ts == null ? Date.now() : ts);
+  return S.tarefas
+    .filter((t) => !t.feito && t.data && t.data < hoje)
+    .sort(ordemTarefa);
+}
+
+/* Marcas do mês para o calendário: as cores das tarefas de cada dia e quantas
+   continuam abertas. Uma passada só na lista, em vez de varrê-la 31 vezes. */
+function marcasDoMes(ts) {
+  const d = new Date(ts == null ? Date.now() : ts);
+  const prefixo = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  const marcas = {};
+  S.tarefas.forEach((t) => {
+    if (!t.data || t.data.slice(0, 7) !== prefixo) return;
+    const m = marcas[t.data] || (marcas[t.data] = { cores: [], abertas: 0, total: 0 });
+    if (m.cores.indexOf(t.cor) < 0 && m.cores.length < 3) m.cores.push(t.cor);
+    m.total += 1;
+    if (!t.feito) m.abertas += 1;
+  });
+  return marcas;
+}
+
+function alternarTarefa(id) {
+  const t = getTarefa(id);
+  if (!t) return null;
+  t.feito = !t.feito;
+  t.feitoEm = t.feito ? Date.now() : 0;
+  saveNow();
+  return t;
+}
+
+function removerTarefa(id) {
+  S.tarefas = S.tarefas.filter((t) => t.id !== id);
+  saveNow();
+}
+
+/* Empurra uma tarefa para outro dia sem ter que reabrir e reescrever tudo. */
+function adiarTarefa(id, dias) {
+  const t = getTarefa(id);
+  if (!t) return null;
+  const base = new Date(t.data ? tsDaData(t.data) : Date.now());
+  base.setDate(base.getDate() + dias);
+  t.data = dayKey(base.getTime());
+  saveNow();
+  return t;
+}
+
+/* =========================================================
+   METAS — o cofrinho
+   ========================================================= */
+
+function novaMeta(nome, alvo, cor) {
+  const m = {
+    id: uid('meta_'),
+    nome: nome || 'Nova meta',
+    alvo: Math.max(0, Number(alvo) || 0),
+    cor: cor || corLivre(S.metas),
+    prazo: null,
+    depositos: [],
+    criada: Date.now(),
+  };
+  S.metas.unshift(m);
+  save();
+  return m;
+}
+
+const getMeta = (id) => S.metas.find((m) => m.id === id);
+
+/* O saldo é a soma dos lançamentos, e retirada entra como valor negativo. Com
+   isso o extrato mostra o que saiu e quando, em vez de o saldo encolher sem
+   deixar rastro. */
+const metaGuardado = (m) => (m ? m.depositos.reduce((a, d) => a + d.valor, 0) : 0);
+const metaPct = (m) => (m && m.alvo > 0 ? Math.min(1, metaGuardado(m) / m.alvo) : 0);
+const metaFalta = (m) => Math.max(0, (m ? m.alvo : 0) - metaGuardado(m));
+const metaBatida = (m) => !!m && m.alvo > 0 && metaGuardado(m) >= m.alvo;
+const totalGuardado = () => S.metas.reduce((a, m) => a + metaGuardado(m), 0);
+const totalDasMetas = () => S.metas.reduce((a, m) => a + m.alvo, 0);
+
+function guardarNaMeta(id, valor, nota) {
+  const m = getMeta(id);
+  const v = Number(valor) || 0;
+  if (!m || !v) return null;
+  /* não deixa o cofrinho ficar negativo: retira no máximo o que tem dentro */
+  const lancado = v < 0 ? -Math.min(-v, metaGuardado(m)) : v;
+  if (!lancado) return null;
+  const d = { id: uid('d_'), valor: lancado, nota: nota || '', data: Date.now() };
+  m.depositos.unshift(d);
+  saveNow();
+  return d;
+}
+
+function removerDeposito(metaId, depId) {
+  const m = getMeta(metaId);
+  if (!m) return;
+  m.depositos = m.depositos.filter((d) => d.id !== depId);
+  saveNow();
+}
+
+function removerMeta(id) {
+  S.metas = S.metas.filter((m) => m.id !== id);
+  saveNow();
+}
+
+/* =========================================================
+   ESTUDOS — matérias, tópicos e horas
+   ========================================================= */
+
+function novaMateria(nome, cor, metaSemanal) {
+  const m = {
+    id: uid('mat_'),
+    nome: nome || 'Nova matéria',
+    cor: cor || corLivre(S.materias),
+    metaSemanal: Math.max(0, Math.round(Number(metaSemanal) || 120)),   // minutos
+    topicos: [],
+    sessoes: [],
+    criada: Date.now(),
+  };
+  S.materias.unshift(m);
+  save();
+  return m;
+}
+
+const getMateria = (id) => S.materias.find((m) => m.id === id);
+const topicosFeitos = (m) => (m ? m.topicos.filter((t) => t.feito).length : 0);
+const progressoMateria = (m) => (m && m.topicos.length ? topicosFeitos(m) / m.topicos.length : 0);
+
+function addTopico(matId, nome) {
+  const m = getMateria(matId);
+  if (!m || !nome) return null;
+  const t = { id: uid('tp_'), nome, feito: false, feitoEm: 0 };
+  m.topicos.push(t);
+  saveNow();
+  return t;
+}
+
+function alternarTopico(matId, topId) {
+  const m = getMateria(matId);
+  const t = m && m.topicos.find((x) => x.id === topId);
+  if (!t) return null;
+  t.feito = !t.feito;
+  t.feitoEm = t.feito ? Date.now() : 0;
+  saveNow();
+  return t;
+}
+
+function removerTopico(matId, topId) {
+  const m = getMateria(matId);
+  if (!m) return;
+  m.topicos = m.topicos.filter((t) => t.id !== topId);
+  saveNow();
+}
+
+function registrarEstudo(matId, minutos, nota, ts) {
+  const m = getMateria(matId);
+  const min = Math.round(Number(minutos) || 0);
+  if (!m || min <= 0) return null;
+  const s = { id: uid('es_'), min, nota: nota || '', data: ts == null ? Date.now() : ts };
+  m.sessoes.unshift(s);
+  saveNow();
+  return s;
+}
+
+function removerSessaoEstudo(matId, sesId) {
+  const m = getMateria(matId);
+  if (!m) return;
+  m.sessoes = m.sessoes.filter((s) => s.id !== sesId);
+  saveNow();
+}
+
+function removerMateria(id) {
+  S.materias = S.materias.filter((m) => m.id !== id);
+  saveNow();
+}
+
+/* Minutos estudados numa semana. Sem `ini`, a semana corrente. */
+function minutosNaSemana(m, ini) {
+  const i = ini == null ? inicioDaSemana() : ini;
+  const fim = i + 7 * 86400000;
+  return (m ? m.sessoes : []).reduce((a, s) => a + (s.data >= i && s.data < fim ? s.min : 0), 0);
+}
+
+const minutosTotais = (m) => (m ? m.sessoes.reduce((a, s) => a + s.min, 0) : 0);
+const estudoDaSemana = (ini) => S.materias.reduce((a, m) => a + minutosNaSemana(m, ini), 0);
+const metaEstudoSemana = () => S.materias.reduce((a, m) => a + (m.metaSemanal || 0), 0);
+
+/* Minutos por dia nos últimos `n` dias, do mais antigo para o mais novo, junto
+   com a cor da matéria que mais rendeu no dia — o gráfico junta matérias, e a
+   cor de cada barra diz de quem foi o dia. */
+function estudoPorDia(n, ate) {
+  const fim = new Date(ate == null ? Date.now() : ate);
+  fim.setHours(0, 0, 0, 0);
+  const dias = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(fim);
+    d.setDate(d.getDate() - i);
+    const k = dayKey(d.getTime());
+    let min = 0;
+    let melhor = 0;
+    let cor = COR_ESTUDOS;
+    S.materias.forEach((m) => {
+      const soma = m.sessoes.reduce((a, s) => a + (dayKey(s.data) === k ? s.min : 0), 0);
+      min += soma;
+      if (soma > melhor) { melhor = soma; cor = m.cor; }
+    });
+    dias.push({ ts: d.getTime(), min, cor });
+  }
+  return dias;
+}
+
 /* ---------- import / export ---------- */
 
 function exportJSON() {
@@ -632,7 +948,7 @@ function exportJSON() {
 function importJSON(text) {
   const data = JSON.parse(text);
   if (!data || !Array.isArray(data.workouts)) throw new Error('Arquivo inválido');
-  S = completarCampos(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), data)));
+  S = completarCampos(migrarParaV3(migrarParaV2(Object.assign(structuredClone(DEFAULT_STATE), data))));
   saveNow();
 }
 

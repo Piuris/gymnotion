@@ -113,6 +113,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1500);
 
   console.log('percurso a partir de um app vazio:');
+  /* a academia deixou de ser aba e virou tela empilhada, aberta pelo Inicio */
+  check(await ev("!!document.querySelector('.hub-card')"), 'o app abre nos atalhos');
+  await ev("abrirModulo('academia');"); await sleep(600);
   check(await ev("!!document.querySelector('.empty')"), 'tela vazia orienta o primeiro passo');
   await shot('f01-vazio');
 

@@ -174,7 +174,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev(`localStorage.setItem('gymnotion.v1', ${JSON.stringify(antigo)});`);
   await send('Page.navigate', { url: BASE + '/index.html' });
   await sleep(1700);
-  ck(await ev('S.version === 2'), 'estado marcado como v2');
+  /* a v2 sobe direto para a v3 ao carregar; o que importa aqui e que a
+     remontagem do catalogo continuou valendo no caminho */
+  ck(await ev('S.version === 3'), 'o estado antigo foi migrado ate a v3');
   ck(await ev("S.workouts[0].exercises[0].exId === 'ex_supino_reto'"), 'o exId antigo foi reapontado');
   ck(await ev("S.workouts[0].exercises[0].equip === 'Halteres'"), 'o aparelho virou variação');
   ck(await ev("S.workouts[0].exercises[0].nome === 'Supino Reto'"), 'o nome perdeu o sufixo do aparelho');
@@ -184,7 +186,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("!!findExercise(S.workouts[0].exercises[0].exId)"), 'todo exId migrado existe no catálogo');
 
   console.log('\ncor neutra fora do treino:');
-  await ev("popToRoot(); TAB = 'treinos'; currentScreen().refresh();"); await sleep(400);
+  await ev("popToRoot(); abrirModulo('academia');"); await sleep(400);
   const fab = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
   ck(fab === 'rgb(255, 255, 255)', 'o botão de ação é branco (veio ' + fab + ')');
   ck(await ev("contextAccent() === '#FFFFFF'"), 'o acento padrão é branco');
@@ -196,7 +198,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('cat4-dentro-do-treino');
   await ev('popScreen();'); await sleep(400);
 
-  await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); currentScreen().refresh();");
+  await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); abrirModulo('academia');");
   await sleep(400);
   const claro = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
   ck(claro !== 'rgb(255, 255, 255)', 'no tema claro o neutro escurece, senão sumiria (veio ' + claro + ')');

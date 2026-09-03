@@ -1,6 +1,6 @@
 /* GymNotion — telas */
 
-let TAB = 'treinos';
+let TAB = 'inicio';
 let REST = null;      // { endsAt, label, tick }
 let TICK = null;      // intervalo global de 1s
 let DIA_SEL = Date.now();   // dia mostrado na aba Treinos; volta para hoje ao abrir
@@ -9,12 +9,13 @@ let DIA_SEL = Date.now();   // dia mostrado na aba Treinos; volta para hoje ao a
    RAIZ / ABAS
    ========================================================= */
 
+/* Duas abas só: o app virou um punhado de módulos, e uma barra com quatro
+   deles escolhidos a dedo daria a entender que os outros valem menos. Início
+   traz os atalhos, Menu traz a lista inteira; o resto é empilhado por cima. */
 function tabbar() {
   const items = [
     ['inicio', 'home'],
-    ['treinos', 'dumbbell'],
-    ['nutricao', 'cookie'],
-    ['perfil', 'user'],
+    ['menu', 'grade'],
   ];
   const bar = h('<nav class="tabbar"></nav>');
   items.forEach(([id, ic]) => {
@@ -32,31 +33,202 @@ function tabbar() {
 function buildRoot(el, screen) {
   setAccent(contextAccent());
   el.className = 'screen com-abas';
-  if (TAB === 'treinos') renderTreinos(el, screen);
-  else if (TAB === 'inicio') renderInicio(el, screen);
-  else if (TAB === 'perfil') renderPerfil(el, screen);
-  else renderAgua(el, screen);
+  if (TAB === 'menu') renderMenu(el, screen);
+  else renderInicio(el, screen);
   el.appendChild(tabbar());
 }
 
 /* =========================================================
-   ABA TREINOS
+   MÓDULOS
+
+   Cada módulo se descreve aqui uma vez: o Início monta os atalhos a partir
+   desta lista e o Menu monta a dele. Acrescentar um módulo é acrescentar uma
+   linha, em vez de mexer em duas telas que precisam concordar.
    ========================================================= */
 
-function renderTreinos(el, screen) {
+const MODULOS = [
+  {
+    id: 'academia', nome: 'Academia', icone: 'dumbbell',
+    cor: () => accentPainel(),           // única que herda a cor de um treino
+    resumo: () => {
+      if (S.active) return S.active.name + ' em andamento';
+      if (sessionsOn(Date.now()).length) return 'Treino de hoje registrado';
+      if (!S.workouts.length) return 'Monte o primeiro treino';
+      const f = faltamNaSemana(Date.now());
+      return f ? 'Faltam ' + f + ' treino(s) na semana' : 'Meta da semana batida';
+    },
+    abrir: () => telaAcademia(),
+  },
+  {
+    id: 'cronograma', nome: 'Cronograma', icone: 'calendario',
+    cor: () => COR_AGENDA,
+    resumo: () => {
+      const abertas = pendentesDoDia();
+      const atras = tarefasAtrasadas().length;
+      const partes = [];
+      if (abertas) partes.push(abertas + (abertas > 1 ? ' tarefas hoje' : ' tarefa hoje'));
+      if (atras) partes.push(atras + (atras > 1 ? ' atrasadas' : ' atrasada'));
+      return partes.length ? partes.join(' · ') : 'Nada marcado para hoje';
+    },
+    abrir: () => telaCronograma(),
+  },
+  {
+    id: 'agua', nome: 'Hidratação', icone: 'gota',
+    cor: () => AZUL_AGUA,
+    resumo: () => fmtLitros(aguaDoDia()) + ' de ' + fmtLitros(metaAgua()) + ' L',
+    abrir: () => telaAgua(),
+  },
+  {
+    id: 'metas', nome: 'Metas', icone: 'cofre',
+    cor: () => COR_METAS,
+    resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),
+    abrir: () => telaMetas(),
+  },
+  {
+    id: 'estudos', nome: 'Estudos', icone: 'livro',
+    cor: () => COR_ESTUDOS,
+    resumo: () => (S.materias.length ? fmtMin(estudoDaSemana()) + ' nesta semana' : 'Nenhuma matéria ainda'),
+    abrir: () => telaEstudos(),
+  },
+  {
+    id: 'config', nome: 'Configurações', icone: 'engrenagem',
+    cor: () => contextAccent(),
+    resumo: () => 'Tema, conta e backup',
+    abrir: () => telaConfig(),
+  },
+];
+
+function abrirModulo(id) {
+  const m = MODULOS.find((x) => x.id === id);
+  if (!m) return false;
+  m.abrir();
+  return true;
+}
+
+const fmtLitros = (ml) => (ml / 1000).toFixed(ml % 1000 === 0 ? 0 : 1).replace('.', ',');
+
+function saudacao() {
+  const hora = new Date().getHours();
+  if (hora < 5) return 'Boa madrugada';
+  if (hora < 12) return 'Bom dia';
+  if (hora < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+/* =========================================================
+   ABA INÍCIO — atalhos e o dia de hoje
+   ========================================================= */
+
+function renderInicio(el, screen) {
+  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Início</div><div style="width:44px"></div></div>`));
+  const scroll = h('<div class="scroll"></div>');
+
+  scroll.appendChild(h(`<div class="hub-saudacao">
+    <b>${saudacao()}</b>
+    <span>${esc(fmtDataLonga(Date.now()))}</span>
+  </div>`));
+
+  /* Cada atalho leva a cor do seu módulo — é o que faz a grade ser reconhecida
+     de relance, sem ler os nomes. */
+  const grade = h('<div class="hub-grid"></div>');
+  MODULOS.forEach((m) => {
+    const card = h(`<button class="hub-card">
+      <div class="hub-ico">${icon(m.icone)}</div>
+      <b>${esc(m.nome)}</b>
+      <span>${esc(m.resumo())}</span>
+    </button>`);
+    setAccent(m.cor(), card);
+    card.addEventListener('click', () => { haptic(); m.abrir(); });
+    grade.appendChild(card);
+  });
+  scroll.appendChild(grade);
+
+  const abertas = tarefasDoDia().filter((t) => !t.feito);
+  const atrasadas = tarefasAtrasadas();
+  scroll.appendChild(h('<div class="section-title">Hoje</div>'));
+  if (!abertas.length && !atrasadas.length) {
+    scroll.appendChild(h('<div class="hint">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
+  }
+  abertas.slice(0, 5).forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
+  if (atrasadas.length) {
+    const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} tarefa${atrasadas.length > 1 ? 's' : ''} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} aberta${atrasadas.length > 1 ? 's' : ''}. Toque para abrir o cronograma.</span></div>`);
+    aviso.addEventListener('click', () => telaCronograma());
+    scroll.appendChild(aviso);
+  }
+
+  el.appendChild(scroll);
+}
+
+/* =========================================================
+   ABA MENU — o seletor
+   ========================================================= */
+
+function renderMenu(el, screen) {
+  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Menu</div><div style="width:44px"></div></div>`));
+  const scroll = h('<div class="scroll"></div>');
+
+  MODULOS.forEach((m) => {
+    const row = h(`<button class="mod-row">
+      <div class="mod-ico">${icon(m.icone)}</div>
+      <div class="mod-txt"><b>${esc(m.nome)}</b><span>${esc(m.resumo())}</span></div>
+      ${icon('chev').replace('<svg', '<svg class="chev"')}
+    </button>`);
+    setAccent(m.cor(), row);
+    row.addEventListener('click', () => { haptic(); m.abrir(); });
+    scroll.appendChild(row);
+  });
+
+  scroll.appendChild(h('<div class="section-title">Atalhos da academia</div>'));
+  const atalho = (nome, nota, act) => {
+    const r = h(`<button class="ex-item" style="width:100%;text-align:left">
+      <div class="name" style="white-space:normal">${esc(nome)}
+        <i style="display:block;font-style:normal;font-size:13px;color:var(--txt-3);margin-top:2px">${esc(nota)}</i>
+      </div>${icon('chev').replace('<svg', '<svg class="chev"')}</button>`);
+    r.addEventListener('click', act);
+    scroll.appendChild(r);
+  };
+  atalho('Resumo e recordes', 'Volume, séries por grupo e cargas máximas', () => telaResumo());
+  atalho('Todos os registros', S.sessions.length + ' treino(s) salvos', () => openHistorico());
+
+  const naNuvem = cloudConfigurado() && cloudLogado();
+  scroll.appendChild(h(`<div class="hint" style="padding-top:24px">GymNotion • ${naNuvem
+    ? 'dados neste aparelho, com cópia na sua conta.'
+    : 'dados guardados apenas neste aparelho.'}<br/>Adicione à Tela de Início para abrir em tela cheia.</div>`));
+
+  el.appendChild(scroll);
+}
+
+/* =========================================================
+   ACADEMIA
+   ========================================================= */
+
+function telaAcademia() {
+  DIA_SEL = Date.now();      // abrir a academia sempre cai no dia de hoje
+  pushScreen(renderAcademia, { name: 'academia' });
+}
+
+function renderAcademia(el, screen) {
   const hojeTs = Date.now();
   const selecionado = DIA_SEL;
   const ehHoje = dayKey(selecionado) === dayKey(hojeTs);
 
-  const top = h(`<div class="top-bar">
-    <div class="streak">${icon('flame')}<span>${streak()}</span></div>
-    <div class="title">Treinos</div>
-    <button class="burger">${icon('burger')}</button>
+  setAccent(contextAccent(), el);
+  const nav = h(`<div class="nav">
+    <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
+    <div class="title">Academia</div>
+    <button class="icon-btn stroke" data-act="lista">${icon('burger')}</button>
   </div>`);
-  top.querySelector('.burger').addEventListener('click', () => openWorkoutsSheet());
-  el.appendChild(top);
+  acts(nav, { back: () => popScreen(), lista: () => openWorkoutsSheet() });
+  el.appendChild(nav);
 
   const scroll = h('<div class="scroll"></div>');
+
+  const barra = h(`<div class="acad-barra">
+    <div class="streak">${icon('flame')}<span>${streak()}</span></div>
+    <button class="pill-btn soft sm" data-act="resumo">${icon('chart')}Resumo</button>
+  </div>`);
+  acts(barra, { resumo: () => telaResumo() });
+  scroll.appendChild(barra);
 
   /* ---------- faixa da semana: navega entre os dias ---------- */
   const domingo = new Date(inicioDaSemana(selecionado));
@@ -291,11 +463,16 @@ function sessionCard(s, screen) {
 }
 
 /* =========================================================
-   ABA INÍCIO (resumo)
+   RESUMO DA ACADEMIA
    ========================================================= */
 
-function renderInicio(el) {
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Resumo</div><div style="width:44px"></div></div>`));
+function telaResumo() {
+  pushScreen(renderResumo, { name: 'resumo' });
+}
+
+function renderResumo(el) {
+  setAccent(contextAccent(), el);
+  el.appendChild(navBar('Resumo'));
   const scroll = h('<div class="scroll"></div>');
 
   const total = S.sessions.length;
@@ -376,11 +553,16 @@ function renderInicio(el) {
 }
 
 /* =========================================================
-   ABA PERFIL / AJUSTES
+   CONFIGURAÇÕES
    ========================================================= */
 
-function renderPerfil(el, screen) {
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Perfil</div><div style="width:44px"></div></div>`));
+function telaConfig() {
+  pushScreen(renderConfig, { name: 'config' });
+}
+
+function renderConfig(el, screen) {
+  setAccent(contextAccent(), el);
+  el.appendChild(navBar('Configurações'));
   const scroll = h('<div class="scroll"></div>');
 
   const row = (label, value, act, nota) => {
@@ -502,11 +684,17 @@ function trocarEquipamento(e, aoMudar) {
 
 /* ---------- água ---------- */
 
-const COPOS = [200, 300, 500];
+/* 800 ml é a garrafa que ele leva; os outros dois são para completar. */
+const COPOS = [300, 500, 800];
+const COPO_PADRAO = 800;
+
+function telaAgua() {
+  pushScreen(renderAgua, { name: 'agua' });
+}
 
 function renderAgua(el, screen) {
-  setAccent(contextAccent());
-  el.appendChild(h(`<div class="top-bar"><div style="width:44px"></div><div class="title">Água</div><div style="width:44px"></div></div>`));
+  setAccent(contextAccent(), el);
+  el.appendChild(navBar('Hidratação'));
   const scroll = h('<div class="scroll"></div>');
   /* água não é treino: tem cor própria, e o anel enche em azul */
   setAccent(AZUL_AGUA, scroll);
@@ -543,12 +731,13 @@ function renderAgua(el, screen) {
   });
   scroll.appendChild(botoes);
 
+  const desfazer = aguaUltimo() || COPO_PADRAO;
   const extras = h(`<div class="agua-extras">
-    <button data-act="menos" ${hoje ? '' : 'disabled'}>Desfazer 200 ml</button>
+    <button data-act="menos" ${hoje ? '' : 'disabled'}>Desfazer ${desfazer} ml</button>
     <button data-act="meta">Ajustar meta</button>
   </div>`);
   acts(extras, {
-    menos: () => { beberAgua(-200); haptic(); screen.refresh(); },
+    menos: () => { desfazerAgua(COPO_PADRAO); haptic(); screen.refresh(); },
     meta: () => promptSheet('Meta diária (ml)', String(meta), '2600', (v) => {
       S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
       saveNow(); screen.refresh();
@@ -1249,7 +1438,7 @@ function finishFlow(screen) {
     ajustarTravaTela();
     cloudEnviarEmSegundoPlano();
     setTimeout(() => {
-      popToRoot(); currentScreen().refresh();
+      voltarPara('academia');
       if (s) openSessionDetail(s.id);
       setTimeout(lembrarBackup, 900);
     }, 160);

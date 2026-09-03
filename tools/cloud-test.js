@@ -138,19 +138,19 @@ window.fetch = async (url, opts) => {
 
   console.log('sem configuração:');
   ck(await ev('cloudConfigurado() === false'), 'nuvem desligada quando as chaves estão vazias');
-  await ev("TAB = 'perfil'; popToRoot(); currentScreen().refresh();"); await sleep(400);
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(400);
   ck(await ev("!currentScreen().el.textContent.includes('Entrar ou criar conta')"),
     'seção Conta não aparece sem configuração');
 
   /* liga a configuração e o servidor falso */
   await ev("FIREBASE.apiKey = 'chave-de-teste'; FIREBASE.projectId = 'projeto-de-teste'; 'ok'");
   await ev(MOCK);
-  await ev("popToRoot(); currentScreen().refresh();"); await sleep(400);
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(400);
 
   console.log('\nconfigurado:');
   ck(await ev('cloudConfigurado() === true'), 'nuvem liga com as chaves preenchidas');
   ck(await ev("currentScreen().el.textContent.includes('Entrar ou criar conta')"),
-    'seção Conta aparece na aba Perfil');
+    'seção Conta aparece nas Configurações');
   await shot('c1-perfil-deslogado');
 
   console.log('\nerros traduzidos:');
@@ -234,7 +234,7 @@ window.fetch = async (url, opts) => {
   ck(await ev("cloudBaixar().then(r => r === null)"), 'conta sem backup devolve null em vez de erro');
 
   console.log('\nsair:');
-  await ev("TAB = 'perfil'; popToRoot(); currentScreen().refresh();"); await sleep(300);
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(300);
   await shot('c2-perfil-logado');
   await ev('cloudEsquecer();');
   ck(await ev('cloudLogado() === false'), 'sair limpa a sessão');

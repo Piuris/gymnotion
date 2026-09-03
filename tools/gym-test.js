@@ -173,7 +173,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev('popScreen();'); await sleep(400);
 
   console.log('\ncomparação com o treino anterior:');
-  await ev("TAB = 'treinos'; popToRoot(); currentScreen().refresh(); openSessionDetail(S.sessions[0].id);");
+  await ev("popToRoot(); abrirModulo('academia'); openSessionDetail(S.sessions[0].id);");
   await sleep(600);
   const comp = JSON.parse(await ev("JSON.stringify(compararComAnterior(S.sessions[0])) || 'null'"));
   ck(!!comp, 'encontra o treino anterior do mesmo molde');
@@ -190,7 +190,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const peito = g.find((x) => x.grupo === 'Peito');
   ck(!!peito && peito.frequencia === 2, 'Peito treinado em 2 dias distintos (veio ' + (peito && peito.frequencia) + ')');
   ck(!!peito && peito.series === 6, 'e com 6 séries no total (veio ' + (peito && peito.series) + ')');
-  await ev("TAB = 'inicio'; popToRoot(); currentScreen().refresh();"); await sleep(500);
+  await ev("popToRoot(); telaResumo();"); await sleep(500);
   ck(await ev("currentScreen().el.textContent.includes('× na semana')"),
     'a frequência aparece junto das séries');
 
@@ -200,7 +200,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(t && t.antes === 80 && t.agora === 93,
     'de 80 para 93 kg estimados (veio ' + (t && t.antes) + ' -> ' + (t && t.agora) + ')');
   ck(t && t.delta === 13, 'ganho de 13 kg (veio ' + (t && t.delta) + ')');
-  await ev("TAB = 'treinos'; popToRoot(); currentScreen().refresh(); startSession(S.workouts[0].id);");
+  await ev("popToRoot(); abrirModulo('academia'); startSession(S.workouts[0].id);");
   await ev("openWorkout(S.workouts[0].id, 'session')"); await sleep(500);
   const alvoSupino = await ev("S.active.exercises.findIndex(function (e) { return e.exId === 'ex_supino_reto'; })");
   await ev(`openExercise(S.workouts[0].id, S.active.exercises[${alvoSupino}].uid, true)`); await sleep(600);

@@ -95,7 +95,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     var w = newWorkout(); w.name = 'Push'; w.color = '#FF5A1E';
     addExerciseToWorkout(w.id, findExercise('ex_supino_reto'), 3);
     addExerciseToWorkout(w.id, findExercise('ex_triceps_corda'), 3);
-    saveNow(); popToRoot(); currentScreen().refresh(); 'ok';
+    saveNow(); popToRoot(); abrirModulo('academia'); 'ok';
   `);
 
   console.log('limpar a busca:');

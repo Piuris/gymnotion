@@ -1,8 +1,24 @@
 # GymNotion
 
-Caderno de treinos em PWA (web app instalável). Roda no iPhone em tela cheia, sem
+Assistente pessoal em PWA (web app instalável). Roda no iPhone em tela cheia, sem
 App Store, sem conta de desenvolvedor e sem custo. Os dados ficam guardados no
 próprio aparelho (`localStorage`) e o app funciona offline.
+
+Começou como caderno de treinos e virou o lugar onde a organização inteira mora.
+São seis módulos, cada um com a sua tela:
+
+| Módulo | Para quê |
+| --- | --- |
+| **Academia** | Treinos, cargas, séries, ofensiva, recordes e análises |
+| **Cronograma** | Tarefas e compromissos num calendário de mês |
+| **Hidratação** | Meta diária de água |
+| **Metas** | Cofrinhos: dinheiro separado por objetivo |
+| **Estudos** | Matérias com tópicos e horas estudadas |
+| **Configurações** | Tema, peso, metas, conta e backup |
+
+A barra de baixo tem duas abas: **Início**, com os atalhos e o que há para hoje,
+e **Menu**, com a lista inteira. Todo módulo é uma tela empilhada por cima — ver
+[Navegação: dois níveis](#navegação-dois-níveis).
 
 ## A regra da cor
 
@@ -86,7 +102,7 @@ disso sem compactar.
    # troque o id do projeto em .firebaserc
    firebase deploy --only firestore:rules
    ```
-7. No app: **Perfil → Entrar ou criar conta**.
+7. No app: **Menu → Configurações → Entrar ou criar conta**.
 
 ### Hospedar no próprio Firebase
 
@@ -116,11 +132,12 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [js/exercises.js](js/exercises.js) | 110 movimentos em pt-BR, cada um com suas variações de aparelho |
 | [js/exercise-images.js](js/exercise-images.js) | GERADO: quais exercícios têm foto |
 | [img/](img/) | 173 fotos, 192×192 WebP (~940 KB) — uma por variação de aparelho |
-| [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas |
+| [js/store.js](js/store.js) | Estado, persistência, sessões, estatísticas e as regras dos seis módulos |
 | [js/cloud.js](js/cloud.js) | Backup na nuvem pela API REST do Firebase |
 | [js/firebase-config.js](js/firebase-config.js) | Suas chaves do Firebase (vazio = nuvem desligada) |
 | [js/ui.js](js/ui.js) | Ícones, navegação em pilha, gráficos, folhas modais |
-| [js/app.js](js/app.js) | As telas |
+| [js/organizacao.js](js/organizacao.js) | Telas de cronograma, metas e estudos |
+| [js/app.js](js/app.js) | Início, Menu, academia, água, resumo e configurações |
 | [sw.js](sw.js) | Cache offline (rede primeiro, cache como reserva) |
 | [firebase.json](firebase.json) / [firestore.rules](firestore.rules) | Hospedagem e regras de segurança |
 | [tools/make-icons.js](tools/make-icons.js) | Recorta `icons/icone.jpeg` e gera os ícones do app |
@@ -138,6 +155,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/habits-test.js](tools/habits-test.js) | Testa a barra de abas, o dia de descanso e a meta de água |
 | [tools/dias-test.js](tools/dias-test.js) | Testa a navegação por dia, o descanso automático e a cor dos painéis |
 | [tools/calc-test.js](tools/calc-test.js) | Testa a barra de descanso global e a calculadora de aquecimento |
+| [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -180,6 +198,23 @@ treino** — é o parâmetro `cores` do `sparkline`, uma cor por ponto.
 A água não é treino, então não segue a cor de nenhum: usa um azul próprio
 (`AZUL_AGUA`, `#2E9BF0`) no anel, nos botões e nas barras dos sete dias. A barra
 enche no azul a 60% e vai para o tom cheio no dia em que a meta foi batida.
+
+Com o app virando assistente, a regra escalou para os outros módulos sem mudar de
+ideia — cor identifica a coisa, não decora a tela:
+
+| Onde | De onde vem a cor |
+| --- | --- |
+| Academia | Do treino, como sempre |
+| Cronograma | Cor por tarefa, escolhida na paleta; o módulo é indigo (`COR_AGENDA`) |
+| Hidratação | Azul próprio (`AZUL_AGUA`) |
+| Metas | Cor por cofrinho, como as pastas de treino |
+| Estudos | Cor por matéria |
+| Configurações | Neutra |
+
+Onde uma tela soma coisas de cores diferentes — o resumo das metas, o total de
+estudo da semana, a barra semanal da academia — ela fica no tom neutro ou no do
+módulo, nunca na cor de um item só. O editor de tarefa, meta ou matéria já veste
+a cor escolhida enquanto se escolhe, em vez de revelá-la depois de salvar.
 
 ## As fotos dos exercícios
 
@@ -237,7 +272,7 @@ do grupo muscular, sem quebrar nada.
 
 ## O que dá para fazer
 
-- Montar treinos com nome, cor e ícone próprios (as pastas da tela *Treinos*).
+- Montar treinos com nome, cor e ícone próprios (as pastas da tela *Academia*).
 - Adicionar exercícios da biblioteca escolhendo equipamento e número de séries,
   ou criar exercícios seus.
 - **Anotar carga inicia o treino**: tocar no campo de peso ou repetições, ou
@@ -272,20 +307,33 @@ do grupo muscular, sem quebrar nada.
   e o que foi feito. Arraste a faixa para trocar de semana.
 - **Ofensiva com descanso automático**: dias sem treino não quebram a sequência,
   desde que a semana bata a meta de treinos.
-- **Meta diária de água** na aba *Nutrição*, com copos rápidos e os 7 dias.
-- Escolher entre cinco temas (aba *Perfil → Tema*), do preto puro ao claro.
-- Exportar e importar backup em `.json` (aba *Perfil*).
+- **Meta diária de água** no módulo *Hidratação*, com copos rápidos e os 7 dias.
+- Escolher entre cinco temas (*Configurações → Tema*), do preto puro ao claro.
+- Exportar e importar backup em `.json` (*Configurações*).
 - Guardar uma cópia na nuvem e restaurá-la em outro aparelho, se o Firebase
   estiver configurado.
 - Ver a foto da execução de cada exercício.
 
-A aba *Nutrição* está como espaço reservado.
+O registro de refeições ainda não existe: por ora a nutrição é só a água.
 
-O **peso corporal** (aba *Perfil*) serve só para escalar a estimativa de calorias
+O **peso corporal** (*Configurações*) serve só para escalar a estimativa de calorias
 em `sessionStats` — nada mais depende dele. A conta equivale a cerca de 3,8 METs,
 próxima do valor de 3,5 que o [Compendium of Physical Activities](https://cdn-links.lww.com/permalink/mss/a/mss_43_8_2011_06_13_ainsworth_202093_sdc1.pdf)
 atribui a musculação de 8–15 repetições. Altura, sexo e idade não entram: o
 método MET depende de peso, tempo e intensidade.
+
+### Fora da academia
+
+- **Cronograma**: tarefas e compromissos num calendário de mês, cada um com cor,
+  hora opcional e observação. Marcar como feito, adiar um dia, jogar para amanhã.
+  O que ficou aberto em dias passados aparece como *Atrasadas*.
+- **Metas**: cofrinhos com alvo em reais. Guardar por botão rápido (50, 100, 200)
+  ou valor livre, retirar, e um extrato de cada lançamento.
+- **Estudos**: matérias com lista de tópicos e registro de horas, com meta
+  semanal por matéria e um gráfico dos últimos 14 dias.
+- **Início**: atalho para tudo, com uma linha de estado em cada cartão (o treino
+  de hoje, quantas tarefas faltam, quanto de água, quanto guardado, quanto
+  estudado) e as tarefas de hoje logo abaixo.
 
 ## Manutenção
 
@@ -305,6 +353,7 @@ node tools/logging-test.js ./__shots     # busca e início automático
 node tools/habits-test.js ./__shots      # abas, descanso e água
 node tools/dias-test.js ./__shots        # navegação por dia e cores
 node tools/calc-test.js ./__shots        # descanso global e calculadora
+node tools/vida-test.js ./__shots        # módulos de organização e navegação
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -336,7 +385,7 @@ sumiria, então esse tema reserva uma faixa escura na altura da barra de status.
 Para adicionar um tema: crie o bloco no CSS e acrescente uma entrada em `TEMAS`
 (em [js/store.js](js/store.js)). Para remover, apague os dois.
 
-## A aba Treinos é um dia, não uma lista
+## A academia é um dia, não uma lista
 
 A faixa da semana navega: tocar num dia o seleciona, e o conteúdo abaixo muda.
 
@@ -356,7 +405,7 @@ três ou quatro vezes por semana, porque ficava sempre em 1.
 
 Hoje o descanso é **automático**: um dia sem treino já é descanso, não há nada a
 marcar. Quem segura a ofensiva é a **meta semanal** (`metaSemanal`, padrão 2,
-ajustável no *Perfil*): os dias vazios de uma semana só cobrem a corrente se
+ajustável nas *Configurações*): os dias vazios de uma semana só cobrem a corrente se
 aquela semana tiver batido a meta. Semana fechada abaixo dela quebra a sequência
 naquele ponto.
 
@@ -376,10 +425,71 @@ Na faixa da semana, ponto cheio é dia treinado e anel vazado é descanso cobert
 
 ## Meta de água
 
-Ocupa a aba *Nutrição* enquanto o registro de refeições não existe. Copos de 200,
-300 e 500 ml, desfazer, os últimos 7 dias e meta ajustável. Sem meta definida,
-usa **35 ml por quilo** de peso corporal — a referência mais citada — arredondado
-para a centena.
+Copos de 300, 500 e **800 ml** (o tamanho da garrafa levada para a academia), os
+últimos 7 dias e meta ajustável. Sem meta definida, usa **35 ml por quilo** de
+peso corporal — a referência mais citada — arredondado para a centena.
+
+O desfazer não desconta um número fixo: cada gole entra em `aguaLog` na ordem em
+que foi registrado, e desfazer tira **exatamente o último**. Descontar sempre
+800 erraria toda vez que o toque anterior tivesse sido um copo de 300, e o
+rótulo do botão acompanha (`Desfazer 300 ml`).
+
+O anel, os botões e as barras usam um azul próprio (`AZUL_AGUA`): água não é
+treino, então não herda a cor de nenhum.
+
+## Navegação: dois níveis
+
+A barra de baixo tem **duas abas**, Início e Menu, e todo o resto é tela
+empilhada. Quando o app era só academia, quatro abas escolhidas a dedo faziam
+sentido; com seis módulos, promover quatro deles à barra diria que os outros
+dois valem menos — e a barra não cresce sem virar um mostruário de ícones.
+
+- **Início** — saudação, a grade de atalhos e as tarefas de hoje.
+- **Menu** — a lista inteira, mais os atalhos de resumo e histórico da academia.
+- Cada módulo abre por `abrirModulo(id)`, que empilha a tela por cima da raiz.
+
+As duas telas leem a mesma lista, `MODULOS` em [js/app.js](js/app.js): id, nome,
+ícone, uma função de cor e uma de resumo. Acrescentar um módulo é acrescentar uma
+linha, em vez de mexer em duas telas que precisam concordar uma com a outra.
+
+Concluir um treino chama `voltarPara('academia')`, não `popToRoot()`: quem
+acabou de treinar quer cair de volta na academia, não no Início.
+
+## Cronograma
+
+Grade do mês, com até três pontinhos por dia nas cores das tarefas dele — é o que
+permite reconhecer um mês cheio sem abrir dia por dia. Tocar num dia abre a lista
+embaixo; as setas trocam de mês sem mudar o dia aberto.
+
+A data de uma tarefa é guardada como **chave de dia** (`'2026-09-03'`), não como
+instante: "dia 3" precisa continuar sendo dia 3 depois de exportar, importar e
+abrir noutro fuso. De quebra, comparar e ordenar viram comparação de texto.
+
+Na lista, quem tem hora vem primeiro na ordem do relógio, depois as tarefas
+soltas; o que foi feito **desce para o fim em vez de sumir**. Tarefa aberta num
+dia que já passou aparece numa seção *Atrasadas*, tanto no cronograma quanto no
+Início — é onde tarefa esquecida costuma morrer sem aviso.
+
+O editor usa os seletores nativos de data e hora do iOS (`input type="date"` e
+`type="time"`): é o único jeito de ter roda de data sem escrever uma do zero.
+
+## Metas: o cofrinho
+
+Cada meta tem nome, alvo e cor. O saldo é a **soma dos lançamentos**, e retirada
+entra como valor negativo: assim o extrato mostra o que saiu e quando, em vez de
+o saldo encolher sem deixar rastro. Retirar mais do que existe esvazia o
+cofrinho, mas não deixa saldo negativo — `guardarNaMeta` corta a retirada no que
+há dentro. A barra para em 100% mesmo com o guardado passando do alvo.
+
+## Estudos
+
+Matéria com cor, tópicos e horas. Os tópicos são uma lista de check, e a fração
+concluída vira a porcentagem do cartão. As horas entram por botões de 25, 50 e 90
+minutos ou por valor livre, contra uma meta semanal em minutos.
+
+O gráfico de 14 dias junta matérias, então não tem uma cor só: **cada barra leva
+a cor da matéria que mais rendeu naquele dia**, pela mesma regra do gráfico de
+volume da academia.
 
 ## Barra de abas
 
@@ -388,7 +498,8 @@ Dois problemas diferentes, com causas diferentes:
 **O último registro ficava escondido.** A barra é `position: absolute`, logo sai
 do fluxo e a lista ia até o fim da tela por baixo dela. A classe `com-abas` na
 tela raiz reserva a altura da barra no `padding-bottom` da lista; só as telas que
-têm a barra pagam esse espaço.
+têm a barra pagam esse espaço — hoje, as duas raízes. Nas telas empilhadas, que
+não têm barra, o botão flutuante também desce (`.screen:not(.com-abas) .fab`).
 
 **Sobrava uma faixa vazia embaixo, mas só no iPhone.** O `safe-area-inset-bottom`
 vale 34px no aparelho e **0 no navegador**, então o defeito era invisível em

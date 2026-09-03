@@ -121,8 +121,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   /* o acento do treino tem de sobreviver à troca de tema */
-  await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); currentScreen().refresh();");
-  await sleep(300);
+  await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); abrirModulo('academia');");
+  await sleep(400);
   const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.fab')).backgroundColor");
   ck(acento === 'rgb(28, 28, 30)',
     'fora do treino o detalhe e neutro, e no tema claro ele escurece (veio ' + acento + ')');
@@ -141,7 +141,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("S.settings.tema = 'preto'; saveNow(); aplicarTema('preto');");
 
   console.log('\ntela de temas:');
-  await ev("TAB = 'perfil'; popToRoot(); currentScreen().refresh();"); await sleep(350);
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(350);
   ck(await ev("currentScreen().el.textContent.includes('Tema')"), 'entrada Tema aparece no Perfil');
   await ev("telaTemas(currentScreen())"); await sleep(450);
   ck(await ev("currentScreen().el.querySelectorAll('.tema-row').length === 5"), 'lista os 5 temas');
@@ -155,7 +155,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\ntela de login:');
   await ev("FIREBASE.apiKey = 'k'; FIREBASE.projectId = 'p';");
-  await ev("TAB = 'perfil'; popToRoot(); currentScreen().refresh();"); await sleep(350);
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(350);
   await ev("telaLogin(currentScreen())"); await sleep(500);
   ck(await ev("!!currentScreen().el.querySelector('#lg-email')"), 'campo de e-mail presente');
   ck(await ev("!!currentScreen().el.querySelector('#lg-senha')"), 'campo de senha presente');
@@ -175,10 +175,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("currentScreen().el.querySelector('[data-act=ok]').textContent.trim() === 'Criar conta'"),
     'botão principal acompanha o modo');
   await ev("currentScreen().el.querySelector('[data-act=pular]').click()"); await sleep(450);
-  ck(await ev("currentScreen().name === 'root'"), 'Agora não volta sem criar conta');
+  /* o login foi aberto de dentro das configuracoes, entao e para la que ele volta */
+  ck(await ev("currentScreen().name === 'config'"), 'Agora não volta sem criar conta');
 
   console.log('\naparelho novo:');
-  await ev("S.workouts = []; S.sessions = []; saveNow(); TAB = 'treinos'; popToRoot(); currentScreen().refresh();");
+  await ev("S.workouts = []; S.sessions = []; saveNow(); popToRoot(); abrirModulo('academia');");
   await sleep(400);
   ck(await ev("currentScreen().el.textContent.includes('Já tenho conta')"),
     'tela vazia oferece restaurar de uma conta');

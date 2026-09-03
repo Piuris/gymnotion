@@ -1168,6 +1168,197 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .sheet-actions { display: flex; gap: 12px; padding: 6px 20px 10px; }
 .sheet-actions .pill-btn { flex: 1; }
 
+/* =========================================================
+   INÍCIO E MENU
+
+   As duas telas leem a mesma lista de módulos, então cada cartão e cada linha
+   recebe a cor do seu módulo: a grade é reconhecida de relance, sem ler nome
+   por nome.
+   ========================================================= */
+
+.hub-saudacao { padding: 4px 16px 14px; }
+.hub-saudacao b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.6px; }
+.hub-saudacao span { display: block; font-size: 15px; color: var(--txt-2); margin-top: 3px; }
+
+.hub-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  padding: 0 16px;
+}
+.hub-card {
+  text-align: left;
+  /* botao centraliza o conteudo por padrao: quando o cartao ao lado tem uma
+     linha a mais, o icone deste desce e a fileira desalinha */
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  min-width: 0;
+  /* altura fixa: os resumos tem tamanhos diferentes e, sem isso, a grade fica
+     com uma fileira mais alta que a outra */
+  min-height: 132px;
+  border: 1px solid var(--a22);
+  transition: transform .14s;
+}
+.hub-card:active { transform: scale(.97); }
+.hub-ico {
+  width: 40px; height: 40px; border-radius: 13px;
+  background: var(--a15);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+}
+.hub-ico svg { width: 23px; height: 23px; fill: var(--accent); }
+.hub-card b {
+  display: block; font-size: 17px; font-weight: 700; letter-spacing: -.3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hub-card span {
+  display: block; font-size: 13px; color: var(--txt-2); margin-top: 3px;
+  line-height: 1.35;
+  /* duas linhas no máximo: os resumos variam de tamanho e sem o corte os
+     cartões da grade parariam de ter a mesma altura */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mod-row {
+  display: flex; align-items: center; gap: 13px;
+  width: 100%; text-align: left;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.mod-row:active { background: var(--fill-1); }
+.mod-ico {
+  width: 38px; height: 38px; flex: 0 0 38px; border-radius: 12px;
+  background: var(--a15);
+  display: flex; align-items: center; justify-content: center;
+}
+.mod-ico svg { width: 21px; height: 21px; fill: var(--accent); }
+.mod-txt { flex: 1; min-width: 0; }
+.mod-txt b { display: block; font-size: 17px; font-weight: 600; }
+.mod-txt span {
+  display: block; font-size: 13.5px; color: var(--txt-2); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mod-row .chev { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--txt-3); stroke-width: 2.4; stroke-linecap: round; }
+
+/* A academia perdeu a barra de abas ao virar tela empilhada; a ofensiva e o
+   atalho do resumo, que moravam no topo, passam a viver aqui. */
+.acad-barra {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 16px 10px;
+}
+.acad-barra .pill-btn { display: flex; align-items: center; gap: 7px; }
+.acad-barra .pill-btn svg { width: 17px; height: 17px; fill: currentColor; }
+
+/* Sem barra de abas embaixo, o botão flutuante pode descer. */
+.screen:not(.com-abas) .fab { bottom: calc(18px + var(--safe-b)); }
+
+/* =========================================================
+   CRONOGRAMA
+   ========================================================= */
+
+.cal { padding: 4px 10px 6px; }
+
+.cal-topo {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 6px 4px;
+}
+.cal-topo b { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+/* Sem o fundo redondo: com ele, a seta de mes vira sosia do voltar da barra de
+   cima, e as duas ficam empilhadas na mesma coluna. */
+.cal-topo .icon-btn { width: 36px; height: 36px; background: none; color: var(--txt-2); }
+.cal-topo .icon-btn svg { width: 17px; height: 17px; }
+.cal-topo .icon-btn:active { background: var(--fill-1); }
+
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-dow { text-align: center; font-size: 12px; color: var(--txt-3); padding: 6px 0 4px; }
+.cal-vazio { height: 46px; }
+
+.cal-dia {
+  height: 46px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  border-radius: 12px;
+}
+.cal-dia .n { font-size: 16px; font-weight: 600; color: var(--txt-2); line-height: 1; }
+.cal-dia .pontos { display: flex; gap: 3px; height: 5px; align-items: center; }
+.cal-dia .pontos i { width: 5px; height: 5px; border-radius: 50%; display: block; }
+.cal-dia:active { background: var(--fill-1); }
+.cal-dia.hoje .n { color: var(--accent); font-weight: 800; }
+.cal-dia.sel { background: var(--a22); }
+.cal-dia.sel .n { color: var(--txt); }
+
+.tarefa {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px 9px 10px;
+  border-bottom: 1px solid var(--line);
+  /* a faixa da esquerda é a cor da tarefa: identifica sem roubar a linha */
+  border-left: 3px solid var(--accent);
+}
+.tarefa-txt { flex: 1; min-width: 0; }
+.tarefa-txt b {
+  display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tarefa-txt span {
+  display: block; font-size: 13px; color: var(--txt-2); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tarefa-txt span:empty { display: none; }
+.tarefa.feito { border-left-color: var(--fill-2); }
+.tarefa.feito .tarefa-txt b { color: var(--txt-3); text-decoration: line-through; }
+
+.form h3 { text-transform: none; }
+.form .chips { padding-left: 20px; padding-right: 20px; }
+.form-linha { display: flex; gap: 0; }
+.form-linha label {
+  flex: 1; min-width: 0;
+  font-size: 13px; color: var(--txt-2);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 0 0 0 20px;
+}
+.form-linha label:last-child { padding-left: 0; padding-right: 20px; }
+.form-linha .text-input { width: 100%; margin: 0 0 16px; }
+
+/* =========================================================
+   METAS E ESTUDOS
+
+   Os dois cartões são a mesma peça: nome, número, barra e um rodapé curto.
+   Cada um herda a cor do seu item, como as pastas de treino.
+   ========================================================= */
+
+.meta-card, .mat-card {
+  margin: 0 16px 12px;
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: 14px 16px 16px;
+  border: 1px solid var(--a22);
+  transition: transform .14s;
+}
+.meta-card:active, .mat-card:active { transform: scale(.985); }
+.meta-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.meta-txt { flex: 1; min-width: 0; }
+.meta-txt b { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.meta-txt span { display: block; font-size: 14px; color: var(--txt-2); margin-top: 3px; }
+.meta-pct { font-size: 17px; font-weight: 700; color: var(--accent); }
+.meta-foot { font-size: 13px; color: var(--txt-2); margin-top: 9px; }
+.meta-card.batida .meta-foot { color: var(--accent); font-weight: 600; }
+
+.estudo-semana {
+  display: flex; align-items: flex-end; gap: 4px;
+  padding: 4px 16px 8px;
+  height: 96px;
+}
+.estudo-dia { flex: 1; display: flex; height: 100%; }
+.estudo-barra {
+  flex: 1;
+  border-radius: 5px;
+  background: var(--fill-1);
+  display: flex; align-items: flex-end;
+  overflow: hidden;
+}
+.estudo-barra i { display: block; width: 100%; border-radius: 5px; }
+
 /* ---------- utilitários ---------- */
 
 .empty {

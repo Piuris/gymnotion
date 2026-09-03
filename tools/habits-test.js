@@ -127,7 +127,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       });
       var s = finishSession(); s.date = Date.now() - i * 86400000;
     }
-    saveNow(); popToRoot(); currentScreen().refresh(); 'ok';
+    saveNow(); popToRoot(); abrirModulo('academia'); 'ok';
   `);
   await sleep(500);
   const livre = await ev(`(function () {
@@ -135,10 +135,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     sc.scrollTop = sc.scrollHeight;
     var cartoes = currentScreen().el.querySelectorAll('.sess');
     var ultimo = cartoes[cartoes.length - 1].getBoundingClientRect();
-    var barra = currentScreen().el.querySelector('.tabbar').getBoundingClientRect();
-    return Math.round(barra.top - ultimo.bottom);
+    /* a academia virou tela empilhada e nao tem mais barra de abas embaixo:
+       o que nao pode e o cartao passar da borda da tela */
+    return Math.round(window.innerHeight - ultimo.bottom);
   })()`);
-  ck(livre >= 0, 'o último registro fica ' + livre + 'px acima da barra, sem ser coberto');
+  ck(livre >= 0, 'o último registro cabe inteiro, ' + livre + 'px acima da borda');
   await shot('h1-lista-completa');
 
   console.log('descanso automatico:');
@@ -185,7 +186,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev('faltamNaSemana(Date.now()) >= 0'),
     'da para saber quantos treinos faltam na semana');
 
-  await ev("popToRoot(); TAB = 'treinos'; DIA_SEL = Date.now() - 86400000; currentScreen().refresh();");
+  await ev("popToRoot(); abrirModulo('academia'); DIA_SEL = Date.now() - 86400000; currentScreen().refresh();");
   await sleep(400);
   ck(await ev("!!currentScreen().el.querySelector('.day.descanso')"),
     'o descanso aparece sozinho na faixa da semana');
@@ -197,25 +198,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev('DIA_SEL = Date.now(); currentScreen().refresh();'); await sleep(300);
 
   console.log('\nmeta de água:');
-  await ev("TAB = 'nutricao'; popToRoot(); currentScreen().refresh();"); await sleep(500);
-  ck(await ev("currentScreen().el.querySelector('.top-bar .title').textContent.trim() === 'Água'"),
-    'a aba Nutrição mostra a Água');
+  await ev("popToRoot(); abrirModulo('agua');"); await sleep(500);
+  ck(await ev("currentScreen().el.querySelector('.nav .title').textContent.trim() === 'Hidratação'"),
+    'o módulo de hidratação abre na tela da água');
   ck(await ev("!currentScreen().el.textContent.includes('Em breve')"), 'o "Em breve" saiu');
   ck(await ev('metaAgua() === 2600'), '75 kg × 35 ml dá meta de ' + await ev('metaAgua()') + ' ml');
   ck(await ev('aguaDoDia() === 0'), 'o dia começa zerado');
   await shot('h3-agua-vazia');
 
   await ev("currentScreen().el.querySelectorAll('.agua-copo')[2].click()"); await sleep(400);
-  ck(await ev('aguaDoDia() === 500'), 'o copo de 500 ml soma');
+  ck(await ev('aguaDoDia() === 800'), 'a garrafa de 800 ml soma');
   await ev("currentScreen().el.querySelectorAll('.agua-copo')[0].click()"); await sleep(400);
-  ck(await ev('aguaDoDia() === 700'), 'somando 200, vai a ' + await ev('aguaDoDia()') + ' ml');
-  ck(await ev("currentScreen().el.textContent.includes('Faltam 1900 ml')"), 'mostra quanto falta');
+  ck(await ev('aguaDoDia() === 1100'), 'somando 300, vai a ' + await ev('aguaDoDia()') + ' ml');
+  ck(await ev("currentScreen().el.textContent.includes('Faltam 1500 ml')"), 'mostra quanto falta');
   await shot('h4-agua-parcial');
 
   await ev("currentScreen().el.querySelector('[data-act=menos]').click()"); await sleep(400);
-  ck(await ev('aguaDoDia() === 500'), 'desfazer tira 200 ml');
+  ck(await ev('aguaDoDia() === 800'), 'desfazer tira os 300 que entraram por último');
 
-  await ev('beberAgua(2200); popToRoot(); currentScreen().refresh();'); await sleep(400);
+  await ev('beberAgua(1900); currentScreen().refresh();'); await sleep(400);
   ck(await ev('aguaDoDia() === 2700'), 'chegando a 2700 ml');
   ck(await ev("currentScreen().el.textContent.includes('Meta batida')"), 'avisa quando bate a meta');
   ck(await ev("!!currentScreen().el.querySelector('.agua-dia.bateu')"),
