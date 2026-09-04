@@ -77,6 +77,7 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
+  passos: {},             // passos por dia (AAAA-MM-DD), vindos do app Saúde
   planoDias: {},          // troca avulsa de treino, por dia (AAAA-MM-DD)
   tarefas: [],            // cronograma: tarefas e compromissos
   metas: [],              // cofrinho: dinheiro separado por objetivo
@@ -89,6 +90,7 @@ const DEFAULT_STATE = {
     metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
     planoSemanal: [],     // molde da rotina: um treino (ou folga) por dia da semana
     metaAgua: 0,          // ml por dia; 0 = calcula a partir do peso
+    metaPassos: 10000,    // passos por dia
   },
   active: null,
 };
@@ -176,6 +178,7 @@ function completarCampos(estado) {
   if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
   if (!estado.aguaLog || typeof estado.aguaLog !== 'object') estado.aguaLog = {};
   if (!estado.planoDias || typeof estado.planoDias !== 'object') estado.planoDias = {};
+  if (!estado.passos || typeof estado.passos !== 'object') estado.passos = {};
   if (!Array.isArray(estado.settings.planoSemanal)) estado.settings.planoSemanal = [];
   const p = DEFAULT_STATE.settings;
   Object.keys(p).forEach((k) => {
@@ -604,6 +607,84 @@ function desfazerAgua(padrao, ts) {
   if (l && !l.length) delete S.aguaLog[k];
   beberAgua(-ml, ts);
   return ml;
+}
+
+/* =========================================================
+   PASSOS
+
+   O iPhone já conta passos o dia inteiro; o app não conta nada — ele recebe.
+   Por isso `definirPassos` **substitui** o valor do dia em vez de somar: o
+   Saúde manda o total acumulado, e somar duplicaria a cada importação.
+   ========================================================= */
+
+const COR_PASSOS = '#FF8A00';
+
+const metaPassos = () => Math.max(1, S.settings.metaPassos || 10000);
+
+const passosDoDia = (ts) => S.passos[dayKey(ts == null ? Date.now() : ts)] || 0;
+
+function definirPassos(n, ts) {
+  const k = dayKey(ts == null ? Date.now() : ts);
+  const v = Math.max(0, Math.round(Number(n) || 0));
+  if (v) S.passos[k] = v; else delete S.passos[k];
+  saveNow();
+  return v;
+}
+
+/* Passos por dia nos últimos `n` dias, do mais antigo para o mais novo. */
+function passosPorDia(n, ate) {
+  const fim = new Date(ate == null ? Date.now() : ate);
+  fim.setHours(0, 0, 0, 0);
+  const dias = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(fim);
+    d.setDate(d.getDate() - i);
+    dias.push({ ts: d.getTime(), n: passosDoDia(d.getTime()) });
+  }
+  return dias;
+}
+
+/* Média por dia contando só os dias que têm registro: dividir por sete quando
+   só três dias foram importados diria que ele anda menos do que anda. */
+function mediaPassos(dias, ate) {
+  const lista = passosPorDia(dias, ate).filter((d) => d.n > 0);
+  if (!lista.length) return 0;
+  return Math.round(lista.reduce((a, d) => a + d.n, 0) / lista.length);
+}
+
+const totalPassos = (dias, ate) => passosPorDia(dias, ate).reduce((a, d) => a + d.n, 0);
+
+const diasComPasso = (dias, ate) => passosPorDia(dias, ate).filter((d) => d.n > 0).length;
+
+/* Lê o que veio do app Saúde. Aceita o número solto — o caso comum, o total de
+   hoje — ou pares `AAAA-MM-DD:n` separados por vírgula, para recuperar dias
+   passados de uma vez. Um `passos=` na frente é ignorado, para o mesmo texto
+   servir colado da área de transferência e vindo na URL. */
+function importarPassos(texto) {
+  const bruto = String(texto == null ? '' : texto).trim().replace(/^passos\s*=\s*/i, '');
+  if (!bruto) return null;
+
+  const pares = bruto.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
+  let dias = 0;
+  let total = 0;
+
+  pares.forEach((par) => {
+    const m = par.match(/^(\d{4}-\d{2}-\d{2})\s*[:=]\s*([\d.,]+)$/);
+    if (m) {
+      const n = Math.round(Number(String(m[2]).replace(/[.,]/g, '')) || 0);
+      if (n > 0) { S.passos[m[1]] = n; dias += 1; total += n; }
+      return;
+    }
+    /* número solto: é o dia de hoje, e só o primeiro conta */
+    const so = par.match(/^[\d.,\s]+$/) ? Math.round(Number(par.replace(/[.,\s]/g, '')) || 0) : 0;
+    if (so > 0 && !dias) {
+      S.passos[dayKey(Date.now())] = so; dias += 1; total += so;
+    }
+  });
+
+  if (!dias) return null;
+  saveNow();
+  return { dias, total };
 }
 
 /* histórico de um exercício: [{date, volume, best1rm, topSet}] mais antigo -> mais novo */

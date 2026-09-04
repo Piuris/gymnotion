@@ -127,6 +127,16 @@ const MODULOS = [
     abrir: () => irParaAba('agua'),
   },
   {
+    id: 'passos', nome: 'Passos', icone: 'passos', iconeO: 'passos',
+    cor: () => COR_PASSOS,
+    resumo: () => {
+      const n = passosDoDia();
+      if (!n) return 'Traga do app Saúde';
+      return fmtPassos(n) + ' de ' + fmtPassos(metaPassos());
+    },
+    abrir: () => telaPassos(),
+  },
+  {
     id: 'metas', nome: 'Metas', icone: 'cofre', iconeO: 'cofre',
     cor: () => COR_METAS,
     resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),
@@ -2311,10 +2321,31 @@ function openSessionDetail(id) {
    BOOT
    ========================================================= */
 
+/* Quando o app é aberto por um endereço com `?passos=`, o número entra e a
+   URL é limpa — senão recarregar a página importaria de novo o valor velho.
+   A tabela deixa acrescentar outros dados do Saúde numa linha só. */
+const IMPORTES_URL = {
+  passos: (v) => importarPassos(v),
+};
+
+function importarDaURL() {
+  const q = new URLSearchParams(location.search);
+  let veio = 0;
+  Object.keys(IMPORTES_URL).forEach((chave) => {
+    const v = q.get(chave);
+    if (v && IMPORTES_URL[chave](v)) veio += 1;
+  });
+  if (!veio) return 0;
+  try { history.replaceState(null, '', location.pathname); } catch (e) { /* nada a fazer */ }
+  return veio;
+}
+
 function boot() {
   aplicarTema(S.settings.tema);
   ajustarTravaTela();   /* treino retomado depois de fechar o app */
+  const veioDaURL = importarDaURL();
   replaceRoot(buildRoot, 'root');
+  if (veioDaURL) setTimeout(() => toast('Dados do Saúde importados'), 400);
 
   clearInterval(TICK);
   TICK = setInterval(globalTick, 1000);

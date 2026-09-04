@@ -1424,7 +1424,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .form-linha .text-input { width: 100%; margin: 0 0 16px; }
 
 /* =========================================================
-   METAS E ESTUDOS
+   METAS, ESTUDOS E PASSOS
 
    Os dois cartões são a mesma peça: nome, número, barra e um rodapé curto.
    Cada um herda a cor do seu item, como as pastas de treino.
@@ -1457,33 +1457,53 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .meta-foot { font-size: 13px; color: var(--txt-2); margin-top: 9px; }
 .meta-card.batida .meta-foot { color: var(--accent); font-weight: 600; }
 
-.estudo-semana {
+.dias-barras {
   display: flex; align-items: flex-end; gap: 5px;
   padding: 4px 16px 8px;
   height: 132px;
 }
-.estudo-dia {
+.dias-col {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; align-items: center;
   height: 100%;
 }
-.estudo-barra {
+.dias-barra {
   flex: 1; width: 100%;
   border-radius: 7px;
   background: var(--fill-1);
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
-.estudo-barra i {
+.dias-barra i {
   display: block; width: 100%; border-radius: 7px;
   transition: height .3s cubic-bezier(.32, .72, 0, 1);
 }
-.estudo-rotulo {
+.dias-rotulo {
   margin-top: 6px;
   font-size: 11px; color: var(--txt-3);
   white-space: nowrap;
 }
-.estudo-dia.tem .estudo-rotulo { color: var(--txt-2); font-weight: 600; }
+.dias-col.tem .dias-rotulo { color: var(--txt-2); font-weight: 600; }
+/* nos passos, a barra sai no acento e o dia que bateu a meta fica cheio */
+.dias-col .dias-barra i { background: var(--a60); }
+.dias-col.bateu .dias-barra i { background: var(--accent); }
+.dias-col.bateu .dias-rotulo { color: var(--accent); }
+
+/* Passo a passo numerado da folha de importação. */
+.passo-lista { padding: 0 20px 14px; }
+.passo {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 7px 0;
+  font-size: 15px; line-height: 1.4; color: var(--txt-2);
+}
+.passo i {
+  flex: 0 0 24px; width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--a22); color: var(--accent);
+  font-style: normal; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.passo b { color: var(--txt); font-weight: 600; }
 
 /* =========================================================
    SISTEMA VISUAL: seção, herói, ações e linha do tempo

@@ -420,14 +420,14 @@ function telaEstudos() {
     const teto = Math.max(30, ...dias.map((d) => d.min));
     if (dias.some((d) => d.min)) {
       scroll.appendChild(h(secao('Ritmo', 'Últimos 14 dias')));
-      const barras = h('<div class="estudo-semana"></div>');
+      const barras = h('<div class="dias-barras"></div>');
       dias.forEach((d, i) => {
         /* piso de 8%: um dia de 10 minutos virava um risco invisível, e o que
            importa no gráfico é ver que houve estudo, não medir no milímetro */
         const alt = d.min ? Math.max(8, (d.min / teto) * 100) : 0;
-        const bar = h(`<div class="estudo-dia${d.min ? ' tem' : ''}" title="${fmtMin(d.min)}">
-          <div class="estudo-barra"><i style="height:${alt}%;background:${d.cor}"></i></div>
-          <div class="estudo-rotulo">${i === dias.length - 1 ? 'hoje' : DIAS_CURTO[new Date(d.ts).getDay()].charAt(0)}</div>
+        const bar = h(`<div class="dias-col${d.min ? ' tem' : ''}" title="${fmtMin(d.min)}">
+          <div class="dias-barra"><i style="height:${alt}%;background:${d.cor}"></i></div>
+          <div class="dias-rotulo">${i === dias.length - 1 ? 'hoje' : DIAS_CURTO[new Date(d.ts).getDay()].charAt(0)}</div>
         </div>`);
         barras.appendChild(bar);
       });
@@ -603,4 +603,180 @@ function editorMateria(materia, screen) {
     setTimeout(() => screen.refresh(), 120);
   });
   setTimeout(() => { if (!materia) campo('nome').focus(); }, 250);
+}
+
+/* =========================================================
+   PASSOS
+
+   O app não conta passos — o iPhone já conta. Esta tela só recebe o número e
+   mostra o histórico. Como o Safari não tem acesso ao HealthKit (é framework
+   nativo, exige app assinado), o caminho é o app Atalhos: ele lê a amostra de
+   Saúde e entrega o número por aqui.
+   ========================================================= */
+
+const fmtPassos = (n) => Math.round(n || 0).toLocaleString('pt-BR');
+
+function telaPassos() {
+  pushScreen((el, screen) => {
+    setAccent(COR_PASSOS, el);
+    el.appendChild(navBar('Passos', {
+      icone: 'dots',
+      aoTocar: () => actionSheet('Passos', [
+        { label: 'Trazer do app Saúde', icon: 'download', onClick: () => folhaImportarPassos(screen) },
+        { label: 'Ajustar meta diária', icon: 'target', onClick: () => promptSheet('Passos por dia', String(metaPassos()), '10000', (v) => {
+          S.settings.metaPassos = Math.max(1, Math.round(Number(String(v).replace(/[.,\s]/g, '')) || 10000));
+          saveNow(); screen.refresh();
+        }) },
+        { label: 'Registrar passos de hoje', icon: 'pencil', onClick: () => promptSheet('Passos de hoje', String(passosDoDia() || ''), '8000', (v) => {
+          definirPassos(String(v).replace(/[.,\s]/g, ''));
+          screen.refresh();
+        }) },
+      ]),
+    }));
+
+    const scroll = h('<div class="scroll"></div>');
+    const hoje = passosDoDia();
+    const meta = metaPassos();
+    const pct = Math.min(1, hoje / meta);
+
+    scroll.appendChild(h(heroi({
+      sobrancelha: 'Hoje',
+      titulo: hoje ? fmtPassos(hoje) : 'Sem dados',
+      classe: 'compacto',
+      numero: hoje ? 'de ' + fmtPassos(meta) + ' passos' : 'Traga o número do app Saúde',
+      nota: hoje
+        ? (hoje >= meta ? 'Meta batida' : Math.round(pct * 100) + '% da meta · faltam ' + fmtPassos(meta - hoje))
+        : '',
+    })));
+
+    const acoes = h(`<div class="acoes">
+      <button class="acao" data-act="trazer">${iconO('passos')}Trazer do Saúde</button>
+      <button class="acao" data-act="meta">${fmtPassos(meta)} de meta</button>
+    </div>`);
+    acts(acoes, {
+      trazer: () => folhaImportarPassos(screen),
+      meta: () => promptSheet('Passos por dia', String(meta), '10000', (v) => {
+        S.settings.metaPassos = Math.max(1, Math.round(Number(String(v).replace(/[.,\s]/g, '')) || 10000));
+        saveNow(); screen.refresh();
+      }),
+    });
+    scroll.appendChild(acoes);
+
+    /* ---------- últimos 14 dias ---------- */
+    const dias = passosPorDia(14);
+    const teto = Math.max(meta, ...dias.map((d) => d.n));
+    if (dias.some((d) => d.n)) {
+      scroll.appendChild(h(secao('Ritmo', 'Últimos 14 dias')));
+      const barras = h('<div class="dias-barras"></div>');
+      dias.forEach((d, i) => {
+        /* piso de 8%: um dia de poucos passos virava um risco invisível */
+        const alt = d.n ? Math.max(8, (d.n / teto) * 100) : 0;
+        barras.appendChild(h(`<div class="dias-col${d.n ? ' tem' : ''}${d.n >= meta ? ' bateu' : ''}" title="${fmtPassos(d.n)} passos">
+          <div class="dias-barra"><i style="height:${alt}%"></i></div>
+          <div class="dias-rotulo">${i === dias.length - 1 ? 'hoje' : DIAS_CURTO[new Date(d.ts).getDay()].charAt(0)}</div>
+        </div>`));
+      });
+      scroll.appendChild(barras);
+
+      const comDados = diasComPasso(7);
+      scroll.appendChild(h(`<div class="card">
+        <div class="plan-foot" style="margin-bottom:12px"><span>Média por dia</span><span>${fmtPassos(mediaPassos(7))}</span></div>
+        <div class="plan-foot" style="margin-bottom:12px"><span>Total em 7 dias</span><span>${fmtPassos(totalPassos(7))}</span></div>
+        <div class="plan-foot"><span>Dias com registro</span><span>${comDados} de 7</span></div>
+      </div>`));
+      scroll.appendChild(h('<div class="hint">A média conta só os dias que têm registro — dividir por sete quando só três foram importados diria que você anda menos do que anda.</div>'));
+    } else {
+      scroll.appendChild(h(`<div class="empty">${icon('passos')}<b>Nenhum passo registrado</b>O iPhone já conta seus passos. Traga o número do app Saúde pelo atalho — leva um minuto para montar e depois roda sozinho.</div>`));
+      const b = h('<button class="pill-btn" data-act="criar" style="margin:0 16px;width:calc(100% - 32px)">Como trazer do Saúde</button>');
+      b.addEventListener('click', () => folhaImportarPassos(screen));
+      scroll.appendChild(b);
+    }
+
+    el.appendChild(scroll);
+  }, { name: 'passos' });
+}
+
+/* O endereço que o atalho deve abrir/copiar. Sai do endereço real em que o app
+   está rodando, para funcionar igual no GitHub Pages e no servidor local. */
+const urlDosPassos = () => location.origin + location.pathname.replace(/index\.html$/, '') + '?passos=';
+
+/* Folha de importação. Três caminhos para o mesmo lugar, do mais automático ao
+   que nunca falha — porque no iOS um link não abre o app da Tela de Início,
+   abre o Safari, que tem armazenamento separado. Apostar só na URL seria
+   entregar algo que às vezes grava no lugar errado. */
+function folhaImportarPassos(screen) {
+  const box = h(`<div class="form">
+    <h3>Trazer do app Saúde</h3>
+    <div class="form-corpo">
+      <p class="desc">O Safari não enxerga o app Saúde — isso é do iPhone, não do app. Quem enxerga é o app <b>Atalhos</b>, e ele entrega o número aqui.</p>
+
+      <div class="passo-lista">
+        <div class="passo"><i>1</i><span>Abra o app <b>Atalhos</b> e crie um atalho novo.</span></div>
+        <div class="passo"><i>2</i><span>Adicione a ação de <b>amostras de saúde</b>: tipo <b>Passos</b>, período <b>hoje</b>, operação <b>soma</b>.</span></div>
+        <div class="passo"><i>3</i><span>Adicione <b>Copiar para a Área de Transferência</b> com o resultado.</span></div>
+        <div class="passo"><i>4</i><span>Rode o atalho e volte aqui para colar.</span></div>
+      </div>
+
+      <div class="agua-extras" style="padding-top:4px">
+        <button data-act="colar">Colar da área de transferência</button>
+      </div>
+
+      <div class="section-title" style="padding-bottom:6px">Ou cole aqui</div>
+      <input class="text-input" data-c="txt" inputmode="numeric" placeholder="8432"/>
+      <div class="hint" style="padding-bottom:14px">Aceita o número de hoje, ou vários dias de uma vez no formato <b>2026-09-03:8432, 2026-09-02:9012</b>.</div>
+
+      <div class="section-title" style="padding-bottom:6px">Automatizar de vez</div>
+      <div class="hint">Se preferir, use a ação <b>Abrir URL</b> no lugar do passo 3, com este endereço mais o resultado. Funciona quando o app abre no Safari; na Tela de Início, o iPhone não repassa o link, e aí vale o caminho de colar.</div>
+      <div class="agua-extras">
+        <button data-act="copiar">Copiar endereço</button>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="no">Fechar</button>
+      <button class="pill-btn" data-x="yes">Importar</button>
+    </div>
+  </div>`);
+
+  const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
+  setAccent(COR_PASSOS, box);
+  const campo = box.querySelector('[data-c="txt"]');
+
+  const aplicar = (texto) => {
+    const res = importarPassos(texto);
+    if (!res) { toast('Não entendi esse número'); return false; }
+    r.close();
+    setTimeout(() => {
+      screen.refresh();
+      toast(res.dias > 1
+        ? res.dias + ' dias importados'
+        : fmtPassos(res.total) + ' passos importados');
+    }, 120);
+    return true;
+  };
+
+  acts(box, {
+    colar: async () => {
+      try {
+        const txt = await navigator.clipboard.readText();
+        if (!txt) { toast('A área de transferência está vazia'); return; }
+        campo.value = txt.trim();
+        aplicar(txt);
+      } catch (e) {
+        toast('O iPhone não liberou a área de transferência');
+      }
+    },
+    copiar: async () => {
+      try {
+        await navigator.clipboard.writeText(urlDosPassos());
+        toast('Endereço copiado');
+      } catch (e) {
+        campo.value = urlDosPassos();
+        toast('Copie o endereço do campo');
+      }
+    },
+  });
+
+  box.querySelector('[data-x="no"]').addEventListener('click', r.close);
+  box.querySelector('[data-x="yes"]').addEventListener('click', () => aplicar(campo.value));
 }

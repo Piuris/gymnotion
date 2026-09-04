@@ -12,6 +12,7 @@ São seis módulos, cada um com a sua tela:
 | **Academia** | Treinos, cargas, séries, ofensiva, recordes e análises |
 | **Cronograma** | Tarefas e compromissos num calendário de mês |
 | **Hidratação** | Meta diária de água |
+| **Passos** | Passos por dia, trazidos do app Saúde do iPhone |
 | **Metas** | Cofrinhos: dinheiro separado por objetivo |
 | **Estudos** | Matérias com tópicos e horas estudadas |
 | **Configurações** | Tema, peso, metas, conta e backup |
@@ -158,6 +159,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
 | [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
 | [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
+| [tools/passos-test.js](tools/passos-test.js) | Testa a tela de passos e as três formas de trazer o número do Saúde |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -387,6 +389,7 @@ node tools/calc-test.js ./__shots        # descanso global e calculadora
 node tools/vida-test.js ./__shots        # módulos de organização e navegação
 node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
 node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
+node tools/passos-test.js ./__shots      # passos e importação do app Saúde
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -595,6 +598,46 @@ Início — é onde tarefa esquecida costuma morrer sem aviso.
 
 O editor usa os seletores nativos de data e hora do iOS (`input type="date"` e
 `type="time"`): é o único jeito de ter roda de data sem escrever uma do zero.
+
+## Passos: por que não dá para ler o Saúde direto
+
+O **HealthKit é um framework nativo**. Não existe API web nem servidor da Apple
+para consultar: os dados vivem no aparelho, e só um app nativo, assinado com
+conta de desenvolvedor e com o *entitlement* de Saúde, consegue lê-los. Safari e
+PWA não têm esse acesso — é a mesma barreira dos US$ 99/ano que o projeto
+inteiro contorna.
+
+Quem enxerga o Saúde e está ao alcance de todo mundo é o app **Atalhos**. Um
+atalho lê a amostra (`Passos`, hoje, soma) e entrega o número aqui. O app não
+conta nada; ele recebe. Por isso `definirPassos` **substitui** o valor do dia em
+vez de somar: o Saúde manda o total acumulado, e somar duplicaria a cada
+importação.
+
+### Três caminhos para o mesmo importador
+
+A tentação era resolver com uma URL — o atalho abre
+`.../?passos=8432` e pronto. Só que **no iOS um link não abre o app da Tela de
+Início**: abre o Safari, que tem armazenamento separado do web app instalado. O
+número entraria no lugar errado, calado. Então são três caminhos, do mais
+automático ao que nunca falha:
+
+1. **`?passos=` na URL** — funciona quando o app abre no Safari. `importarDaURL()`
+   grava e limpa o endereço com `history.replaceState`, senão recarregar a
+   página reimportaria o valor velho.
+2. **Colar da área de transferência** — o atalho copia o número, um toque em
+   *Colar* lê com `navigator.clipboard.readText()`. É o caminho que funciona
+   dentro do app instalado.
+3. **Digitar no campo** — sempre funciona, inclusive quando o iPhone recusa a
+   área de transferência.
+
+`importarPassos()` aceita os três formatos que aparecem na prática: o número
+solto (`8432`, com ou sem ponto de milhar), o mesmo número com o `passos=` da
+URL na frente, e pares `AAAA-MM-DD:n` separados por vírgula, para recuperar
+vários dias de uma vez. Texto sem número não grava nada e deixa a folha aberta,
+em vez de fechar em silêncio.
+
+A média de 7 dias divide pelos **dias com registro**, não por sete: dividir por
+sete quando só três foram importados diria que ele anda menos do que anda.
 
 ## Metas: o cofrinho
 

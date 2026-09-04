@@ -102,7 +102,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(nAtalhos === await ev('MODULOS.length'),
     'há um atalho para cada módulo (' + nAtalhos + ')');
   ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).map(function (b) { return b.textContent; }).join(',')`)
-    === 'Academia,Cronograma,Hidratação,Metas,Estudos,Configurações',
+    === 'Academia,Cronograma,Hidratação,Passos,Metas,Estudos,Configurações',
     'na ordem esperada');
 
   /* cada atalho leva a cor do seu módulo */
@@ -342,9 +342,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('v6-materia');
 
   await ev('popScreen();'); await sleep(600);
-  ck(await ev(`!!${tela()}.querySelector('.estudo-semana')`), 'com horas lançadas aparece o gráfico de 14 dias');
+  ck(await ev(`!!${tela()}.querySelector('.dias-barras')`), 'com horas lançadas aparece o gráfico de 14 dias');
   const corBarra = await ev(`(function () {
-    var b = ${tela()}.querySelectorAll('.estudo-barra i');
+    var b = ${tela()}.querySelectorAll('.dias-barra i');
     return b[b.length - 1].style.background;
   })()`);
   ck(corBarra.replace(/\s/g, '').toLowerCase().indexOf('rgb(160,32,240)') >= 0,
