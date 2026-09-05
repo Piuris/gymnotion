@@ -1062,6 +1062,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 /* Quantas séries de cada tipo. É o que faltava: sem poder criar série aqui, a
    calculadora só servia para quem já tinha marcado tudo como A ou F na mão. */
+.calc-reps {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--fill-1);
+  font-size: 13.5px; font-weight: 600; color: var(--txt-2);
+}
+
 .calc-passo {
   display: flex; align-items: center; gap: 4px;
   background: var(--fill-1);
@@ -1484,26 +1492,8 @@ body.arrastando-algo .scroll { overflow: hidden; }
   white-space: nowrap;
 }
 .dias-col.tem .dias-rotulo { color: var(--txt-2); font-weight: 600; }
-/* nos passos, a barra sai no acento e o dia que bateu a meta fica cheio */
-.dias-col .dias-barra i { background: var(--a60); }
-.dias-col.bateu .dias-barra i { background: var(--accent); }
-.dias-col.bateu .dias-rotulo { color: var(--accent); }
 
-/* Passo a passo numerado da folha de importação. */
-.passo-lista { padding: 0 20px 14px; }
-.passo {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 7px 0;
-  font-size: 15px; line-height: 1.4; color: var(--txt-2);
-}
-.passo i {
-  flex: 0 0 24px; width: 24px; height: 24px;
-  border-radius: 50%;
-  background: var(--a22); color: var(--accent);
-  font-style: normal; font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.passo b { color: var(--txt); font-weight: 600; }
+
 
 /* =========================================================
    SISTEMA VISUAL: seção, herói, ações e linha do tempo
@@ -1696,6 +1686,76 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .campo-cor .lab { flex: 1; min-width: 0; text-align: left; font-size: 17px; }
 .campo-cor .caret { width: 15px; height: 15px; flex: 0 0 15px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; }
 .campo-cor:active { background: var(--fill-1); }
+
+/* =========================================================
+   ESTANTE DE JOGOS
+
+   A capa é o item; o nome vem depois dela. Três colunas na proporção 3:4 é o
+   que faz a tela parecer uma prateleira em vez de uma lista com miniatura.
+   ========================================================= */
+
+.estante {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 10px;
+  padding: 4px 16px 12px;
+}
+.jogo { text-align: left; min-width: 0; transition: transform .14s; }
+.jogo:active { transform: scale(.96); }
+
+.jogo-capa {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+}
+.jogo-capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jogo-iniciais {
+  font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  color: var(--txt-3);
+}
+
+/* O selo diz o estado sem roubar a capa: fica no pé, sobre um degradê que
+   garante leitura em capa clara ou escura. */
+.jogo-selo {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 14px 8px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .82), transparent);
+  color: #fff;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .4px; text-transform: uppercase;
+  text-align: center;
+}
+.jogo.estado-fila .jogo-selo { color: rgba(255, 255, 255, .72); }
+.jogo.estado-jogando .jogo-capa { border-color: var(--accent); }
+.jogo.estado-jogando .jogo-selo { color: var(--accent); }
+.jogo.estado-zerado .jogo-capa img { opacity: .55; }
+.jogo.estado-zerado .jogo-selo { color: #2BE86B; }
+
+.jogo-nome {
+  margin-top: 7px;
+  font-size: 13.5px; font-weight: 600; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.jogo-plat { margin-top: 2px; font-size: 11.5px; color: var(--txt-3); }
+
+/* Escolha da capa no editor: a prévia ao lado dos botões, no mesmo formato em
+   que ela vai aparecer na estante. */
+.capa-escolha { display: flex; gap: 14px; padding: 0 20px 16px; }
+.capa-previa {
+  flex: 0 0 96px; width: 96px;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px; overflow: hidden;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+}
+.capa-previa img { width: 100%; height: 100%; object-fit: cover; }
+.capa-botoes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.capa-botoes .acao { width: 100%; justify-content: flex-start; }
 
 /* ---------- utilitários ---------- */
 

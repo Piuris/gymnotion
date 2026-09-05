@@ -12,7 +12,7 @@ São seis módulos, cada um com a sua tela:
 | **Academia** | Treinos, cargas, séries, ofensiva, recordes e análises |
 | **Cronograma** | Tarefas e compromissos num calendário de mês |
 | **Hidratação** | Meta diária de água |
-| **Passos** | Passos por dia, trazidos do app Saúde do iPhone |
+| **Jogos** | Estante do que jogar, do que está jogando e do que zerou |
 | **Metas** | Cofrinhos: dinheiro separado por objetivo |
 | **Estudos** | Matérias com tópicos e horas estudadas |
 | **Configurações** | Tema, peso, metas, conta e backup |
@@ -159,7 +159,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/vida-test.js](tools/vida-test.js) | Testa os atalhos, o Menu, o cronograma, as metas, os estudos e a água |
 | [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
 | [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
-| [tools/passos-test.js](tools/passos-test.js) | Testa a tela de passos e as três formas de trazer o número do Saúde |
+| [tools/jogos-test.js](tools/jogos-test.js) | Testa a estante de jogos: estados, filtro, capa e compressão |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -389,7 +389,7 @@ node tools/calc-test.js ./__shots        # descanso global e calculadora
 node tools/vida-test.js ./__shots        # módulos de organização e navegação
 node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
 node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
-node tools/passos-test.js ./__shots      # passos e importação do app Saúde
+node tools/jogos-test.js ./__shots       # estante de jogos
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -599,46 +599,6 @@ Início — é onde tarefa esquecida costuma morrer sem aviso.
 O editor usa os seletores nativos de data e hora do iOS (`input type="date"` e
 `type="time"`): é o único jeito de ter roda de data sem escrever uma do zero.
 
-## Passos: por que não dá para ler o Saúde direto
-
-O **HealthKit é um framework nativo**. Não existe API web nem servidor da Apple
-para consultar: os dados vivem no aparelho, e só um app nativo, assinado com
-conta de desenvolvedor e com o *entitlement* de Saúde, consegue lê-los. Safari e
-PWA não têm esse acesso — é a mesma barreira dos US$ 99/ano que o projeto
-inteiro contorna.
-
-Quem enxerga o Saúde e está ao alcance de todo mundo é o app **Atalhos**. Um
-atalho lê a amostra (`Passos`, hoje, soma) e entrega o número aqui. O app não
-conta nada; ele recebe. Por isso `definirPassos` **substitui** o valor do dia em
-vez de somar: o Saúde manda o total acumulado, e somar duplicaria a cada
-importação.
-
-### Três caminhos para o mesmo importador
-
-A tentação era resolver com uma URL — o atalho abre
-`.../?passos=8432` e pronto. Só que **no iOS um link não abre o app da Tela de
-Início**: abre o Safari, que tem armazenamento separado do web app instalado. O
-número entraria no lugar errado, calado. Então são três caminhos, do mais
-automático ao que nunca falha:
-
-1. **`?passos=` na URL** — funciona quando o app abre no Safari. `importarDaURL()`
-   grava e limpa o endereço com `history.replaceState`, senão recarregar a
-   página reimportaria o valor velho.
-2. **Colar da área de transferência** — o atalho copia o número, um toque em
-   *Colar* lê com `navigator.clipboard.readText()`. É o caminho que funciona
-   dentro do app instalado.
-3. **Digitar no campo** — sempre funciona, inclusive quando o iPhone recusa a
-   área de transferência.
-
-`importarPassos()` aceita os três formatos que aparecem na prática: o número
-solto (`8432`, com ou sem ponto de milhar), o mesmo número com o `passos=` da
-URL na frente, e pares `AAAA-MM-DD:n` separados por vírgula, para recuperar
-vários dias de uma vez. Texto sem número não grava nada e deixa a folha aberta,
-em vez de fechar em silêncio.
-
-A média de 7 dias divide pelos **dias com registro**, não por sete: dividir por
-sete quando só três foram importados diria que ele anda menos do que anda.
-
 ## Metas: o cofrinho
 
 Cada meta tem nome, alvo e cor. O saldo é a **soma dos lançamentos**, e retirada
@@ -646,6 +606,23 @@ entra como valor negativo: assim o extrato mostra o que saiu e quando, em vez de
 o saldo encolher sem deixar rastro. Retirar mais do que existe esvazia o
 cofrinho, mas não deixa saldo negativo — `guardarNaMeta` corta a retirada no que
 há dentro. A barra para em 100% mesmo com o guardado passando do alvo.
+
+## Jogos: a estante
+
+Uma biblioteca é feita de **capas**, não de linhas de texto — o jogo se
+reconhece pela arte antes do nome. Por isso a capa é o item, numa grade de três
+colunas na proporção 3:4, e o estado é um selo sobre ela: *Jogando*, *Na fila*,
+*Zerado*. Sem capa, as iniciais preenchem o lugar dela; um retângulo cinza vazio
+seria pior.
+
+Trocar de estado carimba a data — começar guarda quando começou, zerar guarda
+quando zerou — e voltar para a fila **limpa as duas**, senão um jogo recomeçado
+continuaria dizendo que foi concluído.
+
+A capa entra do rolo de fotos e é comprimida na hora, para **360px de largura em
+WebP a 0.72**: o `localStorage` é pequeno e uma foto crua de câmera estoura o
+limite sozinha. Nos testes, uma imagem de 1200×1600 cai de 57 KB para 1 KB. Um
+endereço de imagem também serve, para quem prefere colar um link.
 
 ## Estudos
 
@@ -737,23 +714,27 @@ montado, onde todas são válidas, ele nascia desabilitado e parecia quebrado: s
 funcionava para quem tivesse marcado cada série na mão antes de abrir a
 calculadora, que é justamente o trabalho que ela deveria poupar.
 
-Um seletor decide primeiro o essencial — **Só aquecimento** ou **Aquecimento +
-feeder** —, e a linha do feeder só aparece no segundo modo: quem não usa feeder
-fica com uma decisão em vez de dois contadores. Voltar para o modo com feeder
-devolve o número que já tinha sido escolhido, e não recomeça do um.
+São **duas receitas fechadas**, e a decisão que interessa é só quanta
+preparação:
 
-Dentro de cada faixa há um contador (`− n +`), que começa no que já existe no
-exercício; sem nenhuma A ou F, começa em **2 aquecimentos**. *Aplicar* cria as
-séries que faltam, tira as que sobram e grava as cargas; a nota acima do botão
-diz de antemão o que ele vai fazer. A folha veste a cor do treino: ela nasce
-fora da tela dele e não herdaria o acento sozinha.
+| | Aquecimento | Feeder | PAP |
+| --- | --- | --- | --- |
+| **Completo** | 1 × 12 reps, 35–50% | 1 × 5 reps, 60–75% | 1 × 1 rep, carga de trabalho |
+| **Feeder + PAP** | — | 1 × 5 reps, 60–75% | 1 × 1 rep, carga de trabalho |
 
-As séries criadas herdam repetições e descanso da série de trabalho — inventar
-número aqui só daria trabalho de corrigir depois — e vão para a frente da lista,
-na ordem em que se faz: aquecimento, feeder, trabalho. Essa reordenação **só
-acontece com o exercício intocado**: se alguma série já foi marcada como feita,
-remexer na ordem do que já passou seria pior que a bagunça, então a série nova
-entra no fim.
+O PAP sobe com a **carga de trabalho** e uma repetição só: o objetivo dele é
+potencializar com a carga real, não somar volume.
+
+*Aplicar* deixa o exercício exatamente com a receita escolhida — cria o que
+falta, **tira o que não faz parte dela** e grava cargas e repetições. A nota
+acima do botão diz de antemão o que vai acontecer, e a folha veste a cor do
+treino: ela nasce fora da tela dele e não herdaria o acento sozinha.
+
+As séries criadas herdam o descanso da série de trabalho e vão para a frente da
+lista, na ordem em que se faz: aquecimento, feeder, PAP, trabalho. Essa
+reordenação **só acontece com o exercício intocado**: se alguma série já foi
+marcada como feita, remexer na ordem do que já passou seria pior que a bagunça,
+então a série nova entra no fim.
 
 ## A barra de descanso vive fora das telas
 

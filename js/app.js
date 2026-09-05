@@ -127,14 +127,15 @@ const MODULOS = [
     abrir: () => irParaAba('agua'),
   },
   {
-    id: 'passos', nome: 'Passos', icone: 'passos', iconeO: 'passos',
-    cor: () => COR_PASSOS,
+    id: 'jogos', nome: 'Jogos', icone: 'jogos', iconeO: 'jogos',
+    cor: () => COR_JOGOS,
     resumo: () => {
-      const n = passosDoDia();
-      if (!n) return 'Traga do app Saúde';
-      return fmtPassos(n) + ' de ' + fmtPassos(metaPassos());
+      if (!S.jogos.length) return 'Estante vazia';
+      const j = contaJogos('jogando');
+      if (j) return j + (j > 1 ? ' jogos em andamento' : ' jogo em andamento');
+      return S.jogos.length + ' na estante · ' + contaJogos('zerado') + ' zerados';
     },
-    abrir: () => telaPassos(),
+    abrir: () => telaJogos(),
   },
   {
     id: 'metas', nome: 'Metas', icone: 'cofre', iconeO: 'cofre',
@@ -276,10 +277,16 @@ function renderAcademia(el, screen) {
     ].filter(Boolean).join(' ');
     /* dia ainda por vir e sem registro mostra, apagadinho, a cor do que está
        marcado: dá para ler a semana inteira de relance */
-    const marcado = (!sessionsOn(ts).length && ts >= hojeTs - 86400000)
-      ? treinoDoDia(ts) : null;
-    const pinta = marcado && marcado.treino && marcado.origem !== 'rodizio'
-      ? ` style="background:${marcado.treino.color};opacity:.5"` : '';
+    /* O ponto sai na cor do treino DAQUELE dia. Herdando o acento da faixa,
+       todos os dias apareciam na cor do dia selecionado, o que fazia a semana
+       inteira parecer o mesmo treino. */
+    const feitos = sessionsOn(ts);
+    const marcado = (!feitos.length && ts >= hojeTs - 86400000) ? treinoDoDia(ts) : null;
+    let pinta = '';
+    if (feitos.length) pinta = ` style="background:${feitos[0].color}"`;
+    else if (marcado && marcado.treino && marcado.origem !== 'rodizio') {
+      pinta = ` style="background:${marcado.treino.color};opacity:.5"`;
+    }
     const dia = h(`<button class="${classes}">
       <div class="dow">${nomes[i]}</div>
       <div class="num">${d.getDate()}</div>
@@ -998,14 +1005,40 @@ function pesoDeTrabalho(e) {
   return Math.max(0, ...ultima.sets.map((x) => Number(x.peso) || 0));
 }
 
-/* Quantas séries de aquecimento e feeder já existem no exercício. */
+/* Quantas séries de um tipo já existem no exercício. */
 const contaTipo = (e, tipo) => e.sets.filter((x) => tipoSet(x) === tipo).length;
 
-/* Ajusta o exercício para ter exatamente `n` séries de um tipo, com as cargas
-   dadas. Sobrando, tira as últimas; faltando, cria — herdando repetições e
-   descanso da série de trabalho, porque inventar número aqui só daria trabalho
-   de corrigir depois. */
-function ajustarSeries(e, tipo, cargas) {
+/* Os dois jeitos de preparar uma série pesada. São receitas fechadas de
+   propósito: a decisão que interessa é "quanto de preparação", não quantas
+   séries de cada tipo — quem quiser afinar mexe direto nas séries depois.
+
+   O PAP sobe com a carga de trabalho e uma repetição só: o objetivo dele é
+   potencializar com a carga real, não somar volume. */
+const MODOS_CALC = [
+  {
+    id: 'completo',
+    nome: 'Completo',
+    partes: [
+      { tipo: 'a', reps: 12, faixa: FAIXA_AQUECIMENTO },
+      { tipo: 'f', reps: 5, faixa: FAIXA_FEEDER },
+      { tipo: 'p', reps: 1, faixa: [1, 1] },
+    ],
+  },
+  {
+    id: 'fp',
+    nome: 'Feeder + PAP',
+    partes: [
+      { tipo: 'f', reps: 5, faixa: FAIXA_FEEDER },
+      { tipo: 'p', reps: 1, faixa: [1, 1] },
+    ],
+  },
+];
+
+const modoCalc = (id) => MODOS_CALC.find((m) => m.id === id) || MODOS_CALC[0];
+
+/* Ajusta o exercício para ter exatamente `n` séries de um tipo, com a carga e
+   as repetições dadas. Sobrando, tira as últimas; faltando, cria. */
+function ajustarSeries(e, tipo, cargas, reps) {
   const n = cargas.length;
   const doTipo = e.sets.filter((x) => tipoSet(x) === tipo);
 
@@ -1018,49 +1051,41 @@ function ajustarSeries(e, tipo, cargas) {
   for (let i = doTipo.length; i < n; i++) {
     e.sets.push({
       peso: 0,
-      reps: molde.reps || 0,
+      reps: reps || molde.reps || 0,
       desc: molde.desc || S.settings.restDefault,
       tipo,
       done: false,
     });
   }
 
-  e.sets.filter((x) => tipoSet(x) === tipo).forEach((st, i) => { st.peso = cargas[i]; });
+  e.sets.filter((x) => tipoSet(x) === tipo).forEach((st, i) => {
+    st.peso = cargas[i];
+    if (reps) st.reps = reps;
+  });
   return n - doTipo.length;   // quantas foram criadas (negativo = removidas)
 }
 
-/* Calculadora de aquecimento e feeder.
-
-   Antes ela só preenchia séries que já estivessem marcadas como A ou F — e num
-   exercício recém-montado, onde todas são válidas, o botão nascia desabilitado
-   e parecia quebrado. Agora ela também cria e remove as séries, que é o que
-   "calcular o aquecimento" quer dizer na prática. */
+/* Calculadora de preparação: escolhe a receita, confere a carga de trabalho e
+   aplica. Ela cria e remove as séries — antes só gravava a carga nas que já
+   estivessem marcadas como A ou F, e num exercício recém montado o botão
+   nascia desabilitado e parecia quebrado. */
 function calculadoraAquecimento(e, aoAplicar, cor) {
   const inicial = pesoDeTrabalho(e);
   let ov;
 
-  /* Começa no que já existe; sem nada marcado, dois aquecimentos são o palpite
-     que serve para quase todo mundo, e o feeder fica em zero por ser o mais
-     específico dos dois. */
-  const temAlgum = contaTipo(e, 'a') + contaTipo(e, 'f') > 0;
-  const n = {
-    a: temAlgum ? contaTipo(e, 'a') : 2,
-    f: temAlgum ? contaTipo(e, 'f') : 0,
-  };
-  /* Quantos feeders havia antes de desligá-los: voltar para "com feeder" tem
-     de devolver o número escolhido, não recomeçar do um. */
-  let feederLembrado = n.f || 1;
+  /* Se já existe aquecimento marcado, a receita completa é a que descreve o
+     exercício; sem ele, a curta. */
+  let modo = contaTipo(e, 'a') ? 'completo' : (contaTipo(e, 'f') || contaTipo(e, 'p') ? 'fp' : 'completo');
 
   const box = h(`<div>
-    <h3>Aquecimento e feeder</h3>
+    <h3>Preparação da série</h3>
     <p class="desc">A partir da carga de trabalho, em cima das faixas que você usa.</p>
     <div class="calc-peso">
       <span>Carga de trabalho</span>
       <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${inicial || ''}" placeholder="0"/><u>kg</u></div>
     </div>
     <div class="chips calc-modo">
-      <button class="chip" data-modo="a">Só aquecimento</button>
-      <button class="chip" data-modo="af">Aquecimento + feeder</button>
+      ${MODOS_CALC.map((m) => `<button class="chip" data-modo="${m.id}">${esc(m.nome)}</button>`).join('')}
     </div>
     <div class="calc-linhas"></div>
     <div class="hint calc-nota"></div>
@@ -1071,79 +1096,54 @@ function calculadoraAquecimento(e, aoAplicar, cor) {
   </div>`);
 
   const campo = box.querySelector('input');
-  const modo = box.querySelector('.calc-modo');
+  const chips = box.querySelector('.calc-modo');
   const linhas = box.querySelector('.calc-linhas');
   const nota = box.querySelector('.calc-nota');
   const aplicar = box.querySelector('[data-x="aplicar"]');
 
   const pesoAtual = () => Number(String(campo.value).replace(',', '.')) || 0;
-  const cargasDe = (tipo) => {
-    const faixa = tipo === 'a' ? FAIXA_AQUECIMENTO : FAIXA_FEEDER;
-    return n[tipo] ? escalonar(pesoAtual(), faixa, n[tipo]) : [];
-  };
+  const cargaDe = (parte) => escalonar(pesoAtual(), parte.faixa, 1)[0];
 
   const desenhar = () => {
     const peso = pesoAtual();
+    const m = modoCalc(modo);
 
-    const bloco = (rotulo, tipo, faixa) => {
-      const pct = Math.round(faixa[0] * 100) + '–' + Math.round(faixa[1] * 100) + '%';
-      const valores = peso > 0 && n[tipo]
-        ? cargasDe(tipo).map((v) => fmtWeight(v) + ' kg').join('  ·  ')
-        : (n[tipo] ? '—' : 'nenhuma série');
+    chips.querySelectorAll('[data-modo]').forEach((b) => {
+      b.classList.toggle('on', b.dataset.modo === modo);
+    });
+
+    linhas.innerHTML = m.partes.map((parte) => {
+      const info = infoTipo(parte.tipo);
+      const faixa = parte.faixa[0] === 1
+        ? 'carga de trabalho'
+        : Math.round(parte.faixa[0] * 100) + '–' + Math.round(parte.faixa[1] * 100) + '% da carga';
       return `<div class="calc-linha">
         <div class="calc-topo">
-          <div class="calc-rot"><b>${esc(rotulo)}</b><i>${pct} da carga</i></div>
-          <div class="calc-passo">
-            <button data-menos="${tipo}" ${n[tipo] ? '' : 'disabled'}>−</button>
-            <span>${n[tipo]}</span>
-            <button data-mais="${tipo}" ${n[tipo] >= 6 ? 'disabled' : ''}>+</button>
-          </div>
+          <div class="calc-rot"><b>${esc(info.nome)}</b><i>${faixa}</i></div>
+          <div class="calc-reps">${parte.reps} ${parte.reps === 1 ? 'rep' : 'reps'}</div>
         </div>
-        <div class="calc-val${n[tipo] ? '' : ' vazio'}">${esc(valores)}</div>
+        <div class="calc-val${peso > 0 ? '' : ' vazio'}">${peso > 0 ? esc(fmtWeight(cargaDe(parte)) + ' kg') : '—'}</div>
       </div>`;
-    };
+    }).join('');
 
-    /* O feeder é a parte que nem todo mundo usa; escondê-lo no modo simples
-       deixa a folha com uma decisão só em vez de dois contadores. */
-    const comFeeder = n.f > 0;
-    modo.querySelectorAll('[data-modo]').forEach((b) => {
-      b.classList.toggle('on', (b.dataset.modo === 'af') === comFeeder);
-    });
-
-    linhas.innerHTML = bloco('Aquecimento', 'a', FAIXA_AQUECIMENTO)
-      + (comFeeder ? bloco('Feeder', 'f', FAIXA_FEEDER) : '');
-
-    on(linhas, '[data-menos]', 'click', (ev) => {
-      const t = ev.currentTarget.dataset.menos;
-      n[t] = Math.max(t === 'f' ? 1 : 0, n[t] - 1);
-      if (t === 'f') feederLembrado = n.f;
-      haptic(); desenhar();
-    });
-    on(linhas, '[data-mais]', 'click', (ev) => {
-      const t = ev.currentTarget.dataset.mais;
-      n[t] = Math.min(6, n[t] + 1);
-      if (t === 'f') feederLembrado = n.f;
-      haptic(); desenhar();
-    });
-
-    const criar = Math.max(0, n.a - contaTipo(e, 'a')) + Math.max(0, n.f - contaTipo(e, 'f'));
-    const tirar = Math.max(0, contaTipo(e, 'a') - n.a) + Math.max(0, contaTipo(e, 'f') - n.f);
+    const tipos = m.partes.map((x) => x.tipo);
+    const criar = m.partes.reduce((n, parte) => n + Math.max(0, 1 - contaTipo(e, parte.tipo)), 0);
+    const tirar = ['a', 'f', 'p'].reduce((n, t) =>
+      n + Math.max(0, contaTipo(e, t) - (tipos.indexOf(t) >= 0 ? 1 : 0)), 0);
     const partes = [];
     if (criar) partes.push('cria ' + criar + (criar > 1 ? ' séries' : ' série'));
     if (tirar) partes.push('tira ' + tirar);
     nota.textContent = peso > 0
       ? (partes.length
         ? 'Aplicar ' + partes.join(' e ') + ', antes das séries de trabalho.'
-        : 'Aplicar preenche as cargas das séries que já existem.')
+        : 'Aplicar atualiza as cargas das séries que já existem.')
       : 'Informe a carga de trabalho para calcular.';
 
-    aplicar.disabled = !(peso > 0 && (n.a + n.f) > 0);
+    aplicar.disabled = peso <= 0;
   };
 
-  on(modo, '[data-modo]', 'click', (ev) => {
-    const alvo = ev.currentTarget.dataset.modo;
-    if (alvo === 'af') n.f = feederLembrado;
-    else { if (n.f) feederLembrado = n.f; n.f = 0; }
+  on(chips, '[data-modo]', 'click', (ev) => {
+    modo = ev.currentTarget.dataset.modo;
     haptic();
     desenhar();
   });
@@ -1156,28 +1156,36 @@ function calculadoraAquecimento(e, aoAplicar, cor) {
   aplicar.addEventListener('click', () => {
     if (pesoAtual() <= 0) return;
 
-    /* Antes de mexer: no meio do treino, remexer no que já foi marcado seria
-       pior que a bagunça, então a reordenação só vale com tudo intocado. */
+    /* No meio do treino, remexer no que já foi marcado seria pior que a
+       bagunça: a reordenação só vale com o exercício intocado. */
     const intocado = e.sets.every((x) => !x.done);
+    const m = modoCalc(modo);
+    const tipos = m.partes.map((x) => x.tipo);
 
-    const criadas = ajustarSeries(e, 'a', cargasDe('a')) + ajustarSeries(e, 'f', cargasDe('f'));
+    let criadas = 0;
+    m.partes.forEach((parte) => {
+      criadas += ajustarSeries(e, parte.tipo, [cargaDe(parte)], parte.reps);
+    });
+    /* o que não faz parte da receita escolhida sai */
+    ['a', 'f', 'p'].forEach((t) => {
+      if (tipos.indexOf(t) < 0) ajustarSeries(e, t, [], 0);
+    });
 
     if (intocado) {
-      /* aquecimento, depois feeder, depois o resto: é a ordem em que se faz */
-      const ordem = { a: 0, f: 1 };
+      /* aquecimento, feeder, PAP, depois o trabalho: a ordem em que se faz */
+      const ordem = { a: 0, f: 1, p: 2 };
       e.sets = e.sets.slice().sort((x, y) =>
-        (ordem[tipoSet(x)] == null ? 2 : ordem[tipoSet(x)])
-        - (ordem[tipoSet(y)] == null ? 2 : ordem[tipoSet(y)]));
+        (ordem[tipoSet(x)] == null ? 3 : ordem[tipoSet(x)])
+        - (ordem[tipoSet(y)] == null ? 3 : ordem[tipoSet(y)]));
     }
 
-    const total = n.a + n.f;
     haptic();
     ov.close();
     setTimeout(() => {
       aoAplicar();
       toast(criadas > 0
         ? criadas + (criadas > 1 ? ' séries criadas' : ' série criada')
-        : total + (total > 1 ? ' séries preenchidas' : ' série preenchida'));
+        : 'Cargas atualizadas');
     }, 120);
   });
 
@@ -1952,7 +1960,7 @@ function openExercise(workoutId, uid, inSession) {
     /* calculadora de aquecimento e feeder */
     const calc = h(`<button class="calc-abrir">
       ${icon('alvo')}
-      <span>Calcular aquecimento e feeder</span>
+      <span>Calcular preparação da série</span>
       ${icon('chev').replace('<svg', '<svg class="chev"')}
     </button>`);
     calc.addEventListener('click', () => calculadoraAquecimento(e, () => { save(); screen.refresh(); }, w.color));
@@ -2321,31 +2329,10 @@ function openSessionDetail(id) {
    BOOT
    ========================================================= */
 
-/* Quando o app é aberto por um endereço com `?passos=`, o número entra e a
-   URL é limpa — senão recarregar a página importaria de novo o valor velho.
-   A tabela deixa acrescentar outros dados do Saúde numa linha só. */
-const IMPORTES_URL = {
-  passos: (v) => importarPassos(v),
-};
-
-function importarDaURL() {
-  const q = new URLSearchParams(location.search);
-  let veio = 0;
-  Object.keys(IMPORTES_URL).forEach((chave) => {
-    const v = q.get(chave);
-    if (v && IMPORTES_URL[chave](v)) veio += 1;
-  });
-  if (!veio) return 0;
-  try { history.replaceState(null, '', location.pathname); } catch (e) { /* nada a fazer */ }
-  return veio;
-}
-
 function boot() {
   aplicarTema(S.settings.tema);
   ajustarTravaTela();   /* treino retomado depois de fechar o app */
-  const veioDaURL = importarDaURL();
   replaceRoot(buildRoot, 'root');
-  if (veioDaURL) setTimeout(() => toast('Dados do Saúde importados'), 400);
 
   clearInterval(TICK);
   TICK = setInterval(globalTick, 1000);
