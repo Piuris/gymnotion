@@ -180,6 +180,85 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev('!!S.active'), 'marcar a série inicia a sessão');
   ck(await ev('S.active.exercises[0].sets[0].done === true'), 'e a série fica marcada na sessão');
 
+  console.log('');
+  console.log('carga de tres digitos:');
+  /* 127,5 kg cabe em cinco caracteres e nao cabia no campo: as tres colunas
+     dividiam a linha em partes iguais, e o peso ficava cortado no meio. */
+  await ev(`
+    /* sem sessao aberta: com ela, a tela mostra as series da sessao e nao as
+       do molde, e o campo mediria o placeholder em vez do valor */
+    if (S.active) cancelSession();
+    popToRoot();
+    var w = S.workouts[0];
+    var e = w.exercises[0];
+    e.sets.forEach(function (st) { st.peso = 127.5; st.reps = 12; st.desc = 1.5; });
+    saveNow();
+    openExercise(w.id, e.uid, false);
+    'ok';
+  `);
+  await sleep(800);
+
+  /* scrollWidth nao serve de medida aqui: num input ele nunca fica abaixo do
+     clientWidth, entao um texto quase estourando le igual a um que sobra. A
+     largura real do texto sai do canvas, com a mesma fonte do campo. */
+  const MEDIR = `(function (input) {
+    var cs = getComputedStyle(input);
+    var c = document.createElement('canvas').getContext('2d');
+    c.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    return Math.ceil(c.measureText(input.value || input.placeholder).width);
+  })`;
+
+  const campos = JSON.parse(await ev(`(function () {
+    var medir = ${MEDIR};
+    var row = currentScreen().el.querySelector('.set-row');
+    var lidos = [];
+    row.querySelectorAll('.field').forEach(function (el) {
+      var i = el.querySelector('input');
+      var texto = medir(i);
+      lidos.push({
+        valor: i.value,
+        pede: texto,
+        tem: Math.floor(i.clientWidth),
+        corta: texto > i.clientWidth,
+      });
+    });
+    return JSON.stringify({
+      campos: lidos,
+      passaDaLinha: row.scrollWidth > row.clientWidth + 1,
+    });
+  })()`));
+  ck(!campos.campos[0].corta,
+    'o peso de 127,5 aparece inteiro (pede ' + campos.campos[0].pede + 'px, tem ' + campos.campos[0].tem + ')');
+  ck(!campos.campos.some((c) => c.corta), 'e nenhum dos outros campos corta');
+  ck(!campos.passaDaLinha, 'sem a linha estourar a largura da tela');
+
+  /* quatro digitos ainda tem de caber: leg press passa de 200 kg facil */
+  const quatro = JSON.parse(await ev(`(function () {
+    var medir = ${MEDIR};
+    var i = currentScreen().el.querySelector('.set-row input[data-f=peso]');
+    i.value = '1000';
+    var texto = medir(i);
+    return JSON.stringify({ corta: texto > i.clientWidth, pede: texto, tem: Math.floor(i.clientWidth) });
+  })()`));
+  ck(!quatro.corta,
+    'e 1000 kg tambem cabe (pede ' + quatro.pede + 'px, tem ' + quatro.tem + ')');
+
+  /* o titulo de cada coluna tem de ficar em cima da coluna que ele nomeia */
+  const alinhado = JSON.parse(await ev(`(function () {
+    var cab = currentScreen().el.querySelectorAll('.sets-head .h');
+    var campos = currentScreen().el.querySelectorAll('.set-row .field');
+    var dif = [];
+    for (var i = 0; i < cab.length; i++) {
+      var a = cab[i].getBoundingClientRect();
+      var b = campos[i].getBoundingClientRect();
+      dif.push(Math.round(Math.abs((a.left + a.right) / 2 - (b.left + b.right) / 2)));
+    }
+    return JSON.stringify(dif);
+  })()`));
+  ck(alinhado.every((d) => d <= 3),
+    'cada titulo fica centrado sobre a sua coluna (desvio de ' + alinhado.join(', ') + 'px)');
+  await shot('l3-peso-tres-digitos');
+
   console.log('\nproblemas:', bad.length);
   bad.forEach((b) => console.log('  !', b));
   ws.close(); chrome.kill();

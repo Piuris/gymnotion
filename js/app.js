@@ -1882,7 +1882,7 @@ function openExercise(workoutId, uid, inSession) {
 
     /* cabeçalho das colunas */
     scroll.appendChild(h(`<div class="sets-head">
-      <div class="sp"></div><div class="h">Peso</div><div class="h">Reps</div><div class="h">Descanso</div><div class="sp-end"></div>
+      <div class="sp"></div><div class="h peso">Peso</div><div class="h reps">Reps</div><div class="h">Descanso</div><div class="sp-end"></div>
     </div>`));
 
     /* séries */
@@ -1898,9 +1898,9 @@ function openExercise(workoutId, uid, inSession) {
       const row = h(`<div class="set-row${st.done ? ' done' : ''}${valida ? '' : ' aux'}">
         <button class="check sm${st.done ? ' on' : ''}" data-act="done">${icon('check')}</button>
         <button class="set-tipo${valida ? '' : ' aux'}" data-act="tipo">${esc(marca)}</button>
-        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="${ref ? fmtWeight(ref.peso) : '0'}" data-f="peso"/><u>kg</u></div>
-        <div class="field"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="${ref ? ref.reps : '0'}" data-f="reps"/></div>
-        <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.desc || ''}" placeholder="${S.settings.restDefault}" data-f="desc"/><u>m</u></div>
+        <div class="field campo-peso"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="${ref ? fmtWeight(ref.peso) : '0'}" data-f="peso"/><u>kg</u></div>
+        <div class="field campo-reps"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="${ref ? ref.reps : '0'}" data-f="reps"/></div>
+        <div class="field campo-desc"><input type="number" inputmode="decimal" step="0.5" value="${st.desc || ''}" placeholder="${S.settings.restDefault}" data-f="desc"/><u>m</u></div>
         <button class="kebab" data-act="menu">${icon('dots')}</button>
       </div>`);
 
@@ -2297,8 +2297,8 @@ function openSessionDetail(id) {
 
         const row = h(`<div class="set-row${valida ? '' : ' aux'}">
           <button class="set-tipo${valida ? '' : ' aux'}" data-act="tipo">${esc(marca)}</button>
-          <div class="field"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="0" data-f="peso"/><u>kg</u></div>
-          <div class="field"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="0" data-f="reps"/></div>
+          <div class="field campo-peso"><input type="number" inputmode="decimal" step="0.5" value="${st.peso || ''}" placeholder="0" data-f="peso"/><u>kg</u></div>
+          <div class="field campo-reps"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="0" data-f="reps"/></div>
           <button class="kebab" data-act="remover">${icon('trash')}</button>
         </div>`);
         on(row, 'input[data-f]', 'change', (ev) => {

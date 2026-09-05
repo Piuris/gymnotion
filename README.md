@@ -736,6 +736,22 @@ reordenação **só acontece com o exercício intocado**: se alguma série já f
 marcada como feita, remexer na ordem do que já passou seria pior que a bagunça,
 então a série nova entra no fim.
 
+## As três colunas da série não pedem a mesma largura
+
+Peso, repetições e descanso dividiam a linha em partes iguais, e um peso de três
+dígitos com meio quilo — `127,5` — **não cabia**: o texto pedia 42px e o campo
+tinha 41. Repetição quase nunca passa de dois dígitos, então a divisão igual
+gastava no lugar errado. Agora o peso leva `flex: 1.35` e as repetições `.85`,
+com recuo e rótulo de unidade mais apertados.
+
+Os espaçadores do cabeçalho passaram a copiar o que existe antes e depois dos
+campos na linha — o check mais a marca do tipo de um lado, o kebab do outro —,
+senão os títulos ficavam até 31px fora das colunas que nomeiam.
+
+`logging-test.js` mede a **largura real do texto** num canvas com a fonte do
+campo. `scrollWidth` não serve aqui: num input ele nunca fica abaixo do
+`clientWidth`, então um texto quase estourando lê igual a um que sobra.
+
 ## A barra de descanso vive fora das telas
 
 Ela era montada dentro de cada tela, e o relógio precisava **reconstruir a tela**

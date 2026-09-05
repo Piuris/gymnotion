@@ -685,9 +685,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   display: flex; gap: 10px; padding: 14px 16px 8px;
   font-size: 14px; color: var(--txt-2);
 }
-.sets-head .sp { width: 30px; flex: 0 0 30px; }
+/* Os espaçadores copiam o que vem antes e depois dos campos na linha — o
+   check mais a marca do tipo de um lado, o kebab do outro —, senão os títulos
+   ficam deslocados das colunas que nomeiam. */
+.sets-head .sp { width: 66px; flex: 0 0 66px; }
 .sets-head .h { flex: 1; text-align: center; }
-.sets-head .sp-end { width: 28px; flex: 0 0 28px; }
+.sets-head .h.peso { flex: 1.35; }
+.sets-head .h.reps { flex: .85; }
+.sets-head .sp-end { width: 24px; flex: 0 0 24px; }
 
 .set-row {
   display: flex; align-items: center; gap: 10px;
@@ -699,9 +704,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   height: 46px;
   border-radius: 23px;
   background: var(--card);
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  padding: 0 8px;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 0 6px;
 }
+/* As três colunas não pedem a mesma largura: o peso pode ter quatro dígitos e
+   meio quilo ("127,5"), as repetições quase nunca passam de dois. Divididas em
+   partes iguais, um peso de três dígitos era cortado no meio. */
+.set-row .campo-peso { flex: 1.35; }
+.set-row .campo-reps { flex: .85; }
 .field input {
   width: 100%;
   background: none; border: 0; outline: none;
@@ -712,7 +722,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .field input::-webkit-outer-spin-button,
 .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.field u { font-style: normal; text-decoration: none; font-size: 14px; color: var(--txt-2); flex: 0 0 auto; }
+.field u { font-style: normal; text-decoration: none; font-size: 13px; color: var(--txt-2); flex: 0 0 auto; }
 .set-row.done .field { background: var(--a10); }
 
 .notes {
