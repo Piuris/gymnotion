@@ -246,6 +246,52 @@ function fmtBRL(v) {
 }
 
 /* 45 -> "45 min"; 90 -> "1h30"; 120 -> "2h" */
+/* Gráfico de área com curva suave, na cor do contexto.
+
+   Ligar sete pontos com retas transforma qualquer semana num serrote: o
+   desenho passa a chamar atenção para os bicos em vez do movimento. A curva
+   com tangente horizontal em cada ponto mostra a mesma informação e deixa
+   passar o que interessa — subiu, caiu, ficou parado.
+
+   O traço usa `non-scaling-stroke` porque o SVG é esticado na largura: sem
+   isso a linha engrossaria junto e ficaria borrada. */
+
+let GRAF_N = 0;
+
+function graficoArea(valores, opts) {
+  const o = opts || {};
+  const alt = o.altura || 96;
+  const L = 300;
+  const n = valores.length;
+  const teto = Math.max(1, ...valores.map((v) => Number(v) || 0));
+  const topo = 8;
+  const base = alt - 6;
+  const px = (i) => (n < 2 ? L / 2 : (i * L) / (n - 1));
+  const py = (v) => base - ((Number(v) || 0) / teto) * (base - topo);
+
+  let d = 'M' + px(0).toFixed(1) + ' ' + py(valores[0]).toFixed(1);
+  for (let i = 1; i < n; i++) {
+    const x0 = px(i - 1);
+    const x1 = px(i);
+    const dx = (x1 - x0) * 0.42;
+    d += ' C' + (x0 + dx).toFixed(1) + ' ' + py(valores[i - 1]).toFixed(1)
+      + ' ' + (x1 - dx).toFixed(1) + ' ' + py(valores[i]).toFixed(1)
+      + ' ' + x1.toFixed(1) + ' ' + py(valores[i]).toFixed(1);
+  }
+  const area = d + ' L' + px(n - 1).toFixed(1) + ' ' + alt + ' L' + px(0).toFixed(1) + ' ' + alt + ' Z';
+
+  const id = 'g' + (++GRAF_N);
+  return `<svg class="graf" viewBox="0 0 ${L} ${alt}" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".38"/>
+      <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#${id})"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+}
+
 function fmtMin(min) {
   const m = Math.max(0, Math.round(Number(min) || 0));
   if (m < 60) return m + ' min';

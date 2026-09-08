@@ -428,6 +428,157 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("currentScreen().name === 'config'"), 'as configurações abrem pelo módulo');
   ck(await ev(`${tela()}.textContent.includes('Peso corporal')`), 'com os ajustes que moravam no Perfil');
 
+  console.log('\no painel do Início:');
+  await ev(`(function () {
+    S.tarefas = []; S.settings.nome = '';
+    var d = function (n) { var x = new Date(); x.setDate(x.getDate() + n); return dayKey(x.getTime()); };
+    novaTarefa({ titulo: 'Academia', data: dayKey(Date.now()), hora: '06:30', fim: '08:00', cor: '#FF2D96' });
+    novaTarefa({ titulo: 'Mercado', data: dayKey(Date.now()), cor: '#3F4FE0' });
+    /* de propósito fora de ordem: o de depois de amanhã entra primeiro e com
+       hora mais cedo que o de amanhã */
+    novaTarefa({ titulo: 'Prova', data: d(2), hora: '08:00' });
+    novaTarefa({ titulo: 'Dentista', data: d(1), hora: '17:00' });
+    saveNow(); irParaAba('inicio'); currentScreen().refresh(); return 'ok';
+  })()`);
+  await sleep(800);
+
+  ck(await ev(`${tela()}.querySelector('.saudar-data').textContent === fmtDataLonga(Date.now())`),
+    'o cabeçalho abre com a data do dia');
+  ck(await ev(`(function () {
+    var s = saudacao();
+    return currentScreen().el.querySelector('.saudar h1 i').textContent === s.slice(s.lastIndexOf(' ') + 1) + '!';
+  })()`), 'sem nome cadastrado, o destaque cai sobre a hora do dia');
+
+  await ev("S.settings.nome = 'Vitor'; saveNow(); currentScreen().refresh();"); await sleep(600);
+  ck(await ev(`${tela()}.querySelector('.saudar h1 i').textContent === 'Vitor!'`),
+    'com nome, é o nome que sai em destaque');
+  const corNome = await ev(`getComputedStyle(${tela()}.querySelector('.saudar')).getPropertyValue('--accent').trim()`);
+  ck(corNome === await ev('COR_AGENDA'),
+    'na cor do dia, e não no branco de fora do treino (' + corNome + ')');
+
+  const rots = await ev(`Array.from(${tela()}.querySelectorAll('.painel .pcard-rot')).slice(0, 3).map(function (r) { return r.textContent; }).join(' | ')`);
+  ck(rots === 'Hoje | Próximos dias | Tempo de estudo',
+    'o painel traz os três cartões do desenho (' + rots + ')');
+  ck(await ev(`${tela()}.querySelector('.pcard .pcard-nota').textContent === '2 pendentes'`),
+    'o cartão de hoje conta as pendentes no canto');
+  ck(await ev(`${tela()}.querySelectorAll('.pcard .tarefa').length === 2`),
+    'e lista as tarefas do dia');
+  ck(await ev(`!!${tela()}.querySelector('.pcard-add')`),
+    'com Adicionar tarefa no pé, sem abrir tela nenhuma');
+
+  const prox = await ev(`Array.from(${tela()}.querySelectorAll('.prox-txt b')).map(function (b) { return b.textContent; }).join(' | ')`);
+  ck(prox === 'Dentista | Prova',
+    'próximos dias vem em ordem de data, não de hora (' + prox + ')');
+
+  ck(await ev(`!!${tela()}.querySelector('.estudo-graf .graf path')`),
+    'o tempo de estudo sai em curva');
+  ck(await ev(`${tela()}.querySelectorAll('.estudo-dows span').length === 7`),
+    'com um rótulo por dia');
+  ck(await ev(`${tela()}.querySelector('.estudo-total b').textContent
+    === fmtMin(estudoPorDia(7).reduce(function (a, d) { return a + d.min; }, 0))`),
+    'e o total dos sete dias em destaque');
+  await shot('v10-inicio-painel');
+
+  console.log('\ncronômetro de estudo:');
+  ck(await ev(`${tela()}.querySelector('.crono-visor').textContent === '00:00'`),
+    'o relógio começa zerado');
+  await ev(`${tela()}.querySelector('[data-act="tocar"]').click()`); await sleep(1300);
+  ck(await ev('CRONO_ESTUDO.rodando === true'), 'Iniciar põe o relógio para andar');
+  /* O relógio de um segundo do Chrome sem janela é estrangulado, então o teste
+     chama o tique na mão. O que ele mede é o que importa: o visor avança e
+     continua sendo o MESMO nó — se a tela fosse reconstruída a cada segundo,
+     ela derrubaria o campo em foco e fecharia o teclado. */
+  await ev("window.__visor = currentScreen().el.querySelector('.crono-visor');");
+  await ev('CRONO_ESTUDO.desde -= 5000; globalTick();'); await sleep(300);
+  ck(await ev(`${tela()}.querySelector('.crono-visor').textContent !== '00:00'`),
+    'e o visor anda a cada tique do relógio global');
+  ck(await ev("window.__visor === currentScreen().el.querySelector('.crono-visor')"),
+    'sem reconstruir a tela: é o mesmo nó, com o texto trocado');
+  ck(await ev(`${tela()}.querySelector('[data-act="tocar"] span').textContent === 'Pausar'`),
+    'o botão vira Pausar');
+
+  const antesMin = await ev('minutosTotais(S.materias[0])');
+  await ev('CRONO_ESTUDO.acumulado = 26 * 60000; CRONO_ESTUDO.desde = Date.now();');
+  await ev(`${tela()}.querySelector('[data-act="zerar"]').click()`); await sleep(800);
+  ck(await ev("!!document.querySelector('.sheet')"),
+    'encerrar não joga o tempo fora: pergunta em que matéria registrar');
+  const pergunta = await ev("(function () { var e = document.querySelector('.sheet h3'); return e ? e.textContent : ''; })()");
+  ck(pergunta.indexOf('26 min') > 0, 'com os minutos do relógio (' + pergunta + ')');
+  await ev("document.querySelector('.sheet [data-x=yes]').click()"); await sleep(900);
+  ck(await ev('minutosTotais(S.materias[0])') === antesMin + 26,
+    'registrar soma os minutos na matéria escolhida');
+  ck(await ev('cronoEstudoMs() === 0'), 'e o relógio volta a zero');
+
+  console.log('\na grade do cronograma:');
+  await ev(`(function () {
+    S.tarefas = [];
+    var hoje = dayKey(Date.now());
+    novaTarefa({ titulo: 'Academia', data: hoje, hora: '06:30', fim: '08:00', cor: '#FF2D96' });
+    novaTarefa({ titulo: 'Reunião', data: hoje, hora: '09:00', cor: '#0A84FF' });
+    novaTarefa({ titulo: 'Mercado', data: hoje, cor: '#22E04A' });
+    saveNow(); popToRoot(); abrirModulo('cronograma'); return 'ok';
+  })()`);
+  await sleep(800);
+
+  ck(await ev("modoCronograma() === 'dia'"),
+    'em 390px o cronograma abre no dia: sete colunas dariam 47px cada');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 1`), 'com uma coluna só');
+  ck(await ev(`!!${tela()}.querySelector('.form-linhas')`),
+    'e o cadastro rápido e as listas continuam embaixo dela');
+
+  await ev(`${tela()}.querySelector('.seg [data-m=semana]').click()`); await sleep(800);
+  ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 7`),
+    'a chave Semana abre as sete colunas');
+  const dows = await ev(`Array.from(${tela()}.querySelectorAll('.gc-dia i')).map(function (i) { return i.textContent; }).join(',')`);
+  ck(dows === 'SEG,TER,QUA,QUI,SEX,SÁB,DOM',
+    'começando na segunda, como o calendário de parede (' + dows + ')');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-dia.hoje').length === 1`), 'e com hoje aceso');
+  ck(await ev(`!${tela()}.querySelector('.form-linhas')`),
+    'na semana a grade é a tela inteira, sem as listas embaixo');
+  await shot('v11-crono-semana');
+
+  const alturas = JSON.parse(await ev(`(function () {
+    var r = {};
+    currentScreen().el.querySelectorAll('.gc-bloco').forEach(function (x) {
+      r[x.querySelector('b').textContent] = Math.round(x.getBoundingClientRect().height);
+    });
+    return JSON.stringify(r);
+  })()`));
+  ck(alturas['Academia'] === 81,
+    'o bloco tem a altura do que ocupa: 1h30 vira 81px (' + alturas['Academia'] + ')');
+  ck(alturas['Reunião'] === 54,
+    'sem término marcado ele vale uma hora (' + alturas['Reunião'] + ')');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-bloco').length === 2`),
+    'e quem não tem hora não vira bloco');
+  ck(await ev(`${tela()}.querySelector('.gc-chip').textContent === 'Mercado'`),
+    'ela não some: vai para a faixa de dia inteiro, ainda clicável');
+  const corBloco = await ev(`getComputedStyle(${tela()}.querySelector('.gc-bloco')).getPropertyValue('--accent').trim()`);
+  ck(corBloco === '#FF2D96', 'cada bloco leva a cor da própria tarefa (' + corBloco + ')');
+
+  const semana0 = await ev('SEMANA_AGENDA');
+  await ev(`${tela()}.querySelector('[data-act="prox"]').click()`); await sleep(700);
+  ck(await ev('SEMANA_AGENDA') === semana0 + 7 * 86400000, 'a seta anda uma semana inteira');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-dia.hoje').length === 0`), 'e hoje sai da tela');
+  await ev(`${tela()}.querySelector('[data-act="hoje"]').click()`); await sleep(700);
+  ck(await ev('SEMANA_AGENDA') === semana0, 'Hoje traz de volta');
+
+  await ev(`${tela()}.querySelector('.gc-bloco').click()`); await sleep(800);
+  ck(await ev(`document.querySelector('.sheet [data-c="fim"]') ? document.querySelector('.sheet [data-c="fim"]').value : ''`) === '08:00',
+    'tocar no bloco abre o editor com o término já preenchido');
+  await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
+
+  /* tocar no vazio marca alguma coisa naquela hora: é o gesto que a grade
+     promete só por existir */
+  await ev(`(function () {
+    var col = currentScreen().el.querySelectorAll('.gc-col')[0];
+    var r = col.getBoundingClientRect();
+    col.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: r.top + 54 * 3 }));
+  })()`);
+  await sleep(800);
+  const horaVazio = await ev(`document.querySelector('.sheet [data-c="hora"]') ? document.querySelector('.sheet [data-c="hora"]').value : ''`);
+  ck(horaVazio === '08:00', 'e tocar no vazio abre o editor já naquela hora (' + horaVazio + ')');
+  await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
+
   console.log('\npersistência:');
   const antes = await ev("JSON.stringify([S.tarefas.length, S.metas.length, S.materias.length])");
   await send('Page.navigate', { url: BASE + '/index.html' });

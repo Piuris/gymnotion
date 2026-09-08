@@ -303,29 +303,236 @@ function cartaoStat(rot, valor, sub, cor, pct, aoTocar) {
   return c;
 }
 
-function renderInicio(el, screen) {
-  const scroll = h('<div class="scroll"></div>');
-  scroll.appendChild(h(secao(fmtDataLonga(Date.now()), saudacao())));
-  scroll.appendChild(cartoesDoDia());
+/* ---------- o cabeçalho grande ----------
 
-  /* ---------- o que há para hoje ---------- */
+   A data em corpo pequeno, a saudação em corpo de manchete e o nome na cor do
+   contexto. Sem nome cadastrado o destaque cai sobre a hora — "Boa tarde!" —,
+   para o título nunca ficar de uma cor só e o cabeçalho não depender de um
+   dado que talvez ninguém preencha. */
+function cabecalhoInicio() {
+  const nome = String(S.settings.nome || '').trim();
+  const oi = saudacao();
+  const corte = oi.lastIndexOf(' ');
+  const titulo = nome
+    ? esc(oi) + ', <i>' + esc(nome) + '!</i>'
+    : esc(oi.slice(0, corte)) + ' <i>' + esc(oi.slice(corte + 1)) + '!</i>';
+
+  const box = h(`<div class="saudar">
+    <div class="saudar-txt">
+      <div class="saudar-data">${esc(fmtDataLonga(Date.now()))}</div>
+      <h1>${titulo}</h1>
+    </div>
+    <button class="saudar-btn" data-act="conf">${iconO('lapis')}<span>Personalizar</span></button>
+  </div>`);
+  /* A cor do dia, a mesma dos cartões logo abaixo: `contextAccent()` é branco
+     fora do treino, e um destaque branco sobre título branco não destaca. */
+  setAccent(COR_AGENDA, box);
+  acts(box, { conf: () => { haptic(); telaConfig(); } });
+  return box;
+}
+
+/* Cabeça de cartão do painel: rótulo em maiúsculas à esquerda e uma nota curta
+   à direita — o "2 pendentes" do desenho. */
+function pcard(rotulo, nota, cor) {
+  const c = h(`<div class="pcard">
+    <div class="pcard-topo">
+      <div class="pcard-rot">${esc(rotulo)}</div>
+      ${nota ? `<span class="pcard-nota">${esc(nota)}</span>` : ''}
+    </div>
+  </div>`);
+  if (cor) setAccent(cor, c);
+  return c;
+}
+
+/* ---------- HOJE ---------- */
+function cartaoHoje(screen) {
   const abertas = tarefasDoDia().filter((t) => !t.feito);
   const atrasadas = tarefasAtrasadas();
-  const bloco = h('<div class="bloco"><div class="bloco-rot">Cronograma de hoje</div></div>');
+  const c = pcard('Hoje',
+    abertas.length ? abertas.length + (abertas.length > 1 ? ' pendentes' : ' pendente') : 'tudo em dia',
+    COR_AGENDA);
+
   if (!abertas.length && !atrasadas.length) {
-    bloco.appendChild(h('<div class="vazio-tracejado">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
+    c.appendChild(h('<div class="vazio-tracejado">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
   } else {
-    abertas.slice(0, 5).forEach((t) => bloco.appendChild(linhaTarefa(t, screen)));
+    abertas.slice(0, 4).forEach((t) => c.appendChild(linhaTarefa(t, screen)));
     if (atrasadas.length) {
-      const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} tarefa${atrasadas.length > 1 ? 's' : ''} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} aberta${atrasadas.length > 1 ? 's' : ''}. Toque para abrir o cronograma.</span></div>`);
+      const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} em aberto. Toque para abrir o cronograma.</span></div>`);
       aviso.addEventListener('click', () => irParaAba('cronograma'));
-      bloco.appendChild(aviso);
+      c.appendChild(aviso);
     }
   }
-  scroll.appendChild(bloco);
 
-  /* ---------- atalhos ---------- */
-  const grade = h('<div class="hub-grid"></div>');
+  const add = h(`<button class="pcard-add" data-act="novo">${icon('plus')}<span>Adicionar tarefa</span></button>`);
+  acts(add, { novo: () => { haptic(); editorTarefa(null, dayKey(Date.now()), screen); } });
+  c.appendChild(add);
+  return c;
+}
+
+/* ---------- PRÓXIMOS DIAS ---------- */
+function cartaoProximos() {
+  const hojeK = dayKey(Date.now());
+  const proximos = S.tarefas
+    .filter((t) => !t.feito && t.data && t.data > hojeK)
+    .sort(ordemNoTempo)
+    .slice(0, 3);
+
+  const c = pcard('Próximos dias', '', COR_AGENDA);
+  if (!proximos.length) {
+    c.appendChild(h('<div class="vazio-tracejado">Nada marcado daqui para a frente.</div>'));
+  } else {
+    c.appendChild(h('<div class="pcard-lead">Para os próximos dias temos:</div>'));
+    proximos.forEach((t) => {
+      const ts = tsDaData(t.data);
+      const d = new Date(ts);
+      const linha = h(`<button class="prox">
+        <div class="prox-dia"><i>${esc(DIAS_CURTO[d.getDay()].toUpperCase())}</i><b>${d.getDate()}</b></div>
+        <div class="prox-txt">
+          <b>${esc(t.titulo)}</b>
+          <span>${esc([t.hora, t.nota].filter(Boolean).join(' · ') || fmtDataLonga(ts))}</span>
+        </div>
+      </button>`);
+      setAccent(t.cor || COR_AGENDA, linha);
+      linha.addEventListener('click', () => { haptic(); DIA_AGENDA = ts; irParaAba('cronograma'); });
+      c.appendChild(linha);
+    });
+  }
+
+  const ver = h(`<button class="pcard-btn" data-act="ver"><span>Ver cronograma da semana</span>${icon('chev')}</button>`);
+  acts(ver, { ver: () => { haptic(); CRONO_MODO = 'semana'; SEMANA_AGENDA = inicioSemanaSeg(); irParaAba('cronograma'); } });
+  c.appendChild(ver);
+  return c;
+}
+
+/* ---------- TEMPO DE ESTUDO ----------
+   Os mesmos números da tela de Estudos, resumidos: total dos sete dias em
+   destaque, a curva, e embaixo média, recorde e o que falta para a meta. */
+function cartaoEstudo() {
+  const dias = estudoPorDia(7);
+  const total = dias.reduce((a, d) => a + d.min, 0);
+  const recorde = Math.max(0, ...dias.map((d) => d.min));
+  const meta = metaEstudoSemana();
+  const falta = Math.max(0, meta - estudoDaSemana());
+
+  const c = h(`<div class="pcard estudo">
+    <div class="pcard-topo">
+      <div>
+        <div class="pcard-rot">Tempo de estudo</div>
+        <span class="pcard-sub">Últimos 7 dias</span>
+      </div>
+      <div class="estudo-total"><b>${esc(fmtMin(total))}</b><i>total</i></div>
+    </div>
+    <div class="estudo-graf">${graficoArea(dias.map((d) => d.min), { altura: 96 })}</div>
+    <div class="estudo-dows">${dias.map((d) => `<span>${esc(DIAS_CURTO[new Date(d.ts).getDay()])}</span>`).join('')}</div>
+    <div class="estudo-pe">
+      <div><i>Média</i><b>${esc(fmtMin(Math.round(total / 7)))}</b></div>
+      <div><i>Recorde</i><b>${esc(fmtMin(recorde))}</b></div>
+      <div><i>${meta ? 'Falta' : 'Semana'}</i><b>${esc(meta ? fmtMin(falta) : fmtMin(estudoDaSemana()))}</b></div>
+    </div>
+  </div>`);
+  setAccent(COR_ESTUDOS, c);
+  c.addEventListener('click', () => { haptic(); abrirModulo('estudos'); });
+  return c;
+}
+
+/* ---------- CRONÔMETRO ----------
+
+   O relógio vive fora da tela, como a barra de descanso: montado dentro dela,
+   um refresh por segundo destruiria o que estivesse em foco. Aqui a tela só
+   desenha o visor, e o `globalTick` troca o texto dele. */
+let CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0 };
+
+const cronoEstudoMs = () => CRONO_ESTUDO.acumulado
+  + (CRONO_ESTUDO.rodando ? Date.now() - CRONO_ESTUDO.desde : 0);
+
+function cartaoCronometro(screen) {
+  const rodando = CRONO_ESTUDO.rodando;
+  const c = h(`<div class="pcard crono">
+    <div class="pcard-topo">
+      <div>
+        <div class="pcard-rot">Tempo de estudo</div>
+        <span class="pcard-sub">Cronômetro rápido</span>
+      </div>
+      <button class="pcard-link" data-act="abrir">Abrir</button>
+    </div>
+    <div class="crono-visor">${esc(fmtClock(cronoEstudoMs() / 1000))}</div>
+    <div class="crono-acoes">
+      <button class="pill-btn" data-act="tocar">${icon(rodando ? 'pause' : 'play')}<span>${rodando ? 'Pausar' : 'Iniciar'}</span></button>
+      <button class="icon-btn stroke" data-act="zerar" title="Encerrar">${icon('stop')}</button>
+    </div>
+  </div>`);
+  setAccent(COR_ESTUDOS, c);
+  acts(c, {
+    abrir: () => abrirModulo('estudos'),
+    tocar: () => {
+      haptic();
+      if (CRONO_ESTUDO.rodando) {
+        CRONO_ESTUDO.acumulado = cronoEstudoMs();
+        CRONO_ESTUDO.rodando = false;
+      } else {
+        CRONO_ESTUDO.desde = Date.now();
+        CRONO_ESTUDO.rodando = true;
+      }
+      screen.refresh();
+    },
+    zerar: () => { haptic(); encerrarCronoEstudo(screen); },
+  });
+  return c;
+}
+
+/* Encerrar não joga o tempo fora: ele vira minutos numa matéria, que é para
+   onde esse número serve. Abaixo de um minuto não há o que registrar. */
+function encerrarCronoEstudo(screen) {
+  const min = Math.round(cronoEstudoMs() / 60000);
+  const zera = () => { CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0 }; screen.refresh(); };
+
+  if (min < 1) { zera(); return; }
+  if (!S.materias.length) {
+    confirmSheet('Zerar o cronômetro?',
+      fmtMin(min) + ' no relógio, mas ainda não há matéria nenhuma para registrar. '
+      + 'Crie uma em Estudos e o tempo passa a ser guardado.',
+      'Zerar', zera);
+    return;
+  }
+
+  let alvo = S.materias[0].id;
+  const box = h(`<div class="form">
+    <h3>Registrar ${esc(fmtMin(min))}</h3>
+    <p class="desc">Em qual matéria?</p>
+    <div class="chips">${S.materias.map((m) => `<button class="chip${m.id === alvo ? ' on' : ''}" data-m="${m.id}">${esc(m.nome)}</button>`).join('')}</div>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="no">Descartar</button>
+      <button class="pill-btn" data-x="yes">Registrar</button>
+    </div>
+  </div>`);
+  const r = openSheet(box, { center: true });
+  setAccent(COR_ESTUDOS, box);
+  on(box, '[data-m]', 'click', (e) => {
+    alvo = e.currentTarget.dataset.m;
+    box.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === alvo));
+    setAccent((getMateria(alvo) || {}).cor || COR_ESTUDOS, box);
+  });
+  box.querySelector('[data-x="no"]').addEventListener('click', () => { r.close(); zera(); });
+  box.querySelector('[data-x="yes"]').addEventListener('click', () => {
+    registrarEstudo(alvo, min, '');
+    saveNow();
+    r.close();
+    toast(fmtMin(min) + ' registrados');
+    setTimeout(zera, 120);
+  });
+}
+
+/* ---------- ATALHOS ---------- */
+function blocoAtalhos() {
+  const box = h(`<div class="atalhos">
+    <div class="atalhos-topo">
+      <div class="pcard-rot">Módulos</div>
+      <span class="pcard-nota">${MODULOS.length} no total</span>
+    </div>
+    <div class="hub-grid"></div>
+  </div>`);
+
+  const grade = box.querySelector('.hub-grid');
   MODULOS.forEach((m) => {
     const card = h(`<button class="hub-card">
       <div class="hub-ico">${iconO(m.iconeO)}</div>
@@ -335,7 +542,26 @@ function renderInicio(el, screen) {
     card.addEventListener('click', () => { haptic(); m.abrir(); });
     grade.appendChild(card);
   });
-  scroll.appendChild(grade);
+  return box;
+}
+
+function renderInicio(el, screen) {
+  const scroll = h('<div class="scroll"></div>');
+  scroll.appendChild(cabecalhoInicio());
+  scroll.appendChild(cartoesDoDia());
+
+  /* O painel do desenho: o dia, o que vem depois e o gráfico de estudo lado a
+     lado no computador, um embaixo do outro no celular. */
+  const painel = h('<div class="painel"></div>');
+  painel.appendChild(cartaoHoje(screen));
+  painel.appendChild(cartaoProximos());
+  painel.appendChild(cartaoEstudo());
+  scroll.appendChild(painel);
+
+  const baixo = h('<div class="painel dois"></div>');
+  baixo.appendChild(cartaoCronometro(screen));
+  baixo.appendChild(blocoAtalhos());
+  scroll.appendChild(baixo);
 
   el.appendChild(scroll);
 }
@@ -909,6 +1135,10 @@ function renderConfig(el, screen) {
   scroll.appendChild(row('Tema', temaAtual().nome, () => telaTemas(screen), temaAtual().desc));
 
   scroll.appendChild(h('<div class="section-title">Ajustes</div>'));
+  scroll.appendChild(row('Seu nome', S.settings.nome || 'não informado', () =>
+    promptSheet('Como quer ser chamado?', String(S.settings.nome || ''), 'Seu nome', (v) => {
+      S.settings.nome = String(v || '').trim().slice(0, 24); saveNow(); screen.refresh();
+    }), 'Aparece na saudação do Início'));
   scroll.appendChild(row('Peso corporal', S.settings.bodyweight + ' kg', () =>
     promptSheet('Peso corporal (kg)', String(S.settings.bodyweight),
       '75', (v) => {
@@ -1942,6 +2172,11 @@ function globalTick() {
   if (S.active && S.active.running) {
     const t = sc.el.querySelector('.timer:not([data-static])');
     if (t) t.textContent = fmtClock(activeElapsedMs() / 1000);
+  }
+
+  if (CRONO_ESTUDO.rodando) {
+    const v = sc.el.querySelector('.crono-visor');
+    if (v) v.textContent = fmtClock(cronoEstudoMs() / 1000);
   }
 
   if (REST) {

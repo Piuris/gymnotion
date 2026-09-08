@@ -225,7 +225,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
      faixa do relógio e da câmera; sem isto o conteúdo nasce embaixo dela */
   padding-top: calc(var(--safe-t) + 10px);
 }
-.screen.com-abas > .scroll > .sec:first-child { padding-top: 4px; }
+.screen.com-abas > .scroll > .sec:first-child,
+.screen.com-abas > .scroll > .saudar:first-child { padding-top: 4px; }
 
 /* ---------- cabeçalho ---------- */
 
@@ -1315,22 +1316,29 @@ body.arrastando-algo .scroll { overflow: hidden; }
   gap: 12px;
   padding: 0 16px;
 }
-/* O atalho virou linha: ícone à esquerda, nome e uma frase curta. Ele deixou
-   de carregar número — quem faz isso agora são os cartões do topo. */
+/* O atalho é um ladrilho: ícone no alto à direita, nome e uma frase curta
+   descansando no pé. O nome ganha duas linhas — "Configurações" e os títulos
+   longos cabem sem virar reticências no meio da palavra. */
 .hub-card {
-  display: flex; align-items: center; gap: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  min-height: 122px;
   text-align: left;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
   min-width: 0;
   transition: transform .14s, background .15s, border-color .15s;
 }
+.hub-ico { grid-column: 2; grid-row: 1; }
+.hub-txt { grid-column: 1 / -1; grid-row: 2; align-self: end; }
 .hub-card:active { transform: scale(.98); }
 .hub-card:hover { border-color: var(--a35); }
 .hub-ico {
-  width: 40px; height: 40px; flex: 0 0 40px;
+  width: 38px; height: 38px; flex: 0 0 38px;
   border-radius: 50%;
   background: var(--a15);
   color: var(--accent);
@@ -1339,8 +1347,9 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .hub-ico svg { width: 20px; height: 20px; }
 .hub-txt { flex: 1; min-width: 0; }
 .hub-txt b {
-  display: block; font-size: 16px; font-weight: 700; letter-spacing: -.2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2;
+  overflow: hidden;
 }
 .hub-txt span {
   display: block; margin-top: 2px;
@@ -2159,3 +2168,382 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .rest-bar b { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .rest-bar span { flex: 1; font-size: 15px; color: var(--txt-2); }
 .rest-bar button { color: var(--accent); font-weight: 700; font-size: 16px; }
+
+/* =========================================================
+   O PAINEL DO INÍCIO
+
+   O desenho de referência abre com a data em corpo pequeno, a saudação em
+   corpo de manchete e um painel de cartões. Cada cartão responde uma pergunta
+   e nada mais: o que tem hoje, o que vem depois, quanto se estudou.
+   ========================================================= */
+
+.saudar {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 22px 16px 16px;
+}
+.saudar-txt { flex: 1; min-width: 0; }
+.saudar-data {
+  font-size: 13.5px; color: var(--txt-2);
+  letter-spacing: .2px;
+}
+.saudar h1 {
+  margin: 6px 0 0;
+  font-size: clamp(30px, 8vw, 46px);
+  font-weight: 800; letter-spacing: -1.6px; line-height: 1.04;
+}
+/* o nome sai na cor do contexto: é o único pedaço colorido do cabeçalho, e é
+   o que faz o título parecer dirigido a alguém */
+.saudar h1 i { font-style: normal; color: var(--accent); }
+.saudar-btn {
+  display: flex; align-items: center; gap: 7px;
+  flex: 0 0 auto;
+  height: 36px; padding: 0 15px;
+  border-radius: 18px;
+  background: var(--fill-1);
+  border: 1px solid var(--line);
+  color: var(--txt-2);
+  font-size: 13.5px; font-weight: 600;
+  transition: transform .12s, background .15s, color .15s;
+}
+.saudar-btn svg { width: 15px; height: 15px; }
+.saudar-btn:active { transform: scale(.96); }
+.saudar-btn:hover { background: var(--fill-2); color: var(--txt); }
+@media (max-width: 420px) {
+  .saudar-btn span { display: none; }
+  .saudar-btn { padding: 0; width: 36px; justify-content: center; }
+}
+
+/* Uma coluna no celular, três no computador. O segundo painel é 1 + 2: o
+   cronômetro é estreito por natureza e os atalhos precisam de espaço. */
+.painel {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 16px 14px;
+}
+@media (min-width: 900px) {
+  .painel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* o cronômetro não acompanha a altura da grade de módulos ao lado dele */
+  .painel.dois { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; }
+}
+
+.pcard {
+  /* coluna para o rodapé do cartão poder descer até o pé: lado a lado, três
+     cartões de alturas diferentes deixariam os botões em degrau */
+  display: flex; flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px 0 8px;
+  overflow: hidden;
+  text-align: left;
+  min-width: 0;
+}
+.pcard-topo {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 0 16px 14px;
+}
+.pcard-rot {
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--txt-2);
+}
+.pcard-nota { font-size: 12.5px; color: var(--txt-3); padding-top: 1px; }
+.pcard-sub { display: block; margin-top: 4px; font-size: 14px; color: var(--txt-2); }
+.pcard-lead { padding: 0 16px 12px; font-size: 14.5px; color: var(--txt-2); }
+.pcard-link {
+  font-size: 13.5px; font-weight: 600; color: var(--accent);
+  padding: 0; background: none;
+}
+.pcard > .vazio-tracejado { margin-bottom: 10px; }
+.pcard > .tarefa:first-of-type { border-top: 1px solid var(--line); }
+
+/* "Adicionar tarefa" mora no pé do cartão, como no desenho: a linha pontilhada
+   em cima separa sem fechar o cartão com uma borda cheia. */
+.pcard-add {
+  display: flex; align-items: center; gap: 9px;
+  width: calc(100% - 32px); margin: auto 16px 8px;
+  padding: 11px 0 0;
+  border-top: 1px dashed var(--fill-3);
+  color: var(--txt-2); font-size: 14.5px; font-weight: 600;
+  background: none;
+}
+.pcard-add svg { width: 15px; height: 15px; fill: var(--accent); }
+.pcard-add:active { color: var(--txt); }
+
+.pcard-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: calc(100% - 32px); margin: auto 16px 10px;
+  height: 46px; padding: 0 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--fill-1);
+  color: var(--txt); font-size: 14.5px; font-weight: 600;
+  transition: transform .12s, border-color .15s;
+}
+.pcard-btn svg { width: 15px; height: 15px; flex: 0 0 15px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pcard-btn:active { transform: scale(.985); }
+.pcard-btn:hover { border-color: var(--a35); }
+
+/* ---------- próximos dias ---------- */
+.prox {
+  display: flex; align-items: center; gap: 13px;
+  width: 100%; padding: 8px 16px 10px;
+  text-align: left; background: none;
+}
+.prox-dia {
+  flex: 0 0 38px; text-align: center;
+  color: var(--accent);
+}
+.prox-dia i {
+  display: block; font-style: normal;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  opacity: .8;
+}
+.prox-dia b {
+  display: block; font-size: 21px; font-weight: 800; letter-spacing: -.7px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.prox-txt { flex: 1; min-width: 0; }
+.prox-txt b {
+  display: block; font-size: 15.5px; font-weight: 600; letter-spacing: -.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prox-txt span {
+  display: block; margin-top: 2px; font-size: 13px; color: var(--txt-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prox:active { background: var(--fill-1); }
+
+/* ---------- tempo de estudo ---------- */
+.estudo-total { text-align: right; flex: 0 0 auto; }
+.estudo-total b {
+  display: block;
+  font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.estudo-total i {
+  display: block; margin-top: 4px; font-style: normal;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--txt-3);
+}
+.estudo-graf { padding: 0 8px; }
+.graf { display: block; width: 100%; height: 96px; }
+.estudo-dows {
+  display: flex; justify-content: space-between;
+  padding: 6px 12px 0;
+  font-size: 11px; color: var(--txt-3);
+}
+.estudo-pe {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: auto 16px 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.estudo-pe > div { min-width: 0; }
+.estudo-pe i {
+  display: block; font-style: normal;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+  color: var(--txt-3);
+}
+.estudo-pe b {
+  display: block; margin-top: 3px;
+  font-size: 15.5px; font-weight: 700; letter-spacing: -.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- cronômetro ---------- */
+.crono-visor {
+  margin: 4px 16px 14px;
+  padding: 18px 10px;
+  border-radius: var(--r-sm);
+  background: var(--a10);
+  border: 1px solid var(--a22);
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(30px, 9vw, 40px); font-weight: 700; letter-spacing: 2px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.crono-acoes { display: flex; align-items: center; gap: 10px; padding: 0 16px 12px; }
+.crono-acoes .pill-btn { flex: 1; height: 44px; gap: 8px; font-size: 16px; }
+.crono-acoes .pill-btn svg { width: 17px; height: 17px; fill: currentColor; }
+.crono-acoes .icon-btn { width: 44px; height: 44px; flex: 0 0 44px; }
+.crono-acoes .icon-btn svg { width: 15px; height: 15px; fill: currentColor; stroke: none; }
+
+/* ---------- atalhos ---------- */
+.atalhos { min-width: 0; }
+.atalhos-topo {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 4px 2px 12px;
+}
+/* 155px deixa dois ladrilhos por linha no celular e três na coluna larga do
+   painel: oito módulos em coluna única virariam meia tela de rolagem */
+.painel .hub-grid { padding: 0; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); }
+
+/* =========================================================
+   CRONOGRAMA: A GRADE DA SEMANA
+
+   A lista responde "o que tem hoje"; a grade responde "como o dia está
+   distribuído". Em janela estreita ela rola de lado com coluna de 92px, porque
+   sete colunas em 390px dariam 47px cada e nenhum nome caberia.
+   ========================================================= */
+
+.crono-barra {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 0 16px 14px;
+}
+/* base de 240px: em janela estreita a data não cabe ao lado dos controles e
+   ganha a linha inteira, em vez de encolher até sumir entre as setas */
+.crono-nav { display: flex; align-items: center; gap: 4px; flex: 1 1 240px; min-width: 0; }
+.crono-nav b {
+  flex: 1; min-width: 0;
+  font-size: 15px; font-weight: 600; letter-spacing: -.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.crono-nav .icon-btn {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  background: none; color: var(--txt-2);
+}
+.crono-nav .icon-btn svg { width: 15px; height: 15px; }
+.crono-nav .icon-btn:active { background: var(--fill-1); }
+.crono-hoje {
+  height: 34px; padding: 0 12px;
+  border-radius: 17px; background: none;
+  color: var(--accent); font-size: 14px; font-weight: 600;
+}
+.crono-hoje:active { background: var(--a15); }
+.crono-barra .pill-btn { height: 36px; padding: 0 16px; font-size: 14.5px; gap: 7px; }
+.crono-barra .pill-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Chave de duas posições. Ela mostra o que está aberto e o que existe além
+   disso — dois botões soltos não diriam que são alternativas um do outro. */
+.seg {
+  display: flex; gap: 2px; margin-left: auto;
+  padding: 3px;
+  border-radius: 19px;
+  background: var(--fill-1);
+  border: 1px solid var(--line);
+}
+.seg button {
+  height: 30px; padding: 0 14px;
+  border-radius: 16px; background: none;
+  color: var(--txt-2); font-size: 13.5px; font-weight: 600;
+  transition: background .15s, color .15s;
+}
+.seg button.on { background: var(--a22); color: var(--accent); }
+
+.grade-crono { padding: 0 16px 16px; }
+.gc-rolo {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  -webkit-overflow-scrolling: touch;
+}
+.gc-tabela { min-width: calc(52px + var(--cols) * 92px); }
+.gc-cab, .gc-todo-dia, .gc-corpo {
+  display: grid;
+  grid-template-columns: 52px repeat(var(--cols), minmax(0, 1fr));
+}
+.gc-cab { border-bottom: 1px solid var(--line); }
+.gc-canto {
+  border-right: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9.5px; line-height: 1.15; text-align: center;
+  color: var(--txt-3); padding: 4px;
+}
+.gc-dia {
+  padding: 10px 4px 9px; text-align: center;
+  border-left: 1px solid var(--line);
+  transition: background .15s;
+}
+.gc-dia i {
+  display: block; font-style: normal;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  color: var(--txt-3);
+}
+.gc-dia b {
+  display: block; margin-top: 3px;
+  font-size: 19px; font-weight: 700; letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* hoje é o único dia pintado: a coluna inteira ganha um fundo de acento fraco,
+   como no desenho, e o número sai na cor */
+.gc-dia.hoje { background: var(--a10); }
+.gc-dia.hoje b, .gc-dia.hoje i { color: var(--accent); }
+.gc-dia.sel { box-shadow: inset 0 -2px 0 var(--accent); }
+.gc-dia:active { background: var(--fill-1); }
+
+.gc-todo-dia { border-bottom: 1px solid var(--line); }
+.gc-avulsos {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 6px 5px;
+  border-left: 1px solid var(--line);
+  align-content: flex-start;
+}
+.gc-chip {
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--a22);
+  color: var(--accent);
+  font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-chip.feito { opacity: .45; text-decoration: line-through; }
+
+.gc-corpo { padding-top: 8px; }
+.gc-horas { border-right: 1px solid var(--line); }
+.gc-hora {
+  height: var(--alt);
+  padding-right: 7px;
+  text-align: right;
+  font-size: 10.5px; color: var(--txt-3);
+  font-variant-numeric: tabular-nums;
+}
+/* a etiqueta encosta na linha da hora, não no meio da faixa */
+.gc-hora span { display: block; transform: translateY(-6px); }
+
+.gc-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  background-image: repeating-linear-gradient(to bottom,
+    var(--line) 0, var(--line) 1px, transparent 1px, transparent var(--alt));
+}
+.gc-col.hoje { background-color: var(--a10); }
+
+.gc-bloco {
+  position: absolute; left: 3px; right: 3px;
+  /* o miolo de um <button> é centralizado pelo navegador: num bloco de nove
+     horas o nome ia parar no meio da tarde. Coluna alinhada ao topo resolve. */
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  overflow: hidden;
+  padding: 5px 7px;
+  border-radius: 7px;
+  border-left: 3px solid var(--accent);
+  background: var(--a22);
+  color: var(--accent);
+  text-align: left;
+  transition: transform .12s, filter .15s;
+}
+.gc-bloco b {
+  display: block;
+  font-size: 12.5px; font-weight: 700; letter-spacing: -.1px; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-bloco span {
+  display: block; margin-top: 2px;
+  font-size: 10.5px; opacity: .8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* bloco curto não tem altura para duas linhas: some com a segunda em vez de
+   cortá-la pela metade */
+.gc-bloco.baixo span { display: none; }
+.gc-bloco.feito { opacity: .5; }
+.gc-bloco.feito b { text-decoration: line-through; }
+.gc-bloco:active { transform: scale(.985); }
+.gc-bloco:hover { filter: brightness(1.12); }

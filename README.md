@@ -534,6 +534,86 @@ pastas dos outros treinos e o registro do dia — e ganhou só o cabeçalho e o
 bloco de meta semanal. Lá o "cadastro" é montar um treino inteiro, que não cabe
 numa linha de campos.
 
+## O painel do Início
+
+O Início abre com a data em corpo pequeno e a saudação em corpo de manchete,
+com **o nome em destaque na cor do dia**. Sem nome cadastrado — ele fica em
+Configurações → Seu nome — o destaque cai sobre a hora ("Boa **tarde!**"), para
+o título nunca ficar de uma cor só e o cabeçalho não depender de um dado que
+talvez ninguém preencha. A cor do destaque é `COR_AGENDA`, a mesma dos cartões
+logo abaixo: `contextAccent()` é branco fora do treino, e um destaque branco
+sobre título branco não destaca nada.
+
+Abaixo vêm os três cartões de número que já existiam — hidratação, academia,
+saldo do mês — e o painel: **Hoje**, **Próximos dias** e **Tempo de estudo**,
+lado a lado no computador e um embaixo do outro no celular. Cada um responde
+uma pergunta e nada mais, e cada um termina numa ação: adicionar tarefa, abrir a
+semana, abrir os estudos. Os três dividem a altura da linha, com o rodapé
+descendo até o pé (`margin-top: auto`) — três cartões de alturas diferentes
+deixariam os botões em degrau.
+
+O gráfico de estudo usa `graficoArea()`: curva com tangente horizontal em cada
+ponto, e não retas ligando os pontos. Sete dias em zigue-zague viram um serrote,
+e o desenho passa a chamar atenção para os bicos em vez do movimento.
+
+**Próximos dias** revelou um erro antigo: a lista era ordenada por
+`ordemTarefa`, que só sabe comparar duas tarefas **do mesmo dia**. Numa lista
+que atravessa dias, quinta de manhã aparecia antes de quarta à tarde. Agora
+existe `ordemNoTempo()` — data primeiro, depois a regra de dentro do dia — e ela
+também conserta as listas "Próximos" e "Anteriores" do cronograma.
+
+### O cronômetro de estudo
+
+O relógio vive fora da tela, como a barra de descanso: montado dentro dela, um
+refresh por segundo destruiria o campo em foco e fecharia o teclado. A tela só
+desenha o visor, e `globalTick()` troca o texto dele.
+
+Encerrar não joga o tempo fora — ele vira minutos numa matéria, que é para onde
+esse número serve. Abaixo de um minuto não há o que registrar; sem matéria
+nenhuma cadastrada, o app diz isso em vez de perder o tempo em silêncio.
+
+## Cronograma: a semana como grade
+
+A lista responde "o que tem hoje". A grade responde "como o dia está
+distribuído", que é outra pergunta — é ela que mostra o buraco entre um
+compromisso e o outro.
+
+Para desenhar um retângulo é preciso começo e fim, e a maioria das tarefas só
+tem começo. Por isso a tarefa ganhou `fim`, opcional: **sem término marcado o
+bloco vale uma hora**, o palpite que menos erra, e a grade nunca fica com bloco
+de altura zero. No editor, o dia ficou sozinho na linha e as duas horas dividem
+a de baixo — com os três lado a lado, em 390px cada campo sobrava com pouco mais
+de 100px e o seletor nativo do iOS cortava o próprio texto.
+
+**Quem não tem hora não some.** Vai para a faixa de *dia inteiro* no alto da
+grade, como etiqueta clicável. Um planejador que engole tarefa é pior que
+planejador nenhum.
+
+Cada bloco leva a cor da própria tarefa, a mesma regra da lista. Hoje é a única
+coluna pintada, com `--a10` de fundo. Tocar num bloco abre o editor; tocar no
+vazio abre o editor **já naquela hora**, arredondada para a meia hora mais
+próxima — é o gesto que a grade promete só por existir.
+
+A régua de horas não mostra as 24: `faixaDeHoras()` abre das 7 às 21 e cresce só
+o necessário para caber o que está marcado, com uma hora de folga nas pontas.
+Mostrar o dia inteiro faria tudo caber na tela e nenhum bloco ficar legível.
+
+### Semana no computador, dia no celular
+
+A grade de sete colunas é o desenho certo numa janela larga e ilegível em 390px,
+onde cada coluna sobraria com 47 pixels. Então o computador abre na **Semana** e
+o celular no **Dia**; a chave de duas posições troca a qualquer momento, e a
+escolha feita à mão fica guardada e passa a valer nos dois. Em janela estreita a
+grade rola de lado, com coluna mínima de 92px.
+
+Na Semana a grade é a tela inteira, como no desenho de referência. No **Dia**
+ela é só o começo: embaixo continuam o cadastro rápido, o calendário do mês e as
+listas de sempre — é onde o cronograma vira trabalho, não vista.
+
+A semana da grade começa na **segunda**, como o calendário de parede. A da
+academia continua começando no domingo, porque é assim que a meta semanal fecha:
+são duas semanas diferentes e cada uma tem a sua razão.
+
 ## Duas navegações, um app
 
 O mesmo app com a navegação trocada de lugar. **No celular**, uma cápsula

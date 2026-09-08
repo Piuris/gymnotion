@@ -213,23 +213,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\ncampos nativos de data e hora:');
   await abrirEditor('cronograma');
+  /* O dia ficou sozinho na linha e as duas horas dividem a de baixo: com os
+     três lado a lado, em 390px cada campo sobrava com pouco mais de 100px e o
+     seletor nativo do iOS cortava o próprio texto. */
   const campos = JSON.parse(await ev(`(function () {
     var d = document.querySelector('.sheet [data-c="data"]');
     var h = document.querySelector('.sheet [data-c="hora"]');
-    var rd = d.getBoundingClientRect(), rh = h.getBoundingClientRect();
+    var f = document.querySelector('.sheet [data-c="fim"]');
+    var rd = d.getBoundingClientRect(), rh = h.getBoundingClientRect(), rf = f.getBoundingClientRect();
     return JSON.stringify({
       apar: getComputedStyle(d).webkitAppearance || getComputedStyle(d).appearance,
-      alturaData: Math.round(rd.height), alturaHora: Math.round(rh.height),
-      larguras: [Math.round(rd.width), Math.round(rh.width)],
-      sobrepoe: rd.right > rh.left + 0.5,
+      alturas: [Math.round(rd.height), Math.round(rh.height), Math.round(rf.height)],
+      larguras: [Math.round(rh.width), Math.round(rf.width)],
+      diaSozinho: Math.round(rd.width) > Math.round(rh.width) * 1.6,
+      horasNaMesmaLinha: Math.abs(rh.top - rf.top) <= 1,
+      sobrepoe: rh.right > rf.left + 0.5,
     });
   })()`));
   ck(campos.apar === 'none', 'a aparência nativa é desligada, senão o iOS ignora a caixa');
-  ck(campos.alturaData === 50 && campos.alturaHora === 50,
-    'os dois respeitam os 50px de altura (' + campos.alturaData + ', ' + campos.alturaHora + ')');
-  ck(!campos.sobrepoe, 'e não se sobrepõem na linha');
+  ck(campos.alturas.every((a) => a === 50),
+    'os três respeitam os 50px de altura (' + campos.alturas.join(', ') + ')');
+  ck(campos.diaSozinho, 'o dia ocupa a linha inteira');
+  ck(campos.horasNaMesmaLinha, 'início e término dividem a linha de baixo');
+  ck(!campos.sobrepoe, 'e não se sobrepõem nela');
   ck(Math.abs(campos.larguras[0] - campos.larguras[1]) <= 1,
-    'dividem a linha ao meio (' + campos.larguras.join(' e ') + ')');
+    'ao meio (' + campos.larguras.join(' e ') + ')');
   await ev("document.querySelector('.sheet [data-x=\"no\"]').click()"); await sleep(300);
 
   console.log('');

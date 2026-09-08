@@ -93,7 +93,9 @@ const DEFAULT_STATE = {
     metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
     planoSemanal: [],     // molde da rotina: um treino (ou folga) por dia da semana
     orcamento: 0,         // teto de gasto no mês; 0 = sem teto
-    metaAgua: 0,          // ml por dia; 0 = calcula a partir do peso
+    metaAgua: 0,
+    nome: '',              // usado na saudação do Início; vazio some sem estorvar
+    cronoModo: '',         // 'semana' | 'dia'; vazio deixa a largura da tela decidir          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
 };
@@ -1044,6 +1046,7 @@ function novaTarefa(dados) {
     nota: '',
     data: dayKey(Date.now()),   // null = sem dia marcado
     hora: '',                   // 'HH:MM' quando tem hora marcada
+    fim: '',                    // 'HH:MM' de término; vazio vale uma hora na grade
     tipo: 'tarefa',             // 'tarefa' | 'compromisso'
     cor: COR_AGENDA,
     feito: false,
@@ -1057,6 +1060,76 @@ function novaTarefa(dados) {
 
 const getTarefa = (id) => S.tarefas.find((t) => t.id === id);
 
+/* ---------- a semana desenhada como grade ----------
+
+   A lista responde "o que tem hoje"; a grade responde "como o dia está
+   distribuído", que é outra pergunta. Para desenhar um retângulo é preciso
+   começo e fim, e a maioria das tarefas só tem começo — sem fim marcado o
+   bloco vale uma hora, que é o palpite que menos erra e evita bloco de altura
+   zero na grade. */
+
+const BLOCO_PADRAO_MIN = 60;
+
+/* 'HH:MM' em minutos desde a meia-noite, ou null quando não há hora. */
+function minutosDaHora(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return null;
+  const min = Number(m[1]) * 60 + Number(m[2]);
+  return min >= 0 && min <= 1440 ? min : null;
+}
+
+const horaDeMinutos = (min) => pad2(Math.floor(min / 60) % 24) + ':' + pad2(Math.round(min) % 60);
+
+/* Começo e fim de uma tarefa, em minutos. null quando ela não tem hora: essa
+   vira etiqueta de dia inteiro em vez de sumir da grade. */
+function faixaDaTarefa(t) {
+  const ini = minutosDaHora(t.hora);
+  if (ini == null) return null;
+  let fim = minutosDaHora(t.fim);
+  if (fim == null || fim <= ini) fim = ini + BLOCO_PADRAO_MIN;
+  return { ini, fim: Math.min(1440, fim) };
+}
+
+/* Segunda-feira da semana de `ts`. A academia conta a semana do domingo, porque
+   é assim que a meta semanal fecha; a grade abre na segunda, como o calendário
+   de parede que ela imita. */
+function inicioSemanaSeg(ts) {
+  const d = new Date(ts == null ? Date.now() : ts);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+const DIAS_SEMANA_SEG = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+
+/* As tarefas de um dia separadas em quem tem hora e quem não tem. */
+function blocosDoDia(ts) {
+  const todas = tarefasDoDia(ts);
+  const comHora = [];
+  const semHora = [];
+  todas.forEach((t) => (minutosDaHora(t.hora) == null ? semHora : comHora).push(t));
+  comHora.sort((a, b) => minutosDaHora(a.hora) - minutosDaHora(b.hora));
+  return { comHora, semHora };
+}
+
+/* Faixa de horas que a grade precisa mostrar. Sem nada marcado ela abre das 7
+   às 21 — mostrar as 24 horas faria o dia inteiro caber na tela e nenhum bloco
+   ficar legível. Com algo fora dessa janela, ela cresce só o necessário. */
+function faixaDeHoras(tarefas) {
+  let min = 7 * 60;
+  let max = 21 * 60;
+  (tarefas || []).forEach((t) => {
+    const f = faixaDaTarefa(t);
+    if (!f) return;
+    min = Math.min(min, f.ini);
+    max = Math.max(max, f.fim);
+  });
+  return {
+    ini: Math.max(0, Math.floor(min / 60) - 1),
+    fim: Math.min(24, Math.ceil(max / 60) + 1),
+  };
+}
+
 /* Quem tem hora vem primeiro, na ordem do relógio; depois o que é só tarefa;
    o que já foi feito desce para o fim em vez de sumir. */
 function ordemTarefa(a, b) {
@@ -1064,6 +1137,14 @@ function ordemTarefa(a, b) {
   if (!!a.hora !== !!b.hora) return a.hora ? -1 : 1;
   if (a.hora && b.hora && a.hora !== b.hora) return a.hora < b.hora ? -1 : 1;
   return a.criada - b.criada;
+}
+
+/* Ordem de uma lista que atravessa dias: primeiro a data, depois a regra de
+   dentro do dia. `ordemTarefa` sozinha só sabe comparar duas tarefas do mesmo
+   dia — usada numa lista de vários dias, ela embaralhava quinta com quarta. */
+function ordemNoTempo(a, b) {
+  if (a.data !== b.data) return (a.data || '') < (b.data || '') ? -1 : 1;
+  return ordemTarefa(a, b);
 }
 
 const tarefasDoDia = (ts) => S.tarefas
@@ -1080,7 +1161,7 @@ function tarefasAtrasadas(ts) {
   const hoje = dayKey(ts == null ? Date.now() : ts);
   return S.tarefas
     .filter((t) => !t.feito && t.data && t.data < hoje)
-    .sort(ordemTarefa);
+    .sort(ordemNoTempo);
 }
 
 /* Marcas do mês para o calendário: as cores das tarefas de cada dia e quantas
