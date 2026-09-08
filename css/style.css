@@ -11,6 +11,7 @@
   --card-2: #1C1C1E;
   --line: rgba(255, 255, 255, .10);
   --txt: #FFFFFF;
+  --txt-corpo: #D0D6E0; /* leitura corrida: um degrau abaixo do título */
   --txt-2: #8E8E93;
   --txt-3: #58585D;
 
@@ -31,20 +32,30 @@
   --perigo: #FF453A;
   --alerta: #FFC300;
 
-  --r-lg: 22px;
-  --r-md: 16px;
-  --r-sm: 12px;
+  /* Três raios e mais nada: 12 para cartão e painel, 6 para campo e botão,
+     999 para pílula. Antes havia dezenove valores diferentes no arquivo, de 10
+     a 28, e o resultado era um sistema sem vocabulário — cada peça tinha o
+     arredondamento que parecia bom no dia em que foi escrita. */
+  --r-cartao: 12px;
+  --r-campo: 6px;
+  --r-pilula: 9999px;
+  --r-selo: 4px;
+
+  /* nomes antigos, agora apontando para o vocabulário novo */
+  --r-lg: var(--r-cartao);
+  --r-md: var(--r-cartao);
+  --r-sm: var(--r-campo);
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --tabbar-h: 54px;   /* a capsula flutuante e mais alta que a faixa antiga */
+  --tabbar-h: 54px; /* a capsula flutuante e mais alta que a faixa antiga */
   /* O iPhone reserva 34px embaixo para o indicador de gesto. Reservar tudo isso
      empurra os ícones para cima e deixa uma faixa vazia visível; metade já
      mantém o indicador livre. */
   --tabbar-pb: max(8px, calc(var(--safe-b) * 0.5));
   --abas-total: calc(var(--tabbar-h) + var(--tabbar-pb));
-  --lateral: 0px;      /* largura da coluna de navegação; só existe no desktop */
-  --miolo: 1120px;     /* largura máxima do conteúdo em tela larga */
+  --lateral: 0px; /* largura da coluna de navegação; só existe no desktop */
+  --miolo: 1120px; /* largura máxima do conteúdo em tela larga */
 }
 
 /* =========================================================
@@ -53,25 +64,36 @@
    gráficos, anéis e marcadores em qualquer tema.
    ========================================================= */
 
-/* Ardósia: o cinza-azulado do desenho novo. Fundo quase preto com um toque de
-   azul, cartão um degrau acima e borda visível — é a borda que separa cartão de
-   fundo sem precisar de sombra. */
+/* Ardósia: quatro degraus de superfície e nada mais.
+
+   O fundo não é um preto neutro — leva um viés azul que atravessa a escala
+   inteira, de #0A0C10 até a borda. É o que dá o ar de asa noturna sem pintar
+   nada de azul: a cor está na base, não em cima dela.
+
+   A separação entre um degrau e o seguinte é feita por **borda de um pixel**, e
+   não por sombra. Sombra empilha camadas falsas; a borda diz onde a superfície
+   começa e termina, e continua dizendo quando duas superfícies têm quase a
+   mesma luminosidade. Por isso `--line` aqui é uma cor sólida e não um branco
+   translúcido: sobre o cartão e sobre o fundo ela tem exatamente o mesmo peso. */
 :root[data-tema="ardosia"] {
-  --bg: #0B0E12;
-  --card: #151A20;
-  --card-2: #1C222A;
-  --line: rgba(255, 255, 255, .08);
-  --txt: #F4F6F8;
-  --txt-2: #8A939E;
-  --txt-3: #5A636E;
-  --fill-1: rgba(255, 255, 255, .05);
-  --fill-2: rgba(255, 255, 255, .09);
-  --fill-3: rgba(255, 255, 255, .20);
-  --sheet-bg: #171D24;
-  --tabbar-bg: rgba(12, 16, 20, .92);
-  --vidro: rgba(24, 30, 38, .82);
-  --input-bg: #10151A;
-  --toast-bg: rgba(30, 38, 47, .96);
+  --bg: #0A0C10; /* 0 — a tela */
+  --card: #0F1319; /* 1 — cartão, barra */
+  --card-2: #161B22; /* 2 — painel dentro do cartão */
+  --line: #232A33; /* a borda de um pixel que separa os três */
+  --line-forte: #39424E; /* separador de seção, um degrau mais visível */
+  --txt: #FFFFFF;
+  --txt-corpo: #D0D6E0;
+  --txt-2: #8B95A3;
+  --txt-3: #646E7C;
+  --fill-1: rgba(255, 255, 255, .03);
+  --fill-2: rgba(255, 255, 255, .06);
+  --fill-3: rgba(255, 255, 255, .14);
+  --sheet-bg: #0F1319;
+  --tabbar-bg: rgba(10, 12, 16, .92);
+  --vidro: rgba(15, 19, 25, .86);
+  --input-bg: rgba(255, 255, 255, .02);
+  --toast-bg: rgba(22, 27, 34, .96);
+  --sombra: rgba(0, 0, 0, .6);
 }
 
 :root[data-tema="grafite"] {
@@ -122,6 +144,7 @@
   --card-2: #E9E9EF;
   --line: rgba(0, 0, 0, .10);
   --txt: #0A0A0C;
+  --txt-corpo: #3A3A42;
   --txt-2: #6C6C74;
   --txt-3: #A0A0A8;
 
@@ -170,8 +193,16 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--txt);
+  /* Inter é a fonte da referência, mas ela viria de um CDN — e uma fonte de
+     rede quebra o app offline, que é a única promessa que ele não pode furar.
+     A fonte do sistema (SF Pro no iPhone) tem a mesma construção geométrica e
+     já está no aparelho; o que dá para trazer da referência é a métrica:
+     corpo 16, entrelinha 1.5, pesos entre 400 e 590, e o espacejamento
+     apertando conforme o tamanho cresce. */
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
-  font-size: 17px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
@@ -238,8 +269,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .nav .title {
   flex: 1; min-width: 0; text-align: center;
-  font-size: 19px; font-weight: 700;
-  letter-spacing: -.3px;
+  font-size: 19px; font-weight: 510;
+  letter-spacing: -0.21px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -262,10 +293,10 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .pill-btn {
   height: 48px; padding: 0 26px;
-  border-radius: 26px;
+  border-radius: var(--r-pilula);
   background: var(--accent);
   color: #000;
-  font-size: 18px; font-weight: 700;
+  font-size: 18px; font-weight: 510;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: transform .12s, filter .15s;
 }
@@ -283,7 +314,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .search {
   margin: 4px 16px 16px;
   height: 48px;
-  border-radius: 24px;
+  border-radius: var(--r-pilula);
   background: var(--card-2);
   display: flex; align-items: center; gap: 10px;
   padding: 0 16px;
@@ -314,7 +345,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .chip {
   flex: 0 0 auto;
   height: 42px; padding: 0 22px;
-  border-radius: 21px;
+  border-radius: var(--r-pilula);
   background: var(--card-2);
   color: var(--txt-2);
   font-size: 16px; font-weight: 500;
@@ -322,7 +353,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   transition: transform .12s;
 }
 .chip:active { transform: scale(.95); }
-.chip.on { background: var(--a15); color: var(--accent); font-weight: 600; }
+.chip.on { background: var(--a15); color: var(--accent); font-weight: 510; }
 
 /* ---------- lista de exercícios (biblioteca) ---------- */
 
@@ -345,7 +376,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .thumb.round svg { width: 22px; height: 22px; }
 
 .exrow-name { flex: 1; min-width: 0; }
-.exrow-name b { display: block; font-size: 19px; font-weight: 600; letter-spacing: -.3px; }
+.exrow-name b { display: block; font-size: 19px; font-weight: 510; letter-spacing: -0.21px; }
 .exrow-name span { display: block; font-size: 15px; color: var(--txt-2); margin-top: 2px; }
 
 .add-circle {
@@ -365,7 +396,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .opt {
   flex: 1; min-width: 0;
   height: 46px;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   background: var(--card);
   display: flex; align-items: center; gap: 6px;
   padding: 0 12px;
@@ -373,7 +404,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .exrow-opts .opt:first-child { flex: 1.2; }
 .opt > svg.lead { width: 17px; height: 17px; flex: 0 0 17px; fill: var(--accent); }
-.opt label { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt label { flex: 1; min-width: 0; font-size: 14px; font-weight: 510; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt .caret { width: 13px; height: 13px; flex: 0 0 13px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; }
 .opt select {
   position: absolute; inset: 0;
@@ -403,14 +434,14 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   position: absolute;
   left: 6px; right: 24px; top: 0;
   height: 22px;
-  border-radius: 10px 10px 0 0;
+  border-radius: 12px 12px 0 0;
   background: var(--fc, var(--accent));
   filter: brightness(.72);
 }
 
 .folder-body {
   position: relative;
-  border-radius: 14px;
+  border-radius: var(--r-cartao);
   background: var(--card);
   overflow: hidden;
   box-shadow: 0 1px 0 var(--fill-1) inset;
@@ -430,7 +461,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .folder-head b {
   flex: 1; min-width: 0;
-  font-size: 19px; font-weight: 700; letter-spacing: -.4px;
+  font-size: 19px; font-weight: 510; letter-spacing: -0.21px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ex-item .name span { font-size: .82em; }
@@ -449,7 +480,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   border-top: 1px solid var(--line);
   padding: 12px 8px;
   text-align: center;
-  font-size: 16px; font-weight: 700;
+  font-size: 16px; font-weight: 510;
 }
 
 .folder.big { grid-column: span 2; }
@@ -463,9 +494,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   display: flex; align-items: center; gap: 8px;
   padding: calc(var(--safe-t) + 12px) 16px 8px;
 }
-.streak { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 700; }
+.streak { display: flex; align-items: center; gap: 6px; font-size: 18px; font-weight: 510; }
 .streak svg { width: 26px; height: 26px; fill: var(--accent); }
-.top-bar .title { flex: 1; text-align: center; font-size: 21px; font-weight: 700; letter-spacing: -.4px; }
+.top-bar .title { flex: 1; text-align: center; font-size: 21px; font-weight: 510; letter-spacing: -0.25px; }
 .burger { width: 44px; display: flex; justify-content: flex-end; color: var(--txt); }
 .burger svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
 
@@ -473,7 +504,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .day {
   flex: 1; text-align: center;
   padding: 4px 0;
-  border-radius: 12px;
+  border-radius: var(--r-campo);
 }
 .day .dow { font-size: 14px; color: var(--txt-3); }
 /* O dia aberto vira um disco cheio na cor do contexto, como na referencia:
@@ -482,12 +513,13 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   width: 40px; height: 40px; line-height: 40px;
   margin: 3px auto 0;
   border-radius: 50%;
-  font-size: 19px; font-weight: 700; color: var(--txt-3);
+  font-size: 19px; font-weight: 510; color: var(--txt-3);
   transition: background .18s, color .18s;
 }
 .day.sel .num {
   background: var(--accent); color: var(--on-accent, #000);
-  box-shadow: 0 0 24px var(--a35);
+  /* o brilho saiu: elevação neste sistema vem de borda e de degrau de
+     superfície, e um halo colorido era a única coisa aqui que fingia luz */
 }
 .day .dot { width: 6px; height: 6px; border-radius: 50%; margin: 4px auto 0; background: transparent; }
 /* selecionado: disco cheio. hoje quando não está selecionado: anel vazado,
@@ -521,12 +553,12 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .plan-row { display: flex; align-items: center; gap: 14px; }
 .plan-ico {
   width: 46px; height: 46px; flex: 0 0 46px;
-  border-radius: 13px; background: var(--card-2);
+  border-radius: var(--r-campo); background: var(--card-2);
   display: flex; align-items: center; justify-content: center;
 }
 .plan-ico svg { width: 26px; height: 26px; fill: var(--accent); }
 .plan-txt { flex: 1; min-width: 0; }
-.plan-txt b { display: block; font-size: 18px; font-weight: 600; }
+.plan-txt b { display: block; font-size: 18px; font-weight: 510; }
 .plan-txt span { display: block; font-size: 15px; color: var(--txt-2); margin-top: 2px; }
 .plan-card .chev { width: 18px; height: 18px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; }
 
@@ -540,7 +572,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 /* barra mais grossa onde ela é o principal sinal de cor da lista */
 .progress.alto { height: 9px; border-radius: 5px; margin: 12px 0 8px; }
 .progress.alto i { border-radius: 5px; }
-.plan-foot { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; }
+.plan-foot { display: flex; justify-content: space-between; font-size: 16px; font-weight: 510; }
 .plan-foot span:last-child { color: var(--txt-2); }
 
 /* anéis de estatística */
@@ -558,22 +590,22 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .ring-val {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: min(19px, 5vw); font-weight: 700; letter-spacing: -.5px;
+  font-size: min(19px, 5vw); font-weight: 510; letter-spacing: -0.21px;
 }
-.ring-sub { font-size: 11px; font-weight: 600; color: var(--accent); margin-top: 8px; line-height: 1.25; padding: 0 2px; }
+.ring-sub { font-size: 11px; font-weight: 510; color: var(--accent); margin-top: 8px; line-height: 1.25; padding: 0 2px; }
 .ring-link { position: absolute; top: 62px; right: -8px; width: 16px; height: 2px; background: var(--fill-2); }
 
 /* cartão de sessão registrada */
 .sess { margin: 0 16px 14px; background: var(--card); border-radius: var(--r-lg); padding: 14px 16px 16px; }
 .sess-head { display: flex; align-items: center; gap: 12px; }
 .sess-ico {
-  width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
+  width: 42px; height: 42px; flex: 0 0 42px; border-radius: var(--r-campo);
   background: var(--a22);
   display: flex; align-items: center; justify-content: center;
 }
 .sess-ico svg { width: 24px; height: 24px; fill: var(--accent); }
 .sess-txt { flex: 1; min-width: 0; }
-.sess-txt b { display: block; font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+.sess-txt b { display: block; font-size: 19px; font-weight: 510; letter-spacing: -0.21px; }
 .sess-txt span { display: block; font-size: 14px; color: var(--txt-2); margin-top: 2px; }
 .sess-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .sess-list div { font-size: 17px; }
@@ -593,7 +625,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   right: 16px;
   bottom: calc(var(--abas-total) + 16px);
   width: 62px; height: 62px;
-  border-radius: 20px;
+  border-radius: var(--r-cartao);
   background: var(--accent);
   color: var(--on-accent, #fff);
   display: flex; align-items: center; justify-content: center;
@@ -634,7 +666,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tab-capsula {
   position: relative; overflow: hidden;
   width: 234px; height: 54px;
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   background: var(--vidro);
   backdrop-filter: blur(26px) saturate(1.6);
   -webkit-backdrop-filter: blur(26px) saturate(1.6);
@@ -648,7 +680,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tab-capsula.aberta {
   width: min(304px, calc(100vw - 88px));
   height: calc(var(--linhas) * 82px + 16px);
-  border-radius: 28px;
+  border-radius: var(--r-cartao);
 }
 
 .tab-linha {
@@ -660,7 +692,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .tab {
   width: 56px; height: 44px;
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   display: flex; align-items: center; justify-content: center;
   color: var(--txt-3);
   transition: background .18s, color .18s;
@@ -699,7 +731,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 6px 2px 8px;
   min-width: 0;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   /* cada ladrilho entra um pouquinho depois do anterior: a grade se monta da
      esquerda para a direita em vez de piscar inteira */
   opacity: 0; transform: translateY(6px);
@@ -711,7 +743,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .tab-ico {
   width: 42px; height: 42px;
-  border-radius: 13px;
+  border-radius: var(--r-campo);
   background: var(--a15);
   color: var(--accent);
   display: flex; align-items: center; justify-content: center;
@@ -719,7 +751,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .tab-ico svg { width: 20px; height: 20px; }
 .tab-nome {
   max-width: 100%;
-  font-size: 10.5px; font-weight: 600; letter-spacing: -.1px;
+  font-size: 10.5px; font-weight: 510; 
   color: var(--txt-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -740,7 +772,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 
 .timer {
   text-align: center;
-  font-size: 54px; font-weight: 700;
+  font-size: 54px; font-weight: 510;
   letter-spacing: 2px;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
@@ -755,7 +787,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .ex-item .name {
   flex: 1; min-width: 0;
-  font-size: 15.5px; font-weight: 500; letter-spacing: -.2px;
+  font-size: 15.5px; font-weight: 500; letter-spacing: -0.17px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ex-item .chev { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: var(--txt); stroke-width: 2.4; stroke-linecap: round; }
@@ -780,7 +812,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   display: flex; align-items: center; gap: 14px;
   padding: 16px;
 }
-.add-row .name { flex: 1; font-size: 18px; font-weight: 600; }
+.add-row .name { flex: 1; font-size: 18px; font-weight: 510; }
 
 /* ---------- detalhe do exercício ---------- */
 
@@ -801,7 +833,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .chart-empty svg { position: static; width: 30px; height: 30px; fill: var(--txt-3); opacity: .6; }
 .chart-badge {
   position: absolute; bottom: 10px; left: 14px;
-  font-size: 13px; color: var(--txt-2); font-weight: 600;
+  font-size: 13px; color: var(--txt-2); font-weight: 510;
   background: var(--toast-bg); padding: 4px 8px; border-radius: 8px;
   backdrop-filter: blur(6px);
 }
@@ -827,7 +859,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .field {
   flex: 1; min-width: 0;
   height: 46px;
-  border-radius: 23px;
+  border-radius: var(--r-pilula);
   background: var(--card);
   display: flex; align-items: center; justify-content: center; gap: 3px;
   padding: 0 6px;
@@ -841,7 +873,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   width: 100%;
   background: none; border: 0; outline: none;
   text-align: center;
-  font-size: 18px; font-weight: 600;
+  font-size: 18px; font-weight: 510;
   font-variant-numeric: tabular-nums;
   min-width: 0;
 }
@@ -870,7 +902,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   background: var(--a15);
   color: var(--accent);
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
+  font-size: 13px; font-weight: 510;
   font-variant-numeric: tabular-nums;
   transition: transform .12s;
 }
@@ -887,7 +919,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   width: calc(100% - 32px);
   margin: 0 16px 4px;
   padding: 11px 14px;
-  border-radius: 14px;
+  border-radius: var(--r-cartao);
   background: var(--card);
   display: flex; align-items: center; gap: 12px;
   text-align: left;
@@ -897,10 +929,10 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   font-size: 14px; color: var(--txt-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.prev-bar span b { color: var(--txt); font-weight: 600; margin-right: 6px; }
+.prev-bar span b { color: var(--txt); font-weight: 510; margin-right: 6px; }
 .prev-bar em {
   flex: 0 0 auto; font-style: normal;
-  font-size: 15px; font-weight: 700; color: var(--accent);
+  font-size: 15px; font-weight: 510; color: var(--accent);
 }
 .prev-bar:active { background: var(--card-2); }
 
@@ -936,7 +968,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .grupo-n {
   width: 30px; flex: 0 0 30px; text-align: right;
-  font-size: 15px; font-weight: 700;
+  font-size: 15px; font-weight: 510;
   font-variant-numeric: tabular-nums;
 }
 .grupo-n.baixo { color: var(--txt-3); }
@@ -1006,7 +1038,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   width: 44px; height: 44px; flex: 0 0 44px;
   display: flex; align-items: center; justify-content: center;
   color: var(--txt-3);
-  touch-action: none;          /* o dedo arrasta a linha, não rola a tela */
+  touch-action: none; /* o dedo arrasta a linha, não rola a tela */
   cursor: grab;
 }
 .alca svg { width: 22px; height: 22px; fill: currentColor; }
@@ -1025,7 +1057,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .comparacao { padding: 14px 16px; }
 .comp-topo { font-size: 13px; color: var(--txt-2); margin-bottom: 8px; }
 .comp-linha { font-size: 16px; color: var(--txt-2); line-height: 1.5; }
-.comp-linha span { font-weight: 700; }
+.comp-linha span { font-weight: 510; }
 .comp-ex {
   margin-top: 10px; font-size: 14px; line-height: 1.45;
 }
@@ -1035,7 +1067,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .chart-tend {
   position: absolute; bottom: 10px; right: 14px;
-  font-size: 13px; font-weight: 700;
+  font-size: 13px; font-weight: 510;
   background: var(--toast-bg); padding: 4px 8px; border-radius: 8px;
 }
 
@@ -1056,10 +1088,10 @@ body.arrastando-algo .scroll { overflow: hidden; }
   width: calc(100% - 32px);
   margin: -4px 16px 12px;
   padding: 9px;
-  border-radius: 12px;
+  border-radius: var(--r-pilula);
   background: var(--fill-1);
   color: var(--txt-2);
-  font-size: 14px; font-weight: 600;
+  font-size: 14px; font-weight: 510;
 }
 .voltar-hoje:active { background: var(--fill-2); }
 
@@ -1068,7 +1100,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   width: calc(100% - 32px);
   margin: 14px 16px 4px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--r-cartao);
   background: var(--fill-1);
   color: var(--txt-2);
   font-size: 14px; line-height: 1.4;
@@ -1091,7 +1123,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
-.agua-valor b { font-size: 44px; font-weight: 800; letter-spacing: -1.5px; }
+.agua-valor b { font-size: 44px; font-weight: 590; letter-spacing: -0.97px; }
 .agua-valor span { font-size: 15px; color: var(--txt-2); margin-top: 2px; }
 
 .agua-falta {
@@ -1106,14 +1138,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .agua-copo {
   flex: 1;
   height: 66px;
-  border-radius: 18px;
+  border-radius: var(--r-campo);
   background: var(--card);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   transition: transform .12s, background .15s;
 }
 .agua-copo:active { transform: scale(.95); background: var(--card-2); }
-.agua-copo b { font-size: 20px; font-weight: 700; color: var(--accent); }
+.agua-copo b { font-size: 20px; font-weight: 510; color: var(--accent); }
 .agua-copo span { font-size: 12px; color: var(--txt-2); margin-top: 1px; }
 
 .agua-extras {
@@ -1122,10 +1154,10 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .agua-extras button {
   flex: 1; height: 44px;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   background: var(--fill-1);
   color: var(--txt-2);
-  font-size: 15px; font-weight: 600;
+  font-size: 15px; font-weight: 510;
 }
 .agua-extras button:active { background: var(--fill-2); }
 .agua-extras button[disabled] { opacity: .4; pointer-events: none; }
@@ -1160,9 +1192,9 @@ body.arrastando-algo .scroll { overflow: hidden; }
   width: calc(100% - 32px);
   margin: 10px 16px 2px;
   padding: 13px 14px;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   background: var(--fill-1);
-  font-size: 15px; font-weight: 600;
+  font-size: 15px; font-weight: 510;
   text-align: left;
 }
 .calc-abrir > svg:first-child { width: 20px; height: 20px; flex: 0 0 20px; fill: var(--accent); }
@@ -1189,7 +1221,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .calc-topo { display: flex; align-items: center; gap: 12px; }
 .calc-rot { flex: 1; min-width: 0; }
-.calc-rot b { display: block; font-size: 16px; font-weight: 600; }
+.calc-rot b { display: block; font-size: 16px; font-weight: 510; }
 .calc-rot i {
   display: block; font-style: normal;
   font-size: 12px; color: var(--txt-3); margin-top: 2px;
@@ -1200,20 +1232,20 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .calc-reps {
   flex: 0 0 auto;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   background: var(--fill-1);
-  font-size: 13.5px; font-weight: 600; color: var(--txt-2);
+  font-size: 13.5px; font-weight: 510; color: var(--txt-2);
 }
 
 .calc-passo {
   display: flex; align-items: center; gap: 4px;
   background: var(--fill-1);
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   padding: 3px;
 }
 .calc-passo button {
   width: 34px; height: 34px; border-radius: 50%;
-  font-size: 20px; font-weight: 600; line-height: 1;
+  font-size: 20px; font-weight: 510; line-height: 1;
   color: var(--accent);
   display: flex; align-items: center; justify-content: center;
 }
@@ -1221,13 +1253,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .calc-passo button[disabled] { opacity: .3; pointer-events: none; }
 .calc-passo span {
   min-width: 22px; text-align: center;
-  font-size: 17px; font-weight: 700;
+  font-size: 17px; font-weight: 510;
   font-variant-numeric: tabular-nums;
 }
 
 .calc-val {
   margin-top: 8px;
-  font-size: 16px; font-weight: 700; color: var(--accent);
+  font-size: 16px; font-weight: 510; color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 .calc-val.vazio { color: var(--txt-3); font-weight: 500; font-size: 14px; }
@@ -1243,14 +1275,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .login-logo {
   width: 84px; height: 84px;
-  border-radius: 20px;
+  border-radius: var(--r-cartao);
   align-self: center;
   margin-bottom: 22px;
 }
 
 .login h1 {
   margin: 0 0 8px;
-  font-size: 30px; font-weight: 800; letter-spacing: -.8px;
+  font-size: 30px; font-weight: 590; letter-spacing: -0.36px;
   text-align: center;
 }
 .login p {
@@ -1261,7 +1293,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .login-campo {
   height: 54px; margin-bottom: 12px;
-  border-radius: 15px;
+  border-radius: var(--r-campo);
   background: var(--input-bg);
   border: 1px solid var(--line);
   padding: 0 16px;
@@ -1274,7 +1306,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .login-alternar {
   margin-top: 18px; padding: 8px;
-  font-size: 16px; font-weight: 600;
+  font-size: 16px; font-weight: 510;
   color: var(--accent);
 }
 
@@ -1283,7 +1315,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   text-align: center;
 }
 .login-rodape button {
-  font-size: 16px; font-weight: 600;
+  font-size: 16px; font-weight: 510;
   color: var(--txt-2);
   padding: 10px 18px;
 }
@@ -1304,7 +1336,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .tema-amostra {
   width: 54px; height: 54px; flex: 0 0 54px;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   border: 1px solid var(--line);
   position: relative; overflow: hidden;
 }
@@ -1318,7 +1350,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 
 .tema-txt { flex: 1; min-width: 0; }
-.tema-txt b { display: block; font-size: 17px; font-weight: 600; }
+.tema-txt b { display: block; font-size: 17px; font-weight: 510; }
 .tema-txt i {
   display: block; font-style: normal;
   font-size: 13px; color: var(--txt-2); margin-top: 2px;
@@ -1345,14 +1377,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .sheet {
   width: 100%;
   background: var(--sheet-bg);
-  border-radius: 22px 22px 0 0;
+  border-radius: 12px 12px 0 0;
   padding: 10px 0 calc(10px + var(--safe-b));
   animation: sheetIn .3s cubic-bezier(.32, .72, 0, 1);
   max-height: 82%;
   overflow-y: auto;
 }
 .sheet.center {
-  margin: auto 16px; border-radius: 20px; max-width: 420px;
+  margin: auto 16px; border-radius: var(--r-cartao); max-width: 420px;
   /* a margem segura de baixo só serve para folha colada na borda da tela;
      numa centralizada ela vira 34px de vazio embaixo dos botões */
   padding-bottom: 10px;
@@ -1362,7 +1394,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .backdrop.mid { align-items: center; }
 
 .grabber { width: 38px; height: 5px; border-radius: 3px; background: var(--fill-3); margin: 2px auto 12px; }
-.sheet h3 { margin: 4px 20px 14px; font-size: 20px; font-weight: 700; }
+.sheet h3 { margin: 4px 20px 14px; font-size: 20px; font-weight: 510; }
 .sheet p.desc { margin: -8px 20px 16px; font-size: 15px; color: var(--txt-2); line-height: 1.4; }
 
 .sheet-item {
@@ -1381,7 +1413,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .text-input {
   width: calc(100% - 40px); margin: 0 20px 16px;
   min-width: 0;
-  height: 50px; border-radius: 14px;
+  height: 50px; border-radius: var(--r-campo);
   background: var(--input-bg); border: 1px solid var(--line);
   padding: 0 14px; font-size: 18px; outline: none;
   /* Sem isto, os campos de data e hora do iOS ignoram altura e recuo e sobem
@@ -1409,7 +1441,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
    ========================================================= */
 
 .hub-saudacao { padding: 4px 16px 14px; }
-.hub-saudacao b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.6px; }
+.hub-saudacao b { display: block; font-size: 26px; font-weight: 590; letter-spacing: -0.31px; }
 .hub-saudacao span { display: block; font-size: 15px; color: var(--txt-2); margin-top: 3px; }
 
 .hub-grid {
@@ -1449,7 +1481,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .hub-txt { flex: 1; min-width: 0; }
 .hub-txt b {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  font-size: 17px; font-weight: 700; letter-spacing: -.3px; line-height: 1.2;
+  font-size: 17px; font-weight: 510; letter-spacing: -0.19px; line-height: 1.2;
   overflow: hidden;
 }
 .hub-txt span {
@@ -1466,13 +1498,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .mod-row:active { background: var(--fill-1); }
 .mod-ico {
-  width: 38px; height: 38px; flex: 0 0 38px; border-radius: 12px;
+  width: 38px; height: 38px; flex: 0 0 38px; border-radius: var(--r-campo);
   background: var(--a15);
   display: flex; align-items: center; justify-content: center;
 }
 .mod-ico svg { width: 21px; height: 21px; fill: var(--accent); }
 .mod-txt { flex: 1; min-width: 0; }
-.mod-txt b { display: block; font-size: 17px; font-weight: 600; }
+.mod-txt b { display: block; font-size: 17px; font-weight: 510; }
 .mod-txt span {
   display: block; font-size: 13.5px; color: var(--txt-2); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1503,7 +1535,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 6px 4px;
 }
-.cal-topo b { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.cal-topo b { font-size: 18px; font-weight: 510; letter-spacing: -0.2px; }
 /* Sem o fundo redondo: com ele, a seta de mes vira sosia do voltar da barra de
    cima, e as duas ficam empilhadas na mesma coluna. */
 .cal-topo .icon-btn { width: 36px; height: 36px; background: none; color: var(--txt-2); }
@@ -1518,13 +1550,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
   height: 46px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px;
-  border-radius: 12px;
+  border-radius: var(--r-campo);
 }
-.cal-dia .n { font-size: 16px; font-weight: 600; color: var(--txt-2); line-height: 1; }
+.cal-dia .n { font-size: 16px; font-weight: 510; color: var(--txt-2); line-height: 1; }
 .cal-dia .pontos { display: flex; gap: 3px; height: 5px; align-items: center; }
 .cal-dia .pontos i { width: 5px; height: 5px; border-radius: 50%; display: block; }
 .cal-dia:active { background: var(--fill-1); }
-.cal-dia.hoje .n { color: var(--accent); font-weight: 800; }
+.cal-dia.hoje .n { color: var(--accent); font-weight: 590; }
 .cal-dia.sel { background: var(--a22); }
 .cal-dia.sel .n { color: var(--txt); }
 
@@ -1532,12 +1564,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
   display: flex; align-items: center; gap: 10px;
   padding: 9px 16px 9px 10px;
   border-bottom: 1px solid var(--line);
-  /* a faixa da esquerda é a cor da tarefa: identifica sem roubar a linha */
-  border-left: 3px solid var(--accent);
+  /* a faixa da esquerda é a cor da tarefa: identifica sem roubar a linha. Dois
+     pixels bastam num sistema de borda de um — três viravam um bloco */
+  border-left: 2px solid var(--accent);
 }
 .tarefa-txt { flex: 1; min-width: 0; }
 .tarefa-txt b {
-  display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -.2px;
+  display: block; font-size: 16.5px; font-weight: 510; letter-spacing: -0.18px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tarefa-txt span {
@@ -1593,18 +1626,18 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .meta-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .mat-ico {
   width: 46px; height: 46px; flex: 0 0 46px;
-  border-radius: 15px;
+  border-radius: var(--r-campo);
   background: var(--accent);
   color: var(--on-accent, #000);
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 800; letter-spacing: -.5px;
+  font-size: 22px; font-weight: 590; letter-spacing: -0.26px;
 }
 .meta-txt { flex: 1; min-width: 0; }
-.meta-txt b { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.meta-txt b { display: block; font-size: 18px; font-weight: 510; letter-spacing: -0.2px; }
 .meta-txt span { display: block; font-size: 14px; color: var(--txt-2); margin-top: 3px; }
-.meta-pct { font-size: 17px; font-weight: 700; color: var(--accent); }
+.meta-pct { font-size: 17px; font-weight: 510; color: var(--accent); }
 .meta-foot { font-size: 13px; color: var(--txt-2); margin-top: 9px; }
-.meta-card.batida .meta-foot { color: var(--accent); font-weight: 600; }
+.meta-card.batida .meta-foot { color: var(--accent); font-weight: 510; }
 
 .dias-barras {
   display: flex; align-items: flex-end; gap: 5px;
@@ -1632,7 +1665,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   font-size: 11px; color: var(--txt-3);
   white-space: nowrap;
 }
-.dias-col.tem .dias-rotulo { color: var(--txt-2); font-weight: 600; }
+.dias-col.tem .dias-rotulo { color: var(--txt-2); font-weight: 510; }
 
 
 
@@ -1644,22 +1677,22 @@ body.arrastando-algo .scroll { overflow: hidden; }
    título fixa: ocupa menos e diz mais. */
 .sec { padding: 22px 16px 12px; }
 .sec .eyebrow {
-  font-size: 12px; font-weight: 700;
+  font-size: 12px; font-weight: 510;
   letter-spacing: 1.5px; text-transform: uppercase;
   color: var(--accent);
 }
 .sec h2 {
   margin: 5px 0 0;
-  font-size: 30px; font-weight: 800; letter-spacing: -.9px; line-height: 1.08;
+  font-size: 30px; font-weight: 590; letter-spacing: -0.36px; line-height: 1.08;
 }
-.sec .sub { margin-top: 6px; font-size: 15px; color: var(--txt-2); line-height: 1.35; }
+.sec .sub { margin-top: 6px; font-size: 15px; color: var(--txt-corpo); line-height: 1.5; }
 
 /* O cartão-herói é pintado com a cor do item, e o texto usa --on-accent, que
    já é calculado por luminância: sobre lima ele sai preto, sobre roxo, branco. */
 .hero {
   position: relative; overflow: hidden;
   margin: 4px 16px 6px;
-  border-radius: 28px;
+  border-radius: var(--r-cartao);
   min-height: 196px;
   padding: 22px;
   background: var(--accent);
@@ -1675,17 +1708,17 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .hero-aneis circle { fill: none; stroke: currentColor; stroke-width: 1.1; }
 .hero-topo, .hero-base { position: relative; }
 .hero-eyebrow {
-  font-size: 12.5px; font-weight: 700;
+  font-size: 12.5px; font-weight: 510;
   letter-spacing: 1.5px; text-transform: uppercase;
   opacity: .62;
 }
 .hero-titulo {
   margin-top: 6px;
-  font-size: 40px; font-weight: 800; letter-spacing: -1.6px; line-height: 1.02;
+  font-size: 40px; font-weight: 590; letter-spacing: -0.88px; line-height: 1.02;
   word-break: break-word;
 }
-.hero-titulo.longo { font-size: 30px; letter-spacing: -1px; }
-.hero-num { font-size: 17px; font-weight: 700; }
+.hero-titulo.longo { font-size: 30px; letter-spacing: -0.36px; }
+.hero-num { font-size: 17px; font-weight: 510; }
 .hero-nota { margin-top: 3px; font-size: 14.5px; opacity: .6; }
 .hero:active { transform: scale(.99); }
 
@@ -1710,14 +1743,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .plano-dia:active { background: var(--fill-1); }
 .plano-cor { width: 10px; height: 34px; border-radius: 5px; flex: 0 0 10px; }
 .plano-txt { flex: 1; min-width: 0; }
-.plano-txt b { display: block; font-size: 17px; font-weight: 600; }
+.plano-txt b { display: block; font-size: 17px; font-weight: 510; }
 .plano-txt span { display: block; margin-top: 2px; font-size: 14.5px; color: var(--txt-2); }
 .plano-dia.hoje .plano-txt b::after {
   content: 'hoje';
   margin-left: 8px; padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   background: var(--fill-2); color: var(--txt-2);
-  font-size: 11.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  font-size: 11.5px; font-weight: 510; letter-spacing: .4px; text-transform: uppercase;
 }
 .plano-dia .caret { width: 15px; height: 15px; flex: 0 0 15px; fill: none; stroke: var(--txt-3); stroke-width: 2.4; }
 
@@ -1725,10 +1758,10 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .acoes { display: flex; gap: 10px; flex-wrap: wrap; padding: 2px 16px 8px; }
 .acao {
   height: 42px; padding: 0 18px;
-  border-radius: 999px;
+  border-radius: var(--r-pilula);
   background: var(--fill-1);
   color: var(--txt-2);
-  font-size: 15px; font-weight: 600;
+  font-size: 15px; font-weight: 510;
   display: flex; align-items: center; gap: 8px;
 }
 .acao svg { width: 17px; height: 17px; }
@@ -1763,7 +1796,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .lt-bolha img { width: 100%; height: 100%; object-fit: cover; }
 .lt-txt { flex: 1; min-width: 0; }
 .lt-txt b {
-  display: block; font-size: 19px; font-weight: 700; letter-spacing: -.3px;
+  display: block; font-size: 19px; font-weight: 510; letter-spacing: -0.21px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .lt-txt span { display: block; margin-top: 3px; font-size: 14.5px; color: var(--txt-2); }
@@ -1786,7 +1819,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   min-width: 214px; max-width: min(300px, calc(100vw - 24px));
   overflow-y: auto;
   padding: 8px;
-  border-radius: 24px;
+  border-radius: var(--r-cartao);
   background: var(--vidro);
   backdrop-filter: blur(30px) saturate(1.6);
   -webkit-backdrop-filter: blur(30px) saturate(1.6);
@@ -1803,7 +1836,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .pop-item {
   display: flex; align-items: center; gap: 14px;
   width: 100%; padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: var(--r-campo);
   font-size: 16.5px; text-align: left;
   color: var(--txt);
 }
@@ -1811,7 +1844,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .pop-item .dot { width: 20px; height: 20px; flex: 0 0 20px; border-radius: 50%; }
 .pop-item .lab { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pop-item .ok { width: 17px; height: 17px; flex: 0 0 17px; fill: var(--accent); }
-.pop-item.on { color: var(--accent); font-weight: 600; }
+.pop-item.on { color: var(--accent); font-weight: 510; }
 .pop-item:active { background: var(--fill-1); }
 
 /* Campo de cor: em vez de doze bolinhas ocupando duas fileiras, uma linha só
@@ -1819,7 +1852,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .campo-cor {
   display: flex; align-items: center; gap: 12px;
   width: calc(100% - 40px); margin: 0 20px 16px;
-  height: 50px; border-radius: 14px;
+  height: 50px; border-radius: var(--r-campo);
   background: var(--input-bg); border: 1px solid var(--line);
   padding: 0 14px;
 }
@@ -1844,7 +1877,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .cat-nome {
   flex: 0 0 108px; min-width: 0;
   display: flex; align-items: center; gap: 8px;
-  font-size: 14.5px; font-weight: 600;
+  font-size: 14.5px; font-weight: 510;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .cat-nome i { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--accent); }
@@ -1862,7 +1895,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .cat-valor {
   flex: 0 0 auto;
-  font-size: 14px; font-weight: 700;
+  font-size: 14px; font-weight: 510;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1872,7 +1905,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .gasto-dia {
   padding: 16px 16px 6px;
-  font-size: 13px; font-weight: 700;
+  font-size: 13px; font-weight: 510;
   letter-spacing: .6px; text-transform: uppercase;
   color: var(--txt-3);
 }
@@ -1885,13 +1918,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .gasto-txt { flex: 1; min-width: 0; }
 .gasto-txt b {
-  display: block; font-size: 16.5px; font-weight: 600;
+  display: block; font-size: 16.5px; font-weight: 510;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gasto-txt span { display: block; font-size: 13px; color: var(--txt-2); margin-top: 2px; }
 .gasto-txt span:empty { display: none; }
 .gasto-valor {
-  font-size: 16.5px; font-weight: 700;
+  font-size: 16.5px; font-weight: 510;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1934,7 +1967,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .jogo-capa {
   position: relative;
   aspect-ratio: 3 / 4;
-  border-radius: 14px;
+  border-radius: var(--r-campo);
   overflow: hidden;
   background: var(--card-2);
   border: 1px solid var(--line);
@@ -1942,7 +1975,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .jogo-capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .jogo-iniciais {
-  font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  font-size: 30px; font-weight: 590; letter-spacing: -0.36px;
   color: var(--txt-3);
 }
 
@@ -1953,7 +1986,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   padding: 14px 8px 6px;
   background: linear-gradient(to top, rgba(0, 0, 0, .82), transparent);
   color: #fff;
-  font-size: 11px; font-weight: 700;
+  font-size: 11px; font-weight: 510;
   letter-spacing: .4px; text-transform: uppercase;
   text-align: center;
 }
@@ -1965,7 +1998,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .jogo-nome {
   margin-top: 7px;
-  font-size: 13.5px; font-weight: 600; line-height: 1.25;
+  font-size: 13.5px; font-weight: 510; line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1977,7 +2010,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .capa-previa {
   flex: 0 0 96px; width: 96px;
   aspect-ratio: 3 / 4;
-  border-radius: 12px; overflow: hidden;
+  border-radius: var(--r-campo); overflow: hidden;
   background: var(--card-2);
   border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: center;
@@ -2010,17 +2043,17 @@ body.arrastando-algo .scroll { overflow: hidden; }
   }
   .lat-topo { padding: 0 12px 22px; }
   .lat-topo .eyebrow {
-    font-size: 11.5px; font-weight: 700;
+    font-size: 11.5px; font-weight: 510;
     letter-spacing: 1.4px; text-transform: uppercase;
     color: var(--txt-3);
   }
-  .lat-topo b { display: block; margin-top: 3px; font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+  .lat-topo b { display: block; margin-top: 3px; font-size: 22px; font-weight: 590; letter-spacing: -0.26px; }
 
   .lat-lista { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
   .lat-item {
     display: flex; align-items: center; gap: 12px;
     width: 100%; padding: 11px 12px;
-    border-radius: 12px;
+    border-radius: var(--r-campo);
     color: var(--txt-2);
     font-size: 15px; text-align: left;
     transition: background .15s, color .15s;
@@ -2028,7 +2061,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   .lat-item svg { width: 19px; height: 19px; flex: 0 0 19px; }
   .lat-item span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lat-item:hover { background: var(--fill-1); color: var(--txt); }
-  .lat-item.on { background: var(--fill-2); color: var(--txt); font-weight: 600; }
+  .lat-item.on { background: var(--fill-2); color: var(--txt); font-weight: 510; }
   .lat-item.on svg { color: var(--accent); }
   .lat-fim { margin-top: 8px; }
 
@@ -2097,16 +2130,23 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .stat:active { transform: scale(.98); }
 .stat:hover { border-color: var(--a35); }
 .stat-rot {
-  font-size: 11.5px; font-weight: 700;
+  font-size: 11.5px; font-weight: 510;
   letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--txt-2);
 }
+/* Três cartões lado a lado, cada número na sua cor, davam três acentos
+   disputando a mesma linha — e o da academia saía branco quando não havia
+   treino, o que fazia a fileira parecer inconsistente em vez de colorida. O
+   número é branco; quem identifica a coisa é a barra embaixo dele. */
 .stat b {
   display: block; margin-top: 8px;
-  font-size: clamp(20px, 5.5vw, 27px); font-weight: 800; letter-spacing: -.8px;
-  color: var(--accent);
+  font-size: clamp(20px, 5.5vw, 27px); font-weight: 590; letter-spacing: -0.32px;
+  color: var(--txt);
   font-variant-numeric: tabular-nums;
 }
+/* A exceção: onde a cor É o dado — entrou, saiu, saldo no vermelho — o número
+   volta a ser colorido. Em toda outra parte quem identifica é a barra. */
+.stat.sinal b { color: var(--accent); }
 .stat span {
   display: block; margin-top: 3px;
   font-size: 12.5px; color: var(--txt-2);
@@ -2127,7 +2167,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .meta-linha {
   padding: 0 16px;
-  font-size: 22px; font-weight: 800; letter-spacing: -.5px;
+  font-size: 22px; font-weight: 590; letter-spacing: -0.26px;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
@@ -2137,7 +2177,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .bloco-rot {
   padding: 0 16px 12px;
-  font-size: 11.5px; font-weight: 700;
+  font-size: 11.5px; font-weight: 510;
   letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--txt-2);
 }
@@ -2199,11 +2239,11 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 .agua-cabeca { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 0 16px; }
 .agua-num {
-  display: block; font-size: 34px; font-weight: 800; letter-spacing: -1.2px;
+  display: block; font-size: 34px; font-weight: 590; letter-spacing: -0.41px;
   color: var(--accent);
 }
 .agua-meta { display: block; margin-top: 2px; font-size: 13.5px; color: var(--txt-2); }
-.agua-pct { font-size: 14px; font-weight: 700; color: var(--txt-2); font-variant-numeric: tabular-nums; }
+.agua-pct { font-size: 14px; font-weight: 510; color: var(--txt-2); font-variant-numeric: tabular-nums; }
 .bloco .progress.mini { margin: 12px 16px 0; width: calc(100% - 32px); }
 .agua-copos { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px 8px; }
 .agua-copos .acao { height: 38px; padding: 0 14px; font-size: 14px; }
@@ -2214,7 +2254,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   border-bottom: 1px solid var(--line);
 }
 .gole-txt { flex: 1; min-width: 0; }
-.gole-txt b { display: block; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gole-txt b { display: block; font-size: 16px; font-weight: 510; font-variant-numeric: tabular-nums; }
 .gole-txt span { display: block; font-size: 12.5px; color: var(--txt-3); margin-top: 1px; }
 .gole-txt span:empty { display: none; }
 .gole .acao { height: 34px; padding: 0 14px; font-size: 13.5px; }
@@ -2237,16 +2277,16 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .empty svg { width: 46px; height: 46px; fill: var(--txt-3); margin-bottom: 14px; }
 .empty b { display: block; color: var(--txt); font-size: 19px; margin-bottom: 6px; }
 
-.section-title { padding: 18px 16px 10px; font-size: 15px; color: var(--txt-2); font-weight: 600; }
-.big-title { padding: 4px 20px 14px; font-size: 30px; font-weight: 800; letter-spacing: -.8px; }
-.hint { padding: 0 16px 10px; font-size: 14px; color: var(--txt-3); }
+.section-title { padding: 18px 16px 10px; font-size: 15px; color: var(--txt-2); font-weight: 510; }
+.big-title { padding: 4px 20px 14px; font-size: 30px; font-weight: 590; letter-spacing: -0.36px; }
+.hint { padding: 0 16px 10px; font-size: 14px; color: var(--txt-2); line-height: 1.5; }
 
 .toast {
   position: absolute; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--abas-total) + 20px);
   background: var(--toast-bg);
-  padding: 12px 20px; border-radius: 16px;
-  font-size: 16px; font-weight: 600;
+  padding: 12px 20px; border-radius: var(--r-cartao);
+  font-size: 16px; font-weight: 510;
   z-index: 40;
   animation: toastIn .25s;
   box-shadow: 0 10px 30px var(--sombra);
@@ -2261,14 +2301,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
   background: var(--a22);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--a35);
-  border-radius: 18px;
+  border-radius: var(--r-pilula);
   padding: 12px 16px;
   display: flex; align-items: center; gap: 12px;
   z-index: 30;
 }
-.rest-bar b { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rest-bar b { font-size: 22px; font-weight: 510; color: var(--accent); font-variant-numeric: tabular-nums; }
 .rest-bar span { flex: 1; font-size: 15px; color: var(--txt-2); }
-.rest-bar button { color: var(--accent); font-weight: 700; font-size: 16px; }
+.rest-bar button { color: var(--accent); font-weight: 510; font-size: 16px; }
 
 /* =========================================================
    O PAINEL DO INÍCIO
@@ -2290,7 +2330,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .saudar h1 {
   margin: 6px 0 0;
   font-size: clamp(30px, 8vw, 46px);
-  font-weight: 800; letter-spacing: -1.6px; line-height: 1.04;
+  font-weight: 590; letter-spacing: -1.01px; line-height: 1.04;
 }
 /* o nome sai na cor do contexto: é o único pedaço colorido do cabeçalho, e é
    o que faz o título parecer dirigido a alguém */
@@ -2299,11 +2339,11 @@ body.arrastando-algo .scroll { overflow: hidden; }
   display: flex; align-items: center; gap: 7px;
   flex: 0 0 auto;
   height: 36px; padding: 0 15px;
-  border-radius: 18px;
+  border-radius: var(--r-pilula);
   background: var(--fill-1);
   border: 1px solid var(--line);
   color: var(--txt-2);
-  font-size: 13.5px; font-weight: 600;
+  font-size: 13.5px; font-weight: 510;
   transition: transform .12s, background .15s, color .15s;
 }
 .saudar-btn svg { width: 15px; height: 15px; }
@@ -2344,15 +2384,15 @@ body.arrastando-algo .scroll { overflow: hidden; }
   padding: 0 16px 14px;
 }
 .pcard-rot {
-  font-size: 11.5px; font-weight: 700;
+  font-size: 11.5px; font-weight: 510;
   letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--txt-2);
 }
 .pcard-nota { font-size: 12.5px; color: var(--txt-3); padding-top: 1px; }
 .pcard-sub { display: block; margin-top: 4px; font-size: 14px; color: var(--txt-2); }
-.pcard-lead { padding: 0 16px 12px; font-size: 14.5px; color: var(--txt-2); }
+.pcard-lead { padding: 0 16px 12px; font-size: 15px; color: var(--txt-corpo); }
 .pcard-link {
-  font-size: 13.5px; font-weight: 600; color: var(--accent);
+  font-size: 13.5px; font-weight: 510; color: var(--accent);
   padding: 0; background: none;
 }
 .pcard > .vazio-tracejado { margin-bottom: 10px; }
@@ -2365,7 +2405,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   width: calc(100% - 32px); margin: auto 16px 8px;
   padding: 11px 0 0;
   border-top: 1px dashed var(--fill-3);
-  color: var(--txt-2); font-size: 14.5px; font-weight: 600;
+  color: var(--txt-2); font-size: 14.5px; font-weight: 510;
   background: none;
 }
 .pcard-add svg { width: 15px; height: 15px; fill: var(--accent); }
@@ -2378,7 +2418,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
   background: var(--fill-1);
-  color: var(--txt); font-size: 14.5px; font-weight: 600;
+  color: var(--txt); font-size: 14.5px; font-weight: 510;
   transition: transform .12s, border-color .15s;
 }
 .pcard-btn svg { width: 15px; height: 15px; flex: 0 0 15px; fill: none; stroke: var(--txt-2); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -2397,17 +2437,17 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .prox-dia i {
   display: block; font-style: normal;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 10.5px; font-weight: 510; letter-spacing: 1px; text-transform: uppercase;
   opacity: .8;
 }
 .prox-dia b {
-  display: block; font-size: 21px; font-weight: 800; letter-spacing: -.7px;
+  display: block; font-size: 21px; font-weight: 590; letter-spacing: -0.25px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 .prox-txt { flex: 1; min-width: 0; }
 .prox-txt b {
-  display: block; font-size: 15.5px; font-weight: 600; letter-spacing: -.2px;
+  display: block; font-size: 15.5px; font-weight: 510; letter-spacing: -0.17px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .prox-txt span {
@@ -2420,13 +2460,13 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .estudo-total { text-align: right; flex: 0 0 auto; }
 .estudo-total b {
   display: block;
-  font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1;
-  color: var(--accent);
+  font-size: 26px; font-weight: 590; letter-spacing: -0.31px; line-height: 1;
+  color: var(--txt);
   font-variant-numeric: tabular-nums;
 }
 .estudo-total i {
   display: block; margin-top: 4px; font-style: normal;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  font-size: 10.5px; font-weight: 510; letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--txt-3);
 }
 .estudo-graf { padding: 0 8px; }
@@ -2446,26 +2486,30 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .estudo-pe > div { min-width: 0; }
 .estudo-pe i {
   display: block; font-style: normal;
-  font-size: 10px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+  font-size: 10px; font-weight: 510; letter-spacing: 1.1px; text-transform: uppercase;
   color: var(--txt-3);
 }
 .estudo-pe b {
   display: block; margin-top: 3px;
-  font-size: 15.5px; font-weight: 700; letter-spacing: -.3px;
+  font-size: 15.5px; font-weight: 510; letter-spacing: -0.17px;
   font-variant-numeric: tabular-nums;
 }
 
 /* ---------- cronômetro ---------- */
+/* O visor era um retângulo inteiro na cor, embaixo de um gráfico na cor e ao
+   lado de um botão na cor: sobrava acento e faltava hierarquia. Agora ele é
+   superfície neutra, e o único elemento cromático do cartão é o botão — que é
+   a ação. */
 .crono-visor {
   margin: 4px 16px 14px;
   padding: 18px 10px;
   border-radius: var(--r-sm);
-  background: var(--a10);
-  border: 1px solid var(--a22);
+  background: var(--card-2);
+  border: 1px solid var(--line);
   text-align: center;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: clamp(30px, 9vw, 40px); font-weight: 700; letter-spacing: 2px;
-  color: var(--accent);
+  font-size: clamp(30px, 9vw, 40px); font-weight: 510; letter-spacing: 2px;
+  color: var(--txt);
   font-variant-numeric: tabular-nums;
 }
 .crono-acoes { display: flex; align-items: center; gap: 10px; padding: 0 16px 12px; }
@@ -2501,7 +2545,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .crono-nav { display: flex; align-items: center; gap: 4px; flex: 1 1 240px; min-width: 0; }
 .crono-nav b {
   flex: 1; min-width: 0;
-  font-size: 15px; font-weight: 600; letter-spacing: -.2px;
+  font-size: 15px; font-weight: 510; letter-spacing: -0.16px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .crono-nav .icon-btn {
@@ -2512,8 +2556,8 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .crono-nav .icon-btn:active { background: var(--fill-1); }
 .crono-hoje {
   height: 34px; padding: 0 12px;
-  border-radius: 17px; background: none;
-  color: var(--accent); font-size: 14px; font-weight: 600;
+  border-radius: var(--r-pilula); background: none;
+  color: var(--accent); font-size: 14px; font-weight: 510;
 }
 .crono-hoje:active { background: var(--a15); }
 .crono-barra .pill-btn { height: 36px; padding: 0 16px; font-size: 14.5px; gap: 7px; }
@@ -2524,14 +2568,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .seg {
   display: flex; gap: 2px; margin-left: auto;
   padding: 3px;
-  border-radius: 19px;
+  border-radius: var(--r-pilula);
   background: var(--fill-1);
   border: 1px solid var(--line);
 }
 .seg button {
   height: 30px; padding: 0 14px;
-  border-radius: 16px; background: none;
-  color: var(--txt-2); font-size: 13.5px; font-weight: 600;
+  border-radius: var(--r-pilula); background: none;
+  color: var(--txt-2); font-size: 13.5px; font-weight: 510;
   transition: background .15s, color .15s;
 }
 .seg button.on { background: var(--a22); color: var(--accent); }
@@ -2563,12 +2607,12 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .gc-dia i {
   display: block; font-style: normal;
-  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  font-size: 10px; font-weight: 510; letter-spacing: 1px;
   color: var(--txt-3);
 }
 .gc-dia b {
   display: block; margin-top: 3px;
-  font-size: 19px; font-weight: 700; letter-spacing: -.5px;
+  font-size: 19px; font-weight: 510; letter-spacing: -0.21px;
   font-variant-numeric: tabular-nums;
 }
 /* hoje é o único dia pintado: a coluna inteira ganha um fundo de acento fraco,
@@ -2591,7 +2635,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   border-radius: 7px;
   background: var(--a22);
   color: var(--accent);
-  font-size: 11.5px; font-weight: 600;
+  font-size: 11.5px; font-weight: 510;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gc-chip.feito { opacity: .45; text-decoration: line-through; }
@@ -2632,7 +2676,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .gc-bloco b {
   display: block;
-  font-size: 12.5px; font-weight: 700; letter-spacing: -.1px; line-height: 1.2;
+  font-size: 12.5px; font-weight: 510; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gc-bloco span {
@@ -2661,14 +2705,14 @@ body.arrastando-algo .scroll { overflow: hidden; }
   border-radius: 50%;
   background: var(--a15);
   color: var(--accent);
-  font-size: 22px; font-weight: 700; line-height: 1;
+  font-size: 22px; font-weight: 510; line-height: 1;
   transition: transform .12s, background .15s;
 }
 .meta-passo > button:not(.meta-livre):active { transform: scale(.92); background: var(--a22); }
 .meta-passo > button:not(.meta-livre)[disabled] { opacity: .35; pointer-events: none; }
 .meta-passo b {
   min-width: 96px; text-align: center;
-  font-size: 26px; font-weight: 800; letter-spacing: -.7px;
+  font-size: 26px; font-weight: 590; letter-spacing: -0.31px;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
@@ -2676,7 +2720,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
    100 em 100; ficam como texto para não competir com os dois botões redondos */
 .meta-livre {
   background: none; padding: 0;
-  font-size: 13.5px; font-weight: 600; color: var(--txt-2);
+  font-size: 13.5px; font-weight: 510; color: var(--txt-2);
   text-decoration: underline; text-underline-offset: 3px;
 }
 .meta-livre:active { color: var(--accent); }

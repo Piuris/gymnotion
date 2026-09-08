@@ -22,6 +22,85 @@ No celular a navegação é a cápsula flutuante de baixo; **a partir de 900px d
 largura ela vira uma coluna fixa à esquerda**, e o app serve igual no
 computador. Ver [Duas navegações, um app](#duas-navegações-um-app).
 
+## O sistema visual: instrumento, não pintura
+
+O desenho segue uma referência de sistema no estilo do Linear — escuro, denso,
+sem ornamento — adaptada a uma regra que este app já tinha e não abriu mão: a
+cor identifica a coisa. O que mudou foi **onde** a cor aparece e **quanto peso**
+o resto do sistema carrega.
+
+### Quatro superfícies e uma borda
+
+O fundo não é preto neutro: leva um viés azul que atravessa a escala inteira,
+de `#0A0C10` até a borda. É o que dá o ar de asa noturna sem pintar nada de
+azul — a cor está na base, não em cima dela.
+
+| Degrau | Cor | Onde |
+|---|---|---|
+| 0 | `#0A0C10` | a tela |
+| 1 | `#0F1319` | cartão, barra, folha |
+| 2 | `#161B22` | painel dentro do cartão |
+| — | `#232A33` | a borda de um pixel que separa os três |
+
+**A separação é feita por borda, não por sombra.** Sombra empilha camadas
+falsas; a borda diz onde a superfície começa e termina, e continua dizendo
+quando dois degraus têm quase a mesma luminosidade. Por isso `--line` no tema
+Ardósia é cor sólida e não branco translúcido: sobre o cartão e sobre o fundo
+ela tem exatamente o mesmo peso. Sombra só onde algo de fato flutua — a cápsula
+das abas, a folha, o aviso de descanso.
+
+### Três raios, e mais nada
+
+`12px` para cartão e painel, `6px` para campo e botão, `9999px` para pílula,
+`4px` para selo. Antes havia **dezenove** valores diferentes no arquivo, de 10 a
+28: cada peça tinha o arredondamento que parecia bom no dia em que foi escrita,
+e o conjunto não tinha vocabulário nenhum.
+
+### O peso para de gritar
+
+A escala de peso vai de 400 a 590 e para aí — nada de 700 ou 800. Um número de
+27px em peso 800 na cor do módulo não é ênfase, é ruído: quando tudo grita,
+nada é ouvido. O passe trocou 110 declarações de peso no arquivo.
+
+### O espacejamento sai do corpo, não do olho
+
+A regra da referência: `-0.022em` de 40px para cima, `-0.012em` entre 20 e 32,
+`-0.011em` na faixa de leitura, nada abaixo disso. O arquivo tinha trinta
+valores escolhidos um a um, quase todos mais apertados do que a regra pede — o
+que fazia título grande parecer espremido em vez de firme. Agora o
+espacejamento é função do tamanho.
+
+### Inter fica de fora, a métrica dela não
+
+Inter é a fonte da referência, e ela viria de um CDN — uma fonte de rede quebra
+o app offline, que é a única promessa que ele não pode furar. A fonte do sistema
+(SF Pro no iPhone) tem construção parecida e já está no aparelho. O que dá para
+trazer é a métrica: corpo 16 com entrelinha 1.5, quatro degraus de texto
+(`#FFFFFF` título, `#D0D6E0` leitura, `#8B95A3` apoio, `#646E7C` apagado) e
+números tabulares em toda parte.
+
+### A cor virou lanterna
+
+A regra continua sendo "cor identifica a coisa", mas ela deixou de preencher
+área grande e de pintar número que é só dado:
+
+- **Os três cartões do topo do Início** tinham cada número na sua cor — e o da
+  academia saía branco quando não havia treino, o que fazia a fileira parecer
+  inconsistente em vez de colorida. O número é branco; quem identifica é a barra
+  embaixo dele.
+- **O visor do cronômetro** era um retângulo inteiro na cor, embaixo de um
+  gráfico na cor e ao lado de um botão na cor. Agora é superfície neutra, e o
+  único elemento cromático do cartão é o botão — que é a ação.
+- **A faixa da tarefa** afinou de 3px para 2px: num sistema de borda de um
+  pixel, três viravam um bloco.
+- **A exceção declarada** é o dinheiro: `.stat.sinal` devolve a cor ao número
+  onde a cor *é* o dado — entrou, saiu, saldo no vermelho. Ali o branco
+  esconderia justamente o que precisa saltar.
+
+O que continua colorido: o cartão-herói do treino (um por tela, que é a regra da
+referência para o elemento cromático), a barra de progresso, a faixa da tarefa,
+o ladrilho de cada módulo, o bloco na grade da semana e a curva de cada gráfico.
+
 ## A regra da cor
 
 Cada treino tem uma cor. Essa cor vira a variável CSS `--accent` do bloco em que

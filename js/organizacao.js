@@ -1113,11 +1113,14 @@ function telaFinanceiro() {
     const saldo = entradas - saidas;
     const stats = h('<div class="stats"></div>');
     [
-      ['Entradas', fmtBRL(entradas), COR_ENTRADA, ''],
-      ['Saídas', fmtBRL(saidas), COR_SAIDA, orcamento() ? 'de ' + fmtBRL(orcamento()) + ' de teto' : ''],
-      ['Saldo', fmtBRL(saldo), saldo < 0 ? COR_SAIDA : COR_FINANCEIRO, ''],
-    ].forEach(([rot, val, cor, sub]) => {
-      const c = h(`<div class="stat">
+      /* Aqui a cor não decora: verde e vermelho são o sinal do número, e um
+         saldo negativo em branco esconderia justamente o que precisa saltar.
+         `sinal` é a exceção declarada à regra de número branco. */
+      ['Entradas', fmtBRL(entradas), COR_ENTRADA, '', true],
+      ['Saídas', fmtBRL(saidas), COR_SAIDA, orcamento() ? 'de ' + fmtBRL(orcamento()) + ' de teto' : '', false],
+      ['Saldo', fmtBRL(saldo), saldo < 0 ? COR_SAIDA : COR_FINANCEIRO, '', true],
+    ].forEach(([rot, val, cor, sub, sinal]) => {
+      const c = h(`<div class="stat${sinal ? ' sinal' : ''}">
         <div class="stat-rot">${esc(rot)}</div>
         <b>${esc(val)}</b>
         ${sub ? `<span>${esc(sub)}</span>` : ''}
