@@ -457,6 +457,47 @@ function secaoSub(sobrancelha, titulo, sub) {
   </div>`;
 }
 
+/* Bloco de cadastro na própria tela: rótulo em maiúsculas, campos com etiqueta
+   em cima e o botão no fim da linha. É a mesma peça em todas as telas, e é o
+   que permite acrescentar uma coisa sem abrir folha nenhuma.
+
+   O editor completo — cor, capa, observação — continua no toque sobre o item.
+   Aqui ficam só os campos sem os quais o item não existe. */
+function formBloco(rotulo, campos, rotuloBotao, aoEnviar) {
+  const box = h(`<div class="bloco">
+    <div class="bloco-rot">${esc(rotulo)}</div>
+    <div class="form-linhas">
+      ${campos.map((c) => `<label class="campo${c.cresce ? ' cresce' : ''}${c.curto ? ' curto' : ''}">${esc(c.label)}
+        <input class="text-input" data-c="${c.id}" type="${c.tipo || 'text'}"
+          ${c.modo ? `inputmode="${c.modo}"` : ''} ${c.passo ? `step="${c.passo}"` : ''}
+          placeholder="${esc(c.placeholder || '')}" value="${esc(c.valor == null ? '' : c.valor)}"/>
+      </label>`).join('')}
+      <button class="pill-btn sm form-acao" data-act="ok">${esc(rotuloBotao)}</button>
+    </div>
+  </div>`);
+
+  const ler = () => {
+    const v = {};
+    campos.forEach((c) => { v[c.id] = box.querySelector(`[data-c="${c.id}"]`).value; });
+    return v;
+  };
+  const enviar = () => {
+    const v = ler();
+    /* Só limpa o que o chamador aceitou: recusando, o que foi digitado fica
+       na tela para ser corrigido em vez de sumir. */
+    if (aoEnviar(v) === false) return;
+    campos.forEach((c) => {
+      if (c.mantem) return;
+      box.querySelector(`[data-c="${c.id}"]`).value = c.valor == null ? '' : c.valor;
+    });
+  };
+
+  acts(box, { ok: enviar });
+  /* Enter em qualquer campo faz o mesmo que o botão. */
+  on(box, 'input', 'keydown', (ev) => { if (ev.key === 'Enter') enviar(); });
+  return box;
+}
+
 /* Cartão-herói: o número que importa naquela tela, pintado com a cor do item
    que o gerou — é a mesma regra de sempre, agora ocupando o topo. Os anéis do
    canto são decoração desenhada com a própria cor do texto, então acompanham

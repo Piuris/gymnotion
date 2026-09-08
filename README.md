@@ -480,6 +480,32 @@ mesmo registro que a lista de goles do dia mostra.
 O anel, os botões e as barras usam um azul próprio (`AZUL_AGUA`): água não é
 treino, então não herda a cor de nenhum.
 
+## O desenho das telas
+
+Toda tela abre com **sobrancelha, título e uma frase de apoio** (`secaoSub`),
+seguida de **blocos** — cartões com rótulo em maiúsculas. O vazio de um bloco é
+uma área tracejada: ela diz "aqui vai aparecer algo" em vez de deixar um buraco.
+
+**Cadastrar acontece na própria tela.** `formBloco()` monta o mesmo bloco de
+campos no cronograma, nos estudos, nos jogos, nas metas e no financeiro: rótulo,
+etiquetas em cima dos campos e o botão no fim da linha, com Enter fazendo o
+mesmo que ele. Ele pede só o que o item precisa para existir; **cor, capa,
+observação e estado ficam no editor completo, que abre no toque sobre o item**.
+Foi por isso que o botão flutuante saiu dessas telas — havia dois caminhos para
+a mesma coisa, e um deles cobria a lista.
+
+O formulário só limpa os campos quando o chamador **aceita** o que foi digitado:
+recusando (nome vazio, por exemplo), o texto fica na tela para ser corrigido em
+vez de sumir. Campos marcados com `mantem` — a data, no cronograma —
+sobrevivem ao envio, porque quem lança três compromissos do mesmo dia não quer
+redigitar a data três vezes.
+
+A academia é a exceção que confirma a regra: ela **manteve tudo** — faixa da
+semana, cartão do treino do dia, pílulas de ação, linha do tempo dos exercícios,
+pastas dos outros treinos e o registro do dia — e ganhou só o cabeçalho e o
+bloco de meta semanal. Lá o "cadastro" é montar um treino inteiro, que não cabe
+numa linha de campos.
+
 ## Duas navegações, um app
 
 O mesmo app com a navegação trocada de lugar. **No celular**, uma cápsula

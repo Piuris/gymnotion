@@ -19,6 +19,26 @@ function renderCronograma(el, screen) {
   const scroll = h('<div class="scroll"></div>');
   const abertas = pendentesDoDia(DIA_AGENDA);
   const doDia = tarefasDoDia(DIA_AGENDA);
+  scroll.appendChild(h(secaoSub('Cronograma', 'Agenda', 'Tudo que está marcado')));
+
+  /* Cadastro rápido: o que é, quando e a que horas. Cor, observação e tipo
+     ficam no editor completo, que abre no toque sobre a tarefa. */
+  scroll.appendChild(formBloco('Novo compromisso', [
+    { id: 'titulo', label: 'O que é', placeholder: 'Consulta, prova, reunião...', cresce: true },
+    { id: 'data', label: 'Data', tipo: 'date', valor: dayKey(DIA_AGENDA), mantem: true, curto: true },
+    { id: 'hora', label: 'Hora', tipo: 'time', curto: true },
+  ], 'Adicionar', (v) => {
+    const titulo = String(v.titulo).trim();
+    if (!titulo) { toast('Diga o que é'); return false; }
+    novaTarefa({
+      titulo, data: v.data || dayKey(Date.now()), hora: v.hora || '',
+      tipo: v.hora ? 'compromisso' : 'tarefa',
+    });
+    if (v.data) DIA_AGENDA = tsDaData(v.data);
+    haptic();
+    setTimeout(() => screen.refresh(), 60);
+    return true;
+  }));
 
   /* O herói responde à única pergunta que se faz abrindo a agenda: o que tem
      para hoje. A cor é a do módulo, porque o dia junta tarefas de cores
@@ -38,32 +58,30 @@ function renderCronograma(el, screen) {
 
   scroll.appendChild(calendarioMes(screen));
 
-  scroll.appendChild(h(secao('Plano do dia', 'Suas tarefas')));
-  if (!doDia.length) {
-    scroll.appendChild(h('<div class="hint">Nada marcado para este dia.</div>'));
-  } else {
-    doDia.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
-  }
+  /* Cada faixa de tempo em seu bloco, como no desenho: o dia aberto, o que vem
+     depois, o que ficou para trás e o que não tem data. */
+  const bloco = (rotulo, itens, vazio, mostrarData) => {
+    const b = h(`<div class="bloco"><div class="bloco-rot">${esc(rotulo)}</div></div>`);
+    if (!itens.length) b.appendChild(h(`<div class="vazio-tracejado">${esc(vazio)}</div>`));
+    else itens.forEach((t) => b.appendChild(linhaTarefa(t, screen, mostrarData)));
+    scroll.appendChild(b);
+  };
 
-  /* ---------- o que ficou para trás ---------- */
-  if (atrasadas.length) {
-    scroll.appendChild(h(secao('Ficou para trás', 'Atrasadas · ' + atrasadas.length)));
-    scroll.appendChild(h('<div class="hint" style="padding-bottom:8px">Abertas em dias que já passaram.</div>'));
-    atrasadas.slice(0, 8).forEach((t) => scroll.appendChild(linhaTarefa(t, screen, true)));
-  }
+  const ehHojeAgenda = dayKey(DIA_AGENDA) === dayKey(Date.now());
+  bloco(ehHojeAgenda ? 'Hoje' : fmtDataLonga(DIA_AGENDA), doDia, 'Nada por aqui.');
 
-  /* ---------- sem dia marcado ---------- */
+  const hojeK = dayKey(Date.now());
+  const proximos = S.tarefas
+    .filter((t) => !t.feito && t.data && t.data > hojeK && t.data !== dayKey(DIA_AGENDA))
+    .sort(ordemTarefa).slice(0, 8);
+  bloco('Próximos', proximos, 'Nada por aqui.', true);
+
+  bloco('Anteriores', atrasadas.slice(0, 8), 'Nada por aqui.', true);
+
   const soltas = tarefasSemData();
-  if (soltas.length) {
-    scroll.appendChild(h(secao('Quando der', 'Sem data')));
-    soltas.forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
-  }
+  if (soltas.length) bloco('Sem data', soltas, 'Nada por aqui.');
 
   el.appendChild(scroll);
-
-  const fab = h(`<button class="fab">${icon('plus')}</button>`);
-  fab.addEventListener('click', () => editorTarefa(null, dayKey(DIA_AGENDA), screen));
-  el.appendChild(fab);
 }
 
 /* Grade do mês. Cada dia mostra até três pontinhos com a cor das tarefas dele,
@@ -229,19 +247,29 @@ function telaMetas() {
     const guardado = totalGuardado();
     const alvo = totalDasMetas();
 
-    /* O herói junta metas de cores diferentes, então fica no tom do módulo. */
-    scroll.appendChild(h(heroi({
-      sobrancelha: 'Cofrinho',
-      titulo: fmtBRL(guardado),
-      classe: 'compacto',
-      numero: alvo ? 'de ' + fmtBRL(alvo) + ' somados' : 'Nenhuma meta ainda',
-      nota: alvo ? Math.round((guardado / alvo) * 100) + '% do total guardado' : '',
-    })));
+    scroll.appendChild(h(secaoSub('Metas', 'Cofrinhos',
+      alvo ? fmtBRL(guardado) + ' guardados de ' + fmtBRL(alvo) : 'Separe dinheiro por objetivo')));
+
+    scroll.appendChild(formBloco('Nova meta', [
+      { id: 'nome', label: 'Objetivo', placeholder: 'Viagem, notebook...', cresce: true },
+      { id: 'alvo', label: 'Quanto juntar', tipo: 'number', modo: 'decimal', passo: '0.01', placeholder: '0,00' },
+    ], 'Adicionar', (v) => {
+      const nome = String(v.nome).trim();
+      if (!nome) { toast('Dê um nome à meta'); return false; }
+      novaMeta(nome, Number(String(v.alvo).replace(',', '.')) || 0);
+      haptic();
+      setTimeout(() => screen.refresh(), 60);
+      return true;
+    }));
+
+    scroll.appendChild(h(`<div class="bloco">
+      <div class="bloco-rot">Total guardado</div>
+      <div class="meta-linha">${fmtBRL(guardado)}${alvo ? ' de ' + fmtBRL(alvo) : ''}</div>
+      <div class="progress mini"><i style="width:${alvo ? Math.min(100, (guardado / alvo) * 100) : 0}%"></i></div>
+    </div>`));
 
     if (!S.metas.length) {
-      scroll.appendChild(h('<div class="hint">Cada meta é um cofrinho: você separa um valor por vez e acompanha o quanto falta. Toque no + para criar a primeira.</div>'));
-    } else {
-      scroll.appendChild(h(secao('Seus objetivos', 'Metas')));
+      scroll.appendChild(h('<div class="vazio-tracejado">Nenhuma meta ainda.</div>'));
     }
 
     S.metas.forEach((m) => {
@@ -263,10 +291,6 @@ function telaMetas() {
     });
 
     el.appendChild(scroll);
-
-    const fab = h(`<button class="fab">${icon('plus')}</button>`);
-    fab.addEventListener('click', () => editorMeta(null, screen));
-    el.appendChild(fab);
   }, { name: 'metas' });
 }
 
@@ -406,13 +430,26 @@ function telaEstudos() {
     const semana = estudoDaSemana();
     const meta = metaEstudoSemana();
 
-    scroll.appendChild(h(heroi({
-      sobrancelha: 'Nesta semana',
-      titulo: fmtMin(semana),
-      classe: 'compacto',
-      numero: meta ? 'de ' + fmtMin(meta) + ' de meta' : 'Sem meta definida',
-      nota: meta ? Math.round((semana / meta) * 100) + '% da meta somada' : '',
-    })));
+    const total = S.materias.reduce((a, m) => a + minutosTotais(m), 0);
+    scroll.appendChild(h(secaoSub('Estudos', 'Matérias',
+      total ? fmtMin(total) + ' estudadas no total' : 'Nada estudado ainda')));
+
+    scroll.appendChild(formBloco('Nova matéria', [
+      { id: 'nome', label: 'Nome', placeholder: 'Cálculo, Inglês...', cresce: true },
+    ], 'Adicionar', (v) => {
+      const nome = String(v.nome).trim();
+      if (!nome) { toast('Dê um nome à matéria'); return false; }
+      novaMateria(nome);
+      haptic();
+      setTimeout(() => screen.refresh(), 60);
+      return true;
+    }));
+
+    scroll.appendChild(h(`<div class="bloco">
+      <div class="bloco-rot">Nesta semana</div>
+      <div class="meta-linha">${fmtMin(semana)}${meta ? ' de ' + fmtMin(meta) : ''}</div>
+      <div class="progress mini"><i style="width:${meta ? Math.min(100, (semana / meta) * 100) : 0}%"></i></div>
+    </div>`));
 
     /* Barras dos últimos 14 dias. Cada uma leva a cor da matéria que mais
        rendeu naquele dia — o gráfico junta matérias e não teria cor própria. */
@@ -434,9 +471,8 @@ function telaEstudos() {
       scroll.appendChild(barras);
     }
 
-    scroll.appendChild(h(secao('O que você estuda', 'Matérias')));
     if (!S.materias.length) {
-      scroll.appendChild(h('<div class="hint">Uma matéria guarda os tópicos que você precisa vencer e as horas que já colocou nela. Toque no + para criar a primeira.</div>'));
+      scroll.appendChild(h('<div class="vazio-tracejado">Nenhuma matéria ainda.</div>'));
     }
 
     S.materias.forEach((m) => {
@@ -466,10 +502,6 @@ function telaEstudos() {
     });
 
     el.appendChild(scroll);
-
-    const fab = h(`<button class="fab">${icon('plus')}</button>`);
-    fab.addEventListener('click', () => editorMateria(null, screen));
-    el.appendChild(fab);
   }, { name: 'estudos' });
 }
 
@@ -626,15 +658,22 @@ function telaJogos() {
     const jogando = contaJogos('jogando');
     const zerados = contaJogos('zerado');
 
-    scroll.appendChild(h(heroi({
-      sobrancelha: 'Biblioteca',
-      titulo: total ? total + (total > 1 ? ' jogos' : ' jogo') : 'Estante vazia',
-      classe: 'compacto',
-      numero: total
-        ? jogando + ' jogando · ' + zerados + ' zerados'
-        : 'Toque no + para colocar o primeiro',
-      nota: total && zerados ? Math.round((zerados / total) * 100) + '% da estante concluída' : '',
-    })));
+    scroll.appendChild(h(secaoSub('Jogos', 'Estante',
+      total ? jogando + ' jogando · ' + zerados + ' zerados de ' + total : 'O que você joga e o que falta')));
+
+    /* Título e plataforma bastam para o jogo existir; a capa entra no editor
+       completo, que abre no toque sobre ele. */
+    scroll.appendChild(formBloco('Adicionar jogo', [
+      { id: 'nome', label: 'Título', cresce: true },
+      { id: 'plat', label: 'Plataforma', placeholder: 'PC, PS5, Switch...' },
+    ], 'Adicionar', (v) => {
+      const nome = String(v.nome).trim();
+      if (!nome) { toast('Dê um nome ao jogo'); return false; }
+      novoJogo({ nome, plataforma: String(v.plat).trim() });
+      haptic();
+      setTimeout(() => screen.refresh(), 60);
+      return true;
+    }));
 
     if (total) {
       const chips = h(`<div class="chips" style="padding:2px 16px 10px">
@@ -652,21 +691,19 @@ function telaJogos() {
     }
 
     const lista = jogosPorEstado(FILTRO_JOGOS);
+    const bloco = h('<div class="bloco"><div class="bloco-rot">Sua lista</div></div>');
     if (!lista.length) {
-      scroll.appendChild(h(`<div class="empty">${icon('jogos')}<b>${total ? 'Nada aqui' : 'Estante vazia'}</b>${total
+      bloco.appendChild(h(`<div class="vazio-tracejado">${total
         ? 'Nenhum jogo neste estado. Toque em Todos para ver a estante inteira.'
-        : 'Coloque os jogos que você pretende jogar, marque quando começar e quando zerar.'}</div>`));
+        : 'Estante vazia.'}</div>`));
     } else {
       const grade = h('<div class="estante"></div>');
       lista.forEach((j) => grade.appendChild(capaDoJogo(j, screen)));
-      scroll.appendChild(grade);
+      bloco.appendChild(grade);
     }
+    scroll.appendChild(bloco);
 
     el.appendChild(scroll);
-
-    const fab = h(`<button class="fab">${icon('plus')}</button>`);
-    fab.addEventListener('click', () => editorJogo(null, screen));
-    el.appendChild(fab);
   }, { name: 'jogos' });
 }
 

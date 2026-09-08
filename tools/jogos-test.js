@@ -97,8 +97,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("currentScreen().name === 'jogos'"), 'o módulo abre a estante');
   const corTela = await ev(`getComputedStyle(${tela()}).getPropertyValue('--accent').trim()`);
   ck(corTela === await ev('COR_JOGOS'), 'com a cor própria do módulo (' + corTela + ')');
-  ck(await ev(`${tela()}.querySelector('.hero-titulo').textContent.trim() === 'Estante vazia'`),
-    'o cartão diz que a estante está vazia');
+  ck(await ev(`${tela()}.querySelector('.sec h2').textContent.trim() === 'Estante'`),
+    'com o título do desenho');
+  ck(await ev(`${tela()}.textContent.includes('Estante vazia')`),
+    'e o bloco da lista diz que ela está vazia');
   ck(await ev(`!${tela()}.querySelector('.chips .chip')`),
     'sem filtros quando não há o que filtrar');
   await shot('jg1-vazia');
@@ -108,21 +110,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
      ============================================================ */
   console.log('');
   console.log('colocar jogos:');
-  await ev(`${tela()}.querySelector('.fab').click()`); await sleep(650);
-  ck(await ev("!!document.querySelector('.sheet .capa-previa')"),
-    'o editor mostra a prévia da capa no formato da estante');
-  ck(await ev("document.querySelectorAll('.sheet [data-e]').length === 3"),
-    'com os três estados para escolher');
-  ck(await ev("document.querySelector('.sheet [data-e=fila]').classList.contains('on')"),
-    'começando na fila');
-
+  ck(await ev(`!!${tela()}.querySelector('[data-c="nome"]')`),
+    'o cadastro rápido pede título e plataforma na própria tela');
   await ev(`(function () {
-    document.querySelector('.sheet [data-c=nome]').value = 'Hollow Knight';
-    document.querySelector('.sheet [data-c=plat]').value = 'Switch';
-    document.querySelector('.sheet [data-x=yes]').click();
+    var el = currentScreen().el;
+    el.querySelector('[data-c="nome"]').value = 'Hollow Knight';
+    el.querySelector('[data-c="plat"]').value = 'Switch';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
   })()`);
   await sleep(800);
-  ck(await ev('S.jogos.length === 1'), 'salvar coloca o jogo na estante');
+  ck(await ev('S.jogos.length === 1'), 'adicionar coloca o jogo na estante');
   ck(await ev("S.jogos[0].nome === 'Hollow Knight' && S.jogos[0].estado === 'fila'"),
     'com nome e estado');
   ck(await ev(`${tela()}.querySelectorAll('.estante .jogo').length === 1`),
@@ -132,11 +129,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(`${tela()}.querySelector('.jogo-plat').textContent === 'Switch'`),
     'a plataforma aparece embaixo do nome');
 
-  /* salvar sem nome não pode criar jogo fantasma */
-  await ev(`${tela()}.querySelector('.fab').click()`); await sleep(600);
-  await ev(`document.querySelector('.sheet [data-x=yes]').click()`); await sleep(500);
-  ck(await ev('S.jogos.length === 1'), 'salvar sem nome não cria nada');
-  ck(await ev("!!document.querySelector('.sheet')"), 'e o editor fica aberto para corrigir');
+  /* adicionar sem nome não pode criar jogo fantasma */
+  await ev(`${tela()}.querySelector('.form-linhas [data-act="ok"]').click()`); await sleep(500);
+  ck(await ev('S.jogos.length === 1'), 'adicionar sem nome não cria nada');
+
+  /* o editor completo, com capa e estado, abre pelo item */
+  await ev("editorJogo(S.jogos[0], currentScreen());"); await sleep(650);
+  ck(await ev("!!document.querySelector('.sheet .capa-previa')"),
+    'o editor mostra a prévia da capa no formato da estante');
+  ck(await ev("document.querySelectorAll('.sheet [data-e]').length === 3"),
+    'com os três estados para escolher');
   await ev(`document.querySelector('.sheet [data-x=no]').click()`); await sleep(400);
 
   await ev(`
@@ -219,9 +221,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     FILTRO_JOGOS = 'zerado'; currentScreen().refresh(); 'ok';
   `);
   await sleep(500);
-  ck(await ev(`!!${tela()}.querySelector('.empty')`),
+  ck(await ev(`!!${tela()}.querySelector('.vazio-tracejado')`),
     'um filtro sem resultado explica que não há nada ali');
-  ck(await ev(`${tela()}.querySelector('.empty').textContent.indexOf('Nenhum jogo neste estado') >= 0`),
+  ck(await ev(`${tela()}.querySelector('.vazio-tracejado').textContent.indexOf('Nenhum jogo neste estado') >= 0`),
     'sem dizer que a estante está vazia, porque não está');
   await ev("FILTRO_JOGOS = ''; currentScreen().refresh();"); await sleep(400);
 

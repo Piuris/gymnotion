@@ -352,7 +352,14 @@ function renderAcademia(el, screen) {
   setAccent(contextAccent(), el);
   const scroll = h('<div class="scroll"></div>');
 
-  scroll.appendChild(h(secaoSub('Academia', 'Seus treinos', 'O que fazer e o que já foi feito')));
+  const feitosMeta = treinosNaSemana(inicioDaSemana(selecionado));
+  const metaSem = metaSemanal();
+  scroll.appendChild(h(secaoSub('Academia', 'Treinos', 'Sua constância da semana')));
+  scroll.appendChild(h(`<div class="bloco">
+    <div class="bloco-rot">Meta semanal</div>
+    <div class="meta-linha">${feitosMeta}/${metaSem} treinos</div>
+    <div class="progress mini"><i style="width:${Math.min(100, (feitosMeta / metaSem) * 100)}%"></i></div>
+  </div>`));
 
   /* ---------- faixa da semana: navega entre os dias ---------- */
   const domingo = new Date(inicioDaSemana(selecionado));
@@ -513,6 +520,8 @@ function renderAcademia(el, screen) {
     scroll.appendChild(h(secao('Registro do dia', 'O que você fez')));
     scroll.appendChild(ringsBlock(selecionado));
     doDia.forEach((sess) => scroll.appendChild(sessionCard(sess, screen)));
+    scroll.appendChild(h(`<div class="bloco"><div class="bloco-rot">Histórico</div>
+      <div class="hist-linha">${S.sessions.length} treino(s) registrados no total</div></div>`));
   } else {
     /* dia sem treino: o que dá para fazer */
     if (S.workouts.length) {

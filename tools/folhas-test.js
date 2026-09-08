@@ -140,9 +140,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     });
   })()`);
 
+  /* O cadastro rápido virou formulário na própria tela; o editor completo —
+     que é o que esta suíte mede — abre pelo item. Chamá-lo direto evita
+     depender de qual item está em qual posição da lista. */
+  const EDITOR = {
+    cronograma: "editorTarefa(null, dayKey(Date.now()), currentScreen())",
+    metas: "editorMeta(null, currentScreen())",
+    estudos: "editorMateria(null, currentScreen())",
+  };
   const abrirEditor = async (modulo) => {
     await ev(`popToRoot(); abrirModulo('${modulo}');`); await sleep(650);
-    await ev("currentScreen().el.querySelector('.fab').click()"); await sleep(650);
+    await ev(EDITOR[modulo]); await sleep(650);
   };
 
   const EDITORES = [

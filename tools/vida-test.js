@@ -161,8 +161,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const noMes = await ev('new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()');
   ck(nDias === noMes, 'a grade traz os ' + noMes + ' dias do mês');
   ck(await ev(`${tela()}.querySelectorAll('.cal-dia.hoje').length === 1`), 'hoje aparece marcado');
-  ck(await ev(`${tela()}.textContent.includes('Nada marcado para este dia')`),
+  ck(await ev(`${tela()}.textContent.includes('Nada por aqui')`),
     'e o dia começa vazio');
+  ck(await ev(`!!${tela()}.querySelector('[data-c="titulo"]')`),
+    'com o cadastro rápido na própria tela');
 
   await ev(`
     novaTarefa({ titulo: 'Dentista', hora: '09:00', tipo: 'compromisso', cor: '#FF3B30' });
@@ -196,24 +198,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   `);
   await sleep(450);
   ck(await ev('tarefasAtrasadas().length === 1'), 'a de três dias atrás conta como atrasada');
-  ck(await ev(`${tela()}.textContent.includes('Atrasadas')`), 'e a tela abre uma seção para ela');
+  ck(await ev(`${tela()}.textContent.includes('Anteriores')`), 'e a tela abre um bloco para ela');
 
   console.log('');
   console.log('editor de tarefa:');
-  await ev(`${tela()}.querySelector('.fab').click()`); await sleep(550);
-  ck(await ev("!!document.querySelector('.sheet .form')"), 'o + abre o editor');
-  ck(await ev(`document.querySelector('.sheet [data-c="data"]').value === dayKey(DIA_AGENDA)`),
+  ck(await ev(`${tela()}.querySelector('[data-c="data"]').value === dayKey(DIA_AGENDA)`),
     'já com o dia que está aberto no calendário');
   await shot('v9-editor');
 
+  /* cadastro rápido na tela, e depois o editor completo pelo item */
   await ev(`(function () {
-    var f = document.querySelector('.sheet .form');
-    f.querySelector('[data-c="titulo"]').value = 'Consulta';
-    f.querySelector('[data-tipo="compromisso"]').click();
-    f.querySelector('[data-c="hora"]').value = '16:30';
-    f.querySelector('.campo-cor').click();
+    var el = currentScreen().el;
+    el.querySelector('[data-c="titulo"]').value = 'Consulta';
+    el.querySelector('[data-c="hora"]').value = '16:30';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
   })()`);
-  await sleep(600);
+  await sleep(800);
+  await ev(`(function () {
+    var t = tarefasDoDia().filter(function (x) { return x.titulo === 'Consulta'; })[0];
+    editorTarefa(t, t.data, currentScreen());
+  })()`);
+  await sleep(650);
+  await ev(`document.querySelector('.sheet .campo-cor').click()`); await sleep(600);
   await ev("document.querySelectorAll('.pop .pop-item')[4].click()"); await sleep(500);
   await ev(`document.querySelector('.sheet [data-x="yes"]').click()`);
   await sleep(800);
@@ -221,19 +227,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const t = JSON.parse(nova || 'null');
   ck(!!t, 'salvar cria a tarefa');
   ck(t && t.hora === '16:30', 'com a hora escolhida (' + (t && t.hora) + ')');
-  ck(t && t.tipo === 'compromisso', 'e com o tipo marcado nos chips');
+  ck(t && t.tipo === 'compromisso', 'e com o tipo deduzido da hora preenchida');
   ck(t && t.cor === await ev('COLORS[4].hex'), 'e com a cor escolhida no menu (' + (t && t.cor) + ')');
   ck(await ev("!document.querySelector('.sheet')"), 'o editor fecha depois de salvar');
   ck(await ev(`${tela()}.querySelectorAll('.tarefa')[1].querySelector('.tarefa-txt b').textContent === 'Consulta'`),
     'e ela entra na lista já na posição do horário, entre as 14h e a feita');
 
-  /* salvar sem título não pode criar tarefa fantasma */
+  /* adicionar sem título não pode criar tarefa fantasma */
   const antesVazio = await ev('S.tarefas.length');
-  await ev(`${tela()}.querySelector('.fab').click()`); await sleep(500);
-  await ev(`document.querySelector('.sheet [data-x="yes"]').click()`); await sleep(500);
-  ck(await ev('S.tarefas.length') === antesVazio, 'salvar sem título não cria nada');
-  ck(await ev("!!document.querySelector('.sheet')"), 'e o editor continua aberto para corrigir');
-  await ev(`document.querySelector('.sheet [data-x="no"]').click()`); await sleep(500);
+  await ev(`${tela()}.querySelector('.form-linhas [data-act="ok"]').click()`); await sleep(500);
+  ck(await ev('S.tarefas.length') === antesVazio, 'adicionar sem título não cria nada');
 
   /* navegar de mês não pode arrastar o dia aberto junto */
   const mesAntes = await ev('new Date(MES_AGENDA).getMonth()');
@@ -251,11 +254,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\nmetas:');
   await ev("popToRoot(); abrirModulo('metas');"); await sleep(600);
   ck(await ev("currentScreen().name === 'metas'"), 'a tela de metas abre');
-  ck(await ev(`${tela()}.textContent.includes('cofrinho')`), 'e explica o cofrinho quando está vazia');
+  ck(await ev(`${tela()}.textContent.includes('Nenhuma meta ainda')`),
+    'e diz que ainda não há meta nenhuma');
+  ck(await ev(`!!${tela()}.querySelector('[data-c="nome"]')`),
+    'com o cadastro rápido na própria tela');
 
-  await ev("novaMeta('Viagem', 3000, '#FF2D96'); novaMeta('Notebook', 5000, '#32D6E0'); saveNow(); currentScreen().refresh();");
+  await ev(`(function () {
+    var el = currentScreen().el;
+    el.querySelector('[data-c="nome"]').value = 'Viagem';
+    el.querySelector('[data-c="alvo"]').value = '3000';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
+    return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev("S.metas.length === 1 && S.metas[0].alvo === 3000"),
+    'o cadastro rápido cria a meta com o alvo');
+  await ev("novaMeta('Notebook', 5000, '#32D6E0'); saveNow(); currentScreen().refresh();");
   await sleep(500);
   ck(await ev(`${tela()}.querySelectorAll('.meta-card').length === 2`), 'os dois cofrinhos aparecem');
+  ck(await ev(`${tela()}.textContent.includes('Total guardado')`), 'com o bloco do total');
   /* metas novas entram no topo, entao o primeiro cartao e o ultimo criado */
   const coresMetas = await ev(`(function () {
     var v = [];
@@ -302,7 +319,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("popToRoot(); abrirModulo('estudos');"); await sleep(600);
   ck(await ev("currentScreen().name === 'estudos'"), 'a tela de estudos abre');
 
-  await ev("novaMateria('Cálculo', '#A020F0', 180); saveNow(); currentScreen().refresh();");
+  await ev(`(function () {
+    var el = currentScreen().el;
+    el.querySelector('[data-c="nome"]').value = 'Cálculo';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
+    return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev("S.materias.length === 1 && S.materias[0].nome === 'Cálculo'"),
+    'o cadastro rápido cria a matéria');
+  await ev("S.materias[0].cor = '#A020F0'; S.materias[0].metaSemanal = 180; saveNow(); currentScreen().refresh();");
   await sleep(500);
   ck(await ev(`${tela()}.querySelectorAll('.mat-card').length === 1`), 'a matéria aparece');
   const corMat = await ev(`getComputedStyle(${tela()}.querySelector('.mat-card')).getPropertyValue('--accent').trim()`);
