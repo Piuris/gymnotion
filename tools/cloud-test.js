@@ -25,6 +25,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const MOCK = `
 window.__req = [];
 window.__doc = null;
+window.__updateTime = null; // versão do documento, como o Firestore devolve
+window.__ver = 0;
 window.__falhaGet = null;   // simula o Firestore recusando a leitura
 const fetchReal = window.fetch;
 window.fetch = async (url, opts) => {
@@ -49,7 +51,24 @@ window.fetch = async (url, opts) => {
     return ok({ id_token: 'tok2', refresh_token: 'ref2', user_id: 'uid123', expires_in: '3600' });
   }
   if (url.includes('firestore.googleapis.com')) {
-    if ((opts.method || 'GET') === 'PATCH') { window.__doc = JSON.parse(corpo); return ok(window.__doc); }
+    if ((opts.method || 'GET') === 'PATCH') {
+      /* o Firestore de verdade recusa a escrita quando a pré-condição não bate;
+         é nisso que a sincronização automática se apoia para não sobrescrever */
+      const q = new URL(url).searchParams;
+      const exige = q.get('currentDocument.exists');
+      const versao = q.get('currentDocument.updateTime');
+      if (exige === 'false' && window.__doc) {
+        return erro(400, 'FAILED_PRECONDITION: document already exists');
+      }
+      if (versao && versao !== window.__updateTime) {
+        return erro(400, 'FAILED_PRECONDITION: the stored version does not match');
+      }
+      window.__ver += 1;
+      window.__updateTime = '2030-01-01T00:00:0' + (window.__ver % 10) + '.' + window.__ver + 'Z';
+      window.__doc = JSON.parse(corpo);
+      window.__doc.updateTime = window.__updateTime;
+      return ok(window.__doc);
+    }
     if (window.__falhaGet) return erro(403, window.__falhaGet);
     if (!window.__doc) return new Response(JSON.stringify({}), { status: 404 });
     return ok(window.__doc);
@@ -154,6 +173,10 @@ window.fetch = async (url, opts) => {
   ck(await ev("currentScreen().el.textContent.includes('Entrar ou criar conta')"),
     'seção Conta aparece nas Configurações');
   await shot('c1-perfil-deslogado');
+
+  /* A sincronização sozinha tem seção própria mais adiante; ligada durante as
+     outras, um envio agendado cairia no meio de outra medição. */
+  await ev('S.settings.nuvemAuto = false; saveNow();');
 
   console.log('\nerros traduzidos:');
   ck(await ev("cloudEntrar('existe@x.com', 'segredo123', true).then(() => 'sem erro', e => e.message)")
@@ -276,27 +299,133 @@ window.fetch = async (url, opts) => {
   await fechar('ok'); await sleep(400);
   await ev('window.__falhaGet = null;');
 
-  console.log('\nenvio automático:');
+  console.log('\nquem pode sincronizar sozinho:');
+  await ev('S.settings.nuvemAuto = true; CLOUD.pendente = false; cloudGravar();');
   ck(await ev('cloudJaSincronizou() === true'),
-    'quem já enviou uma vez pode enviar sozinho depois');
+    'quem já enviou uma vez pode sincronizar sozinho depois');
   await ev('CLOUD.sincronizou = false; CLOUD.ultimoEnvio = 0; cloudGravar();');
-  ck(await ev('cloudJaSincronizou() === false'),
-    'um aparelho que nunca trocou dados com a conta, não');
-  ck(await ev('cloudAutoEnviar() === false'),
-    'e ele não envia sozinho: subir um estado vazio apagaria o backup do outro aparelho');
+  ck(await ev('cloudAutoLigado() === false'),
+    'um aparelho que nunca trocou dados com a conta, não: subir o vazio dele apagaria o backup do outro');
+  await ev("cloudAoSalvar(); 'ok'");
+  ck(await ev('cloudPendente() === false'), 'e nem marca pendência enquanto isso');
 
   ck(await ev('cloudEnviar().then(() => true, () => false)'), 'enviar à mão funciona');
-  ck(await ev('cloudJaSincronizou() === true'), 'e libera o envio automático');
-  await ev('ULTIMO_AUTO = 0;');
-  ck(await ev('cloudAutoEnviar() === true'), 'aí ele passa a enviar sozinho');
-  ck(await ev('cloudAutoEnviar() === false'),
-    'mas não duas vezes seguidas: há trava de tempo entre os envios');
+  ck(await ev('cloudAutoLigado() === true'), 'e libera o automático');
+  ck(await ev("S.settings.nuvemAuto = false; cloudAutoLigado()") === false,
+    'desligar nas configurações também para o automático');
+  await ev('S.settings.nuvemAuto = true;');
+
+  console.log('\nsubir sozinho:');
+  await ev("novaTarefa({ titulo: 'Feita no aparelho A' }); saveNow(); 'ok'"); await sleep(300);
+  ck(await ev('cloudPendente() === true'), 'gravar qualquer coisa marca que há novidade local');
+  const antesReq = await ev('window.__req.length');
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'subiu',
+    'e a sincronização sobe isso');
+  ck(await ev('cloudPendente() === false'), 'a pendência sai depois de subir');
+  ck(await ev('window.__req.length') === antesReq + 1,
+    'com uma requisição só: o caminho comum não precisa ler antes de escrever');
+  ck(await ev("CLOUD.updateTime === window.__updateTime"),
+    'e o aparelho passa a conhecer a versão que acabou de gravar');
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'igual',
+    'sem novidade nenhuma, ela não escreve nada');
+
+  console.log('\nbaixar sozinho:');
+  /* o outro aparelho escreveu: aqui isso é simular uma gravação vinda de fora */
+  await ev(`(function () {
+    var fora = JSON.parse(S ? exportJSON() : '{}');
+    fora.tarefas.unshift({ id: 't_fora', titulo: 'Feita no aparelho B', data: dayKey(Date.now()),
+      hora: '', fim: '', tipo: 'tarefa', cor: COR_AGENDA, feito: false, feitoEm: 0, criada: Date.now() });
+    window.__forcado = JSON.stringify(fora);
+    return 'ok';
+  })()`);
+  await ev(`(function () {
+    /* grava direto no servidor falso, sem passar pelo app: é o aparelho B */
+    var guardado = CLOUD.updateTime;
+    window.__ver += 1;
+    window.__updateTime = '2030-02-01T00:00:00.' + window.__ver + 'Z';
+    window.__doc = { fields: { dados: { stringValue: window.__forcado },
+      formato: { stringValue: 'json' },
+      atualizadoEm: { timestampValue: new Date().toISOString() } },
+      updateTime: window.__updateTime };
+    return guardado;
+  })()`);
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'baixou',
+    'a nuvem mais nova, sem nada local esperando, entra sozinha');
+  ck(await ev("S.tarefas.some(function (t) { return t.titulo === 'Feita no aparelho B'; })"),
+    'e a tarefa feita no outro aparelho aparece aqui');
+  ck(await ev('cloudPendente() === false'),
+    'aplicar o que veio de fora não marca pendência: senão voltaria para a nuvem em eco');
+  ck(await ev('CLOUD.updateTime === window.__updateTime'), 'a versão conhecida acompanha');
+
+  /* com uma folha aberta, o estado não pode trocar por baixo dela */
+  await ev(`(function () {
+    window.__ver += 1;
+    window.__updateTime = '2030-02-15T00:00:00.' + window.__ver + 'Z';
+    window.__doc.updateTime = window.__updateTime;
+    return 'ok';
+  })()`);
+  await ev("promptSheet('Teste', '', '', function () {});"); await sleep(600);
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'ocupado',
+    'com uma folha aberta ela espera: aplicar agora apagaria o que está sendo digitado');
+  await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'baixou',
+    'fechada a folha, ela aplica');
+
+  console.log('\nos dois lados mudaram:');
+  await ev("novaTarefa({ titulo: 'Só aqui' }); saveNow(); 'ok'"); await sleep(300);
+  await ev(`(function () {
+    window.__ver += 1;
+    window.__updateTime = '2030-03-01T00:00:00.' + window.__ver + 'Z';
+    window.__doc.updateTime = window.__updateTime;
+    return 'ok';
+  })()`);
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'conflito',
+    'com novidade dos dois lados, ela não escolhe sozinha');
+  ck(await ev("!!document.querySelector('.sheet')"), 'abre a folha do conflito');
+  ck((await ev(sheetH3)).indexOf('dois lados') > 0,
+    'dizendo que os dois mudaram (' + await ev(sheetH3) + ')');
+  ck(await ev("document.querySelectorAll('.sheet-col .pill-btn').length === 3"),
+    'com as três saídas: ficar com um lado, com o outro, ou salvar uma cópia antes');
+  ck(await ev("S.tarefas.some(function (t) { return t.titulo === 'Só aqui'; })"),
+    'e nada foi apagado enquanto ela está aberta');
+  await shot('c4-conflito');
+
+  await ev("document.querySelector('.sheet [data-x=local]').click()"); await sleep(900);
+  ck(await ev("!document.querySelector('.sheet')"), 'escolher fecha a folha');
+  ck(await ev('cloudPendente() === false'),
+    'ficar com este aparelho manda tudo para a nuvem, sem pré-condição nenhuma');
+  ck(await ev("S.tarefas.some(function (t) { return t.titulo === 'Só aqui'; })"),
+    'e o que era daqui continua aqui');
+
+  console.log('\na trava da pré-condição:');
+  await ev("novaTarefa({ titulo: 'Corrida' }); saveNow(); 'ok'"); await sleep(300);
+  await ev(`(function () {
+    window.__ver += 1;
+    window.__updateTime = '2030-04-01T00:00:00.' + window.__ver + 'Z';
+    window.__doc.updateTime = window.__updateTime;
+    return 'ok';
+  })()`);
+  const guardadoAntes = await ev('window.__doc.fields.dados.stringValue.length');
+  ck(await ev("cloudSubirPendente().then((r) => r)") === 'conflito',
+    'o envio seguro desiste quando o documento mudou desde a última olhada');
+  ck(await ev('window.__doc.fields.dados.stringValue.length') === guardadoAntes,
+    'e o que estava lá continua lá, em vez de ser sobrescrito em silêncio');
+  await ev('CLOUD.updateTime = window.__updateTime; cloudGravar();');
+  ck(await ev("cloudSubirPendente().then((r) => r)") === 'subiu',
+    'sabendo a versão certa, ele sobe');
+
+  console.log('\nno meio de um treino, ninguém mexe:');
+  await ev("S.active = { workoutId: 'w', name: 'Peito', color: '#FF2D96', running: true, exercises: [], startedAt: Date.now() };");
+  ck(await ev("sincronizarNuvem('teste').then((r) => r)") === 'treino',
+    'aplicar um estado vindo de fora apagaria a sessão que está correndo');
+  await ev('S.active = null; saveNow();'); await sleep(200);
 
   /* restaurar também libera, porque o aparelho passa a ter o que a conta tem */
-  await ev('CLOUD.sincronizou = false; CLOUD.ultimoEnvio = 0; cloudGravar();');
-  await ev("cloudBaixar().then((r) => { aplicarRestauracao(r.texto); return 'ok'; })");
+  await ev('S.settings.nuvemAuto = false; CLOUD.sincronizou = false; CLOUD.ultimoEnvio = 0; cloudGravar();');
+  await ev("cloudBaixar().then((r) => { aplicarRestauracao(r.texto, null, r.updateTime); return 'ok'; })");
   await sleep(700);
-  ck(await ev('cloudJaSincronizou() === true'), 'restaurar também libera o envio automático');
+  ck(await ev('cloudJaSincronizou() === true'), 'restaurar também libera o automático');
+  ck(await ev('cloudPendente() === false'), 'e não deixa pendência para trás');
 
   console.log('\nsair:');
   await ev("popToRoot(); abrirModulo('config');"); await sleep(300);
@@ -306,6 +435,8 @@ window.fetch = async (url, opts) => {
   ck(await ev("localStorage.getItem('gymnotion.cloud') === null"), 'sair apaga o token guardado');
   ck(await ev('cloudJaSincronizou() === false'),
     'e zera a marca de sincronização: entrar de novo volta a esperar por você');
+  ck(await ev("CLOUD.updateTime === '' && CLOUD.pendente === false"),
+    'junto com a versão conhecida e a pendência, que são de uma conta só');
   ck(await ev('S.workouts.length === 1'), 'sair NÃO apaga os treinos do aparelho');
 
   console.log('\nproblemas:', bad.length);

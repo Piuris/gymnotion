@@ -95,7 +95,8 @@ const DEFAULT_STATE = {
     orcamento: 0,         // teto de gasto no mês; 0 = sem teto
     metaAgua: 0,
     nome: '',              // usado na saudação do Início; vazio some sem estorvar
-    cronoModo: '',         // 'semana' | 'dia'; vazio deixa a largura da tela decidir          // ml por dia; 0 = calcula a partir do peso
+    cronoModo: '',         // 'semana' | 'dia'; vazio deixa a largura da tela decidir
+    nuvemAuto: true,       // sobe e baixa sozinho quando há conta configurada          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
 };
@@ -225,17 +226,28 @@ function load() {
 }
 
 let saveTimer = null;
+
+/* Toda gravação avisa a nuvem, que marca "há coisa nova aqui" e agenda o envio.
+   O aviso é um gancho e não uma chamada direta porque js/cloud.js carrega
+   depois deste arquivo — e porque sem conta configurada ele simplesmente não
+   existe, e o app segue local como sempre foi. */
+function avisarNuvem() {
+  if (typeof cloudAoSalvar === 'function') cloudAoSalvar();
+}
+
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try { localStorage.setItem(KEY, JSON.stringify(S)); }
     catch (e) { console.error('falha ao salvar', e); }
+    avisarNuvem();
   }, 120);
 }
 
 function saveNow() {
   clearTimeout(saveTimer);
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { console.error(e); }
+  avisarNuvem();
 }
 
 const uid = (p) => p + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);

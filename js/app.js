@@ -1181,6 +1181,20 @@ function renderConfig(el, screen) {
         'Os treinos continuam neste aparelho. A cópia na nuvem também continua lá.',
         'Sair', () => { cloudEsquecer(); screen.refresh(); toast('Você saiu da conta'); }),
         CLOUD.email));
+      /* O estado da sincronização é a primeira coisa: enviar e restaurar à mão
+         viraram o conserto, e não o caminho de todo dia. */
+      const auto = S.settings.nuvemAuto !== false;
+      scroll.appendChild(row('Sincronização automática', auto ? 'ligada' : 'desligada',
+        () => {
+          S.settings.nuvemAuto = !auto;
+          saveNow();
+          screen.refresh();
+          toast(auto ? 'Sincronização automática desligada' : 'Sincronizando sozinho a partir de agora');
+          if (!auto) setTimeout(() => sincronizarNuvem('ligou'), 300);
+        },
+        auto
+          ? (cloudPendente() ? 'Há mudanças esperando para subir' : 'Em dia · último envio: ' + quando)
+          : 'Enquanto estiver desligada, só o botão abaixo envia'));
       scroll.appendChild(row('Enviar para a nuvem', '', () => enviarNuvem(screen), 'Último envio: ' + quando));
       scroll.appendChild(row('Restaurar da nuvem', '', () => restaurarNuvem(screen),
         'Substitui o que está neste aparelho'));
@@ -1743,7 +1757,7 @@ async function ofertaRestaurar(screen) {
     'Há um backup de ' + fmtDate(remoto.atualizadoEm) + ' na sua conta. Restaurar substitui o '
     + 'que está neste aparelho: ' + S.sessions.length + ' treino(s), ' + S.tarefas.length
     + ' tarefa(s) e ' + S.lancamentos.length + ' lançamento(s).',
-    'Restaurar', () => aplicarRestauracao(remoto.texto, screen));
+    'Restaurar', () => aplicarRestauracao(remoto.texto, screen, remoto.updateTime));
 }
 
 /* Um aviso que fica na tela até ser lido. Com `toast` a explicação some em dois
@@ -1775,21 +1789,139 @@ async function restaurarNuvem(screen) {
   if (!remoto) { toast('Nenhum backup na sua conta ainda'); return; }
   confirmSheet('Restaurar da nuvem?',
     'Backup de ' + fmtDate(remoto.atualizadoEm) + '. Tudo que está neste aparelho será substituído.',
-    'Restaurar', () => aplicarRestauracao(remoto.texto, screen));
+    'Restaurar', () => aplicarRestauracao(remoto.texto, screen, remoto.updateTime));
 }
 
-function aplicarRestauracao(texto) {
+function aplicarRestauracao(texto, screen, versao) {
   try {
     importJSON(texto);
     /* a partir daqui este aparelho pode enviar sozinho: ele já tem o que a
        conta tem, então não vai sobrescrever a nuvem com um estado vazio */
     if (typeof cloudMarcarSincronizado === 'function') cloudMarcarSincronizado();
+    /* `importJSON` gravou, e gravar marca pendente — mas o que acabou de
+        entrar veio da nuvem e não tem por que voltar para lá */
+    if (typeof cloudMarcarVersao === 'function') cloudMarcarVersao(versao || '');
+    if (typeof cloudLimparPendente === 'function') cloudLimparPendente();
     popToRoot();
     currentScreen().refresh();
     toast('Restaurado da nuvem');
   } catch (e) {
     toast('Backup da nuvem ilegível');
   }
+}
+
+/* =========================================================
+   SINCRONIZAÇÃO AUTOMÁTICA
+
+   Backup é mão única: o aparelho manda uma cópia e pronto. Sincronizar é mão
+   dupla, e mão dupla precisa responder a uma pergunta que backup nenhum faz —
+   quem está mais novo. Quatro casos, e um deles não tem resposta automática:
+
+     nuvem parada, aparelho parado ....... nada a fazer
+     nuvem parada, aparelho com novidade . sobe
+     nuvem com novidade, aparelho parado . baixa e aplica
+     os dois com novidade ................ pergunta
+
+   O último é conflito de verdade. O estado vai inteiro num documento só, então
+   não existe juntar as duas metades: dá para escolher um lado, e é isso que a
+   folha oferece — dizendo o que se perde de cada jeito.
+   ========================================================= */
+
+let SINCRONIZANDO = false;
+let CONFLITO_ABERTO = 0;
+
+async function sincronizarNuvem(motivo) {
+  if (SINCRONIZANDO || !cloudAutoLigado()) return 'parado';
+  /* nunca no meio de um treino: aplicar um estado vindo de fora apagaria a
+     sessão que está correndo, com séries já anotadas dentro dela */
+  if (S.active) return 'treino';
+
+  SINCRONIZANDO = true;
+  try {
+    /* o caminho comum é só ter novidade local; tentar subir direto resolve com
+       uma requisição, e a pré-condição avisa quando não dá */
+    if (cloudPendente()) {
+      const r = await cloudSubirPendente();
+      if (r !== 'conflito') return r;
+    }
+
+    const remoto = await cloudBaixar();
+    if (!remoto) return 'vazio';
+
+    const nuvemNova = remoto.updateTime && remoto.updateTime !== CLOUD.updateTime;
+    if (!nuvemNova) { cloudMarcarVersao(remoto.updateTime); return 'igual'; }
+
+    /* Trocar o estado por baixo de uma folha aberta é perder o que a pessoa
+       está digitando: o editor continua com o objeto antigo na mão e salva por
+       cima do que acabou de chegar. Subir é seguro; aplicar espera. */
+    if (document.querySelector('.sheet')) return 'ocupado';
+
+    if (cloudPendente()) { perguntarConflito(remoto); return 'conflito'; }
+
+    aplicarDaNuvem(remoto);
+    return 'baixou';
+  } catch (e) {
+    console.warn('[nuvem] sincronização adiada:', e.message);
+    return 'erro';
+  } finally {
+    SINCRONIZANDO = false;
+  }
+}
+
+function aplicarDaNuvem(remoto) {
+  try {
+    importJSON(remoto.texto);
+  } catch (e) {
+    console.warn('[nuvem] backup ilegível:', e.message);
+    return;
+  }
+  cloudMarcarVersao(remoto.updateTime);
+  cloudLimparPendente();
+  cloudMarcarSincronizado();
+  aplicarTema(S.settings.tema);
+  const sc = currentScreen();
+  if (sc) sc.refresh();
+  if (typeof atualizarLateral === 'function') atualizarLateral();
+  toast('Atualizado pela nuvem');
+}
+
+/* A folha do conflito não some sozinha nem some ao tocar fora sem escolher:
+   ela reaparece no próximo encontro. Mas não a cada minuto — quem quer decidir
+   depois precisa poder usar o app até lá. */
+function perguntarConflito(remoto) {
+  if (Date.now() - CONFLITO_ABERTO < 10 * 60 * 1000) return;
+  CONFLITO_ABERTO = Date.now();
+
+  const box = h(`<div>
+    <h3>Os dois lados mudaram</h3>
+    <p class="desc">Este aparelho tem coisas que a nuvem não tem, e a nuvem tem
+      coisas que ele não tem. O backup vai inteiro num arquivo só, então não dá
+      para juntar as duas metades — escolha qual fica.
+      Na nuvem: ${esc(fmtDate(remoto.atualizadoEm))}.</p>
+    <div class="sheet-col">
+      <button class="pill-btn" data-x="local">Ficar com este aparelho</button>
+      <button class="pill-btn grey" data-x="nuvem">Ficar com o que está na nuvem</button>
+      <button class="pill-btn grey" data-x="baixar">Salvar uma cópia antes</button>
+    </div>
+  </div>`);
+  const r = openSheet(box, { center: true });
+  box.querySelector('[data-x="local"]').addEventListener('click', () => {
+    r.close();
+    toast('Enviando este aparelho...');
+    cloudEnviar().then(
+      () => { CONFLITO_ABERTO = 0; toast('A nuvem agora é a cópia deste aparelho'); },
+      (e) => toast(e.message));
+  });
+  box.querySelector('[data-x="nuvem"]').addEventListener('click', () => {
+    r.close();
+    CONFLITO_ABERTO = 0;
+    aplicarDaNuvem(remoto);
+  });
+  box.querySelector('[data-x="baixar"]').addEventListener('click', () => {
+    r.close();
+    doExport();
+    CONFLITO_ABERTO = 0;   /* volta a perguntar no próximo encontro */
+  });
 }
 
 /* Os treinos existem só neste aparelho: sem conta e sem servidor, o backup é a
@@ -2782,10 +2914,14 @@ function boot() {
     /* Sair do app é o momento certo de subir: o estado acabou de parar de
        mudar. Antes só o fim de um treino enviava, e quem só anotava tarefa ou
        gasto ficava semanas sem backup nenhum. */
-    if (document.hidden) cloudAutoEnviar();
+    /* Os dois momentos que importam: sair do app é quando o estado acabou de
+       parar de mudar, e voltar para ele é quando o outro aparelho pode ter
+       mexido enquanto isso. */
+    if (document.hidden) sincronizarNuvem('saindo');
     if (!document.hidden) {
       const sc = currentScreen();
       if (sc) sc.refresh();
+      sincronizarNuvem('voltando');
     }
   });
 

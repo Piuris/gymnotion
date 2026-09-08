@@ -2587,3 +2587,8 @@ body.arrastando-algo .scroll { overflow: hidden; }
 /* o cartão do painel também aparece solto numa tela que rola, e aí precisa da
    mesma margem lateral dos blocos */
 .scroll > .pcard { margin: 0 16px 14px; }
+
+/* Folha com três saídas empilhadas: lado a lado, "Ficar com o que está na
+   nuvem" não caberia em botão nenhum sem virar reticências. */
+.sheet-col { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.sheet-col .pill-btn { width: 100%; height: 46px; font-size: 16px; }

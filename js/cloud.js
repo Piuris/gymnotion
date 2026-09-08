@@ -18,6 +18,12 @@ const CLOUD = {
   expiraEm: 0,
   ultimoEnvio: 0,
   sincronizou: false,   // já enviou ou restaurou nesta instalação
+  /* A versão do documento que este aparelho conhece, como o Firestore a
+     nomeia. É com ela que o envio automático pergunta "ainda é a mesma que eu
+     vi?" antes de escrever por cima — sem isso, dois aparelhos editando no
+     mesmo dia se apagam em silêncio. */
+  updateTime: '',
+  pendente: false,      // há mudança local ainda não enviada
 };
 
 const cloudConfigurado = () => !!(FIREBASE.apiKey && FIREBASE.projectId);
@@ -36,7 +42,11 @@ function cloudGravar() {
 }
 
 function cloudEsquecer() {
-  Object.assign(CLOUD, { idToken: null, refreshToken: null, uid: null, email: null, expiraEm: 0, ultimoEnvio: 0, sincronizou: false });
+  clearTimeout(TIMER_AUTO);
+  Object.assign(CLOUD, {
+    idToken: null, refreshToken: null, uid: null, email: null,
+    expiraEm: 0, ultimoEnvio: 0, sincronizou: false, updateTime: '', pendente: false,
+  });
   try { localStorage.removeItem(CLOUD_KEY); } catch (e) { /* nada a fazer */ }
 }
 
@@ -174,7 +184,13 @@ function docURL() {
     + '/databases/(default)/documents/usuarios/' + CLOUD.uid;
 }
 
-async function cloudEnviar() {
+/* `seguro: true` só grava se o documento ainda estiver na versão que este
+   aparelho viu por último. É o que separa "sincronizar" de "sobrescrever": o
+   envio automático usa o modo seguro e desiste com `e.conflito` quando o outro
+   aparelho escreveu no meio do caminho; o botão "Enviar para a nuvem" continua
+   sem pré-condição, porque ali a pessoa está mandando na mão. */
+async function cloudEnviar(opts) {
+  const o = opts || {};
   const token = await cloudToken();
   const bruto = exportJSON();
   const { formato, dados } = await compactar(bruto);
@@ -193,16 +209,33 @@ async function cloudEnviar() {
     },
   };
 
-  const res = await fetch(docURL(), {
+  let url = docURL();
+  if (o.seguro) {
+    url += CLOUD.updateTime
+      ? '?currentDocument.updateTime=' + encodeURIComponent(CLOUD.updateTime)
+      : '?currentDocument.exists=false';
+  }
+
+  const res = await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: JSON.stringify(corpo),
   });
   const d = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(traduzErro(d.error && d.error.message));
+  if (!res.ok) {
+    const cru = (d.error && d.error.message) || '';
+    if (o.seguro && /FAILED_PRECONDITION|does not match|already exists/i.test(cru)) {
+      const e = new Error('A nuvem mudou desde a última vez que este aparelho olhou.');
+      e.conflito = true;
+      throw e;
+    }
+    throw new Error(traduzErro(cru));
+  }
 
   CLOUD.ultimoEnvio = Date.now();
   CLOUD.sincronizou = true;
+  CLOUD.pendente = false;
+  CLOUD.updateTime = d.updateTime || CLOUD.updateTime;
   cloudGravar();
   return { bytes: dados.length, formato };
 }
@@ -223,6 +256,9 @@ async function cloudBaixar() {
   return {
     texto,
     atualizadoEm: f.atualizadoEm ? Date.parse(f.atualizadoEm.timestampValue) : 0,
+    /* quem gravou por último, segundo o próprio Firestore — comparar isto é
+       imune a relógio adiantado num dos aparelhos */
+    updateTime: d.updateTime || '',
   };
 }
 
@@ -242,17 +278,60 @@ function cloudMarcarSincronizado() {
   cloudGravar();
 }
 
-/* Envio automático com trava de tempo: guardar tarefa, gasto e jogo mexe no
-   estado o tempo todo, e subir a cada tecla seria desperdício. */
-let ULTIMO_AUTO = 0;
-const AUTO_A_CADA = 60 * 1000;
+/* Marca qual versão do documento este aparelho conhece. Chamado depois de
+   baixar e depois de aplicar o que veio de fora. */
+function cloudMarcarVersao(updateTime) {
+  CLOUD.updateTime = updateTime || '';
+  cloudGravar();
+}
 
-function cloudAutoEnviar() {
-  if (!cloudConfigurado() || !cloudLogado() || !cloudJaSincronizou()) return false;
-  if (Date.now() - ULTIMO_AUTO < AUTO_A_CADA) return false;
-  ULTIMO_AUTO = Date.now();
-  cloudEnviarEmSegundoPlano();
-  return true;
+const cloudPendente = () => !!CLOUD.pendente;
+
+function cloudLimparPendente() {
+  clearTimeout(TIMER_AUTO);
+  CLOUD.pendente = false;
+  cloudGravar();
+}
+
+/* ---------- sincronização automática ----------
+
+   Quem coordena é o app (`sincronizarNuvem`), porque decidir entre subir,
+   baixar e perguntar mexe em tela. Aqui fica só o gatilho: toda gravação local
+   marca que há coisa nova e agenda o envio para daqui a pouco.
+
+   A espera existe porque anotar uma tarefa grava várias vezes seguidas — subir
+   a cada gravação seria uma requisição por tecla. */
+const ESPERA_AUTO = 12 * 1000;
+let TIMER_AUTO = null;
+let AO_SINCRONIZAR = null;   // preenchido pelo app
+
+function cloudQuandoSincronizar(fn) { AO_SINCRONIZAR = fn; }
+
+const cloudAutoLigado = () => cloudConfigurado() && cloudLogado() && cloudJaSincronizou()
+  && S.settings.nuvemAuto !== false;
+
+function cloudAoSalvar() {
+  if (!cloudAutoLigado()) return;
+  CLOUD.pendente = true;
+  cloudGravar();
+  clearTimeout(TIMER_AUTO);
+  TIMER_AUTO = setTimeout(() => {
+    if (AO_SINCRONIZAR) AO_SINCRONIZAR('mudança');
+  }, ESPERA_AUTO);
+}
+
+/* Sobe o que está pendente sem perguntar nada. Devolve o que aconteceu, para o
+   coordenador decidir se precisa envolver a pessoa. */
+async function cloudSubirPendente() {
+  if (!cloudPendente()) return 'nada';
+  try {
+    await cloudEnviar({ seguro: true });
+    return 'subiu';
+  } catch (e) {
+    if (e.conflito) return 'conflito';
+    console.warn('[nuvem] envio adiado:', e.message);
+    return 'erro';
+  }
 }
 
 cloudCarregar();

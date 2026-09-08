@@ -73,9 +73,9 @@ registra (não é HTTPS), mas a interface toda funciona.
 ## Backup na nuvem (Firebase)
 
 Opcional e desligado por padrão. Sem configurar, o app funciona exatamente como
-antes: tudo local, sem conta, sem rede. Com configurado, o estado inteiro vai
-para o Firestore ao concluir cada treino, e você recupera tudo entrando com a
-mesma conta em outro aparelho.
+antes: tudo local, sem conta, sem rede. Com configurado, o estado inteiro vai e
+volta sozinho do Firestore — sobe quando você anota, desce quando o outro
+aparelho anotou — e entrar com a mesma conta em qualquer lugar traz tudo.
 
 **Não usa o SDK do Firebase.** O SDK modular pesaria 300–400 KB e exigiria
 empacotador ou script de CDN — que quebraria o funcionamento offline. Para
@@ -100,18 +100,65 @@ vazia** (avisa que não há backup e manda enviar do aparelho que tem os dados) 
 O aviso fica na tela até ser lido, e não some sozinho como um `toast`: é
 justamente a explicação que diz o que fazer em seguida.
 
-### Enviar sozinho, mas só depois de sincronizar uma vez
+### Sincronização automática
 
-Antes só o fim de um treino, a criação da conta e o envio manual subiam dados.
-Quem passou a semana anotando tarefa, gasto e jogo ficava sem backup nenhum.
-Agora `cloudAutoEnviar()` sobe quando o app é escondido — o momento em que o
-estado acabou de parar de mudar — com trava de um minuto entre os envios.
+**Backup é mão única**: o aparelho manda uma cópia e pronto. **Sincronizar é mão
+dupla**, e mão dupla precisa responder a uma pergunta que backup nenhum faz —
+quem está mais novo. São quatro casos, e um deles não tem resposta automática:
 
-A trava importante, porém, é outra: **ele se recusa a enviar até este aparelho
-ter enviado ou restaurado uma vez** (`cloudJaSincronizou()`). Sem isso, entrar
-com a conta num computador vazio e trocar de aba subiria o vazio por cima do
-backup feito no celular — apagando tudo sem um clique sequer. Restaurar marca a
-sincronização; sair da conta desmarca.
+| nuvem | este aparelho | o que acontece |
+|---|---|---|
+| parada | parado | nada |
+| parada | com novidade | sobe |
+| com novidade | parado | baixa e aplica, com um aviso |
+| com novidade | com novidade | **pergunta** |
+
+Quem coordena é `sincronizarNuvem()`, em [js/app.js](js/app.js) — decidir entre
+subir, baixar e perguntar mexe em tela, então não é assunto de `cloud.js`.
+
+**Quando ela roda:** ao abrir o app, ao sair dele, ao voltar para ele, a cada
+cinco minutos com o app aberto, e doze segundos depois da última gravação. A
+espera de doze segundos existe porque anotar uma tarefa grava várias vezes
+seguidas — subir a cada gravação seria uma requisição por tecla. Sem SDK não há
+escuta em tempo real; a checagem é por relógio, e cinco minutos é o intervalo
+que não pesa e ainda pega o aparelho do lado antes de alguém desistir e conferir
+na mão.
+
+**Como ela sabe se a nuvem mudou:** pelo `updateTime` que o próprio Firestore
+devolve, guardado em `CLOUD.updateTime`. Comparar carimbos de hora que cada
+aparelho escreve seria refém do relógio de cada um; o `updateTime` é do
+servidor.
+
+**O que impede dois aparelhos de se apagarem:** todo envio automático vai com
+`currentDocument.updateTime` na URL — o Firestore só grava se o documento ainda
+estiver na versão que este aparelho viu. Se o outro escreveu no meio do caminho,
+a escrita é recusada (`FAILED_PRECONDITION`), o app percebe e cai no caso do
+conflito em vez de sobrescrever em silêncio. O botão **Enviar para a nuvem**
+continua sem pré-condição: ali a pessoa está mandando na mão, e mandar na mão é
+justamente dizer "a minha vale".
+
+**Três coisas que ela nunca faz:**
+
+- **Não sobe até este aparelho ter enviado ou restaurado uma vez**
+  (`cloudJaSincronizou()`). Sem isso, entrar com a conta num computador vazio e
+  trocar de aba subiria o vazio por cima do backup feito no celular.
+- **Não aplica nada durante um treino.** O estado que vem de fora apagaria a
+  sessão que está correndo, com séries já anotadas dentro dela.
+- **Não aplica nada com uma folha aberta.** O editor continuaria com o objeto
+  antigo na mão e salvaria por cima do que acabou de chegar. Subir é seguro;
+  aplicar espera a folha fechar.
+
+### Quando os dois lados mudaram
+
+O estado vai inteiro num documento só, então **não existe juntar as duas
+metades**. A folha diz isso com todas as letras e oferece três saídas: ficar com
+este aparelho, ficar com o que está na nuvem, ou salvar uma cópia em arquivo
+antes de decidir. Ela não volta a perguntar por dez minutos — quem quer decidir
+depois precisa poder usar o app até lá.
+
+Dá para desligar tudo em **Configurações → Sincronização automática**. A mesma
+linha diz o estado: "em dia" com a hora do último envio, ou "há mudanças
+esperando para subir".
 
 ### Como ligar
 
