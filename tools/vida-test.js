@@ -509,6 +509,43 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'registrar soma os minutos na matéria escolhida');
   ck(await ev('cronoEstudoMs() === 0'), 'e o relógio volta a zero');
 
+  console.log('\no cronômetro nas telas de estudo:');
+  await ev("popToRoot(); abrirModulo('estudos');"); await sleep(700);
+  ck(await ev(`!!${tela()}.querySelector('.crono-visor')`),
+    'a tela de Estudos também traz o relógio');
+  ck(await ev(`!${tela()}.querySelector('.pcard.crono .pcard-link')`),
+    'sem o link de Abrir, que ali levaria para a própria tela');
+  ck(await ev(`${tela()}.querySelector('.pcard.crono').compareDocumentPosition(
+    ${tela()}.querySelector('.form-linhas')) & Node.DOCUMENT_POSITION_FOLLOWING`) > 0,
+    'e vem antes do cadastro: cronometrar é diário, cadastrar matéria é uma vez');
+
+  /* dentro de uma matéria o relógio já sai carimbado com ela */
+  await ev('telaMateria(S.materias[0].id);'); await sleep(700);
+  const sub = await ev(`${tela()}.querySelector('.pcard.crono .pcard-sub').textContent`);
+  ck(sub === 'Cronômetro · ' + await ev('S.materias[0].nome'),
+    'dentro da matéria ele diz de quem é o tempo (' + sub + ')');
+  const corCrono = await ev(`getComputedStyle(${tela()}.querySelector('.pcard.crono')).getPropertyValue('--accent').trim()`);
+  ck(corCrono === await ev('S.materias[0].cor'),
+    'e veste a cor dela, não o amarelo do módulo (' + corCrono + ')');
+
+  await ev(`${tela()}.querySelector('[data-act="tocar"]').click()`); await sleep(600);
+  ck(await ev('CRONO_ESTUDO.materia === S.materias[0].id'),
+    'ligar aqui carimba o tempo com a matéria');
+  await ev("popToRoot(); irParaAba('inicio');"); await sleep(700);
+  ck(await ev(`${tela()}.querySelector('.pcard.crono .pcard-sub').textContent === 'Cronômetro · ' + S.materias[0].nome`),
+    'e o cartão do Início mostra o mesmo relógio, com o mesmo carimbo');
+
+  const antesCarimbo = await ev('minutosTotais(S.materias[0])');
+  await ev('CRONO_ESTUDO.acumulado = 40 * 60000; CRONO_ESTUDO.desde = Date.now();');
+  await ev(`${tela()}.querySelector('[data-act="zerar"]').click()`); await sleep(800);
+  ck(await ev("document.querySelector('.sheet [data-m].on') ? document.querySelector('.sheet [data-m].on').textContent : ''")
+    === await ev('S.materias[0].nome'),
+    'encerrar já vem com a matéria certa marcada, sem perguntar de novo');
+  await ev("document.querySelector('.sheet [data-x=yes]').click()"); await sleep(900);
+  ck(await ev('minutosTotais(S.materias[0])') === antesCarimbo + 40,
+    'e os 40 minutos entram nela');
+  ck(await ev("CRONO_ESTUDO.materia === ''"), 'o carimbo sai junto com o relógio zerado');
+
   console.log('\na grade do cronograma:');
   await ev(`(function () {
     S.tarefas = [];

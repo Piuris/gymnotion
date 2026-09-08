@@ -617,6 +617,17 @@ function telaEstudos() {
     scroll.appendChild(h(secaoSub('Estudos', 'Matérias',
       total ? fmtMin(total) + ' estudadas no total' : 'Nada estudado ainda')));
 
+    /* O relógio vem primeiro porque é o que se usa todo dia; cadastrar matéria
+       acontece uma vez. Ele é o mesmo cartão do Início e divide o mesmo
+       relógio: começar aqui e conferir lá mostra o mesmo tempo. */
+    scroll.appendChild(cartaoCronometro(screen, { semLink: true }));
+
+    scroll.appendChild(h(`<div class="bloco">
+      <div class="bloco-rot">Nesta semana</div>
+      <div class="meta-linha">${fmtMin(semana)}${meta ? ' de ' + fmtMin(meta) : ''}</div>
+      <div class="progress mini"><i style="width:${meta ? Math.min(100, (semana / meta) * 100) : 0}%"></i></div>
+    </div>`));
+
     scroll.appendChild(formBloco('Nova matéria', [
       { id: 'nome', label: 'Nome', placeholder: 'Cálculo, Inglês...', cresce: true },
     ], 'Adicionar', (v) => {
@@ -627,12 +638,6 @@ function telaEstudos() {
       setTimeout(() => screen.refresh(), 60);
       return true;
     }));
-
-    scroll.appendChild(h(`<div class="bloco">
-      <div class="bloco-rot">Nesta semana</div>
-      <div class="meta-linha">${fmtMin(semana)}${meta ? ' de ' + fmtMin(meta) : ''}</div>
-      <div class="progress mini"><i style="width:${meta ? Math.min(100, (semana / meta) * 100) : 0}%"></i></div>
-    </div>`));
 
     /* Barras dos últimos 14 dias. Cada uma leva a cor da matéria que mais
        rendeu naquele dia — o gráfico junta matérias e não teria cor própria. */
@@ -714,6 +719,11 @@ function telaMateria(id) {
       numero: m.metaSemanal ? 'de ' + fmtMin(m.metaSemanal) + ' de meta' : 'Sem meta semanal',
       nota: 'Total acumulado: ' + fmtMin(minutosTotais(m)),
     })));
+
+    /* Aqui o relógio já sai carimbado com a matéria: encerrar registra nela sem
+       perguntar. Os botões de tempo redondo continuam para quem estudou com o
+       app fechado e só quer lançar o que já passou. */
+    scroll.appendChild(cartaoCronometro(screen, { materiaId: id, semLink: true }));
 
     const botoes = h('<div class="agua-copos"></div>');
     MINUTOS_RAPIDOS.forEach((v) => {

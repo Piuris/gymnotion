@@ -2547,3 +2547,43 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .gc-bloco.feito b { text-decoration: line-through; }
 .gc-bloco:active { transform: scale(.985); }
 .gc-bloco:hover { filter: brightness(1.12); }
+
+/* ---------- meta de água: passo de 100 ml na própria tela ---------- */
+.meta-passo {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  padding: 0 16px 4px;
+}
+/* `:not` para o link de texto ao lado não herdar o corpo de 22px dos redondos:
+   ele estava saindo do tamanho do número e quebrando em duas linhas */
+.meta-passo > button:not(.meta-livre) {
+  width: 40px; height: 40px; flex: 0 0 40px;
+  border-radius: 50%;
+  background: var(--a15);
+  color: var(--accent);
+  font-size: 22px; font-weight: 700; line-height: 1;
+  transition: transform .12s, background .15s;
+}
+.meta-passo > button:not(.meta-livre):active { transform: scale(.92); background: var(--a22); }
+.meta-passo > button:not(.meta-livre)[disabled] { opacity: .35; pointer-events: none; }
+.meta-passo b {
+  min-width: 96px; text-align: center;
+  font-size: 26px; font-weight: 800; letter-spacing: -.7px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+/* "Outro valor" e "voltar ao peso" são a saída para quem não quer somar de
+   100 em 100; ficam como texto para não competir com os dois botões redondos */
+.meta-livre {
+  background: none; padding: 0;
+  font-size: 13.5px; font-weight: 600; color: var(--txt-2);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.meta-livre:active { color: var(--accent); }
+.meta-nota {
+  padding: 8px 16px 10px;
+  font-size: 13px; color: var(--txt-3); line-height: 1.45;
+}
+
+/* o cartão do painel também aparece solto numa tela que rola, e aí precisa da
+   mesma margem lateral dos blocos */
+.scroll > .pcard { margin: 0 16px 14px; }

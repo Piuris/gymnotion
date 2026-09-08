@@ -440,20 +440,26 @@ function cartaoEstudo() {
    O relógio vive fora da tela, como a barra de descanso: montado dentro dela,
    um refresh por segundo destruiria o que estivesse em foco. Aqui a tela só
    desenha o visor, e o `globalTick` troca o texto dele. */
-let CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0 };
+let CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0, materia: '' };
 
 const cronoEstudoMs = () => CRONO_ESTUDO.acumulado
   + (CRONO_ESTUDO.rodando ? Date.now() - CRONO_ESTUDO.desde : 0);
 
-function cartaoCronometro(screen) {
+/* O mesmo cartão serve ao Início, à tela de Estudos e à de uma matéria.
+   Começando dentro de uma matéria, o tempo já sai carimbado com ela: encerrar
+   em qualquer tela depois disso vai para o lugar certo sem perguntar duas
+   vezes qual era. */
+function cartaoCronometro(screen, opts) {
+  const o = opts || {};
+  const mat = getMateria(o.materiaId || CRONO_ESTUDO.materia);
   const rodando = CRONO_ESTUDO.rodando;
   const c = h(`<div class="pcard crono">
     <div class="pcard-topo">
       <div>
         <div class="pcard-rot">Tempo de estudo</div>
-        <span class="pcard-sub">Cronômetro rápido</span>
+        <span class="pcard-sub">${esc(mat ? 'Cronômetro · ' + mat.nome : 'Cronômetro rápido')}</span>
       </div>
-      <button class="pcard-link" data-act="abrir">Abrir</button>
+      ${o.semLink ? '' : '<button class="pcard-link" data-act="abrir">Abrir</button>'}
     </div>
     <div class="crono-visor">${esc(fmtClock(cronoEstudoMs() / 1000))}</div>
     <div class="crono-acoes">
@@ -461,7 +467,7 @@ function cartaoCronometro(screen) {
       <button class="icon-btn stroke" data-act="zerar" title="Encerrar">${icon('stop')}</button>
     </div>
   </div>`);
-  setAccent(COR_ESTUDOS, c);
+  setAccent(mat ? mat.cor : COR_ESTUDOS, c);
   acts(c, {
     abrir: () => abrirModulo('estudos'),
     tocar: () => {
@@ -472,6 +478,7 @@ function cartaoCronometro(screen) {
       } else {
         CRONO_ESTUDO.desde = Date.now();
         CRONO_ESTUDO.rodando = true;
+        if (o.materiaId) CRONO_ESTUDO.materia = o.materiaId;
       }
       screen.refresh();
     },
@@ -484,7 +491,10 @@ function cartaoCronometro(screen) {
    onde esse número serve. Abaixo de um minuto não há o que registrar. */
 function encerrarCronoEstudo(screen) {
   const min = Math.round(cronoEstudoMs() / 60000);
-  const zera = () => { CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0 }; screen.refresh(); };
+  const zera = () => {
+    CRONO_ESTUDO = { rodando: false, desde: 0, acumulado: 0, materia: '' };
+    screen.refresh();
+  };
 
   if (min < 1) { zera(); return; }
   if (!S.materias.length) {
@@ -495,7 +505,9 @@ function encerrarCronoEstudo(screen) {
     return;
   }
 
-  let alvo = S.materias[0].id;
+  /* já vem marcada a matéria em que o relógio foi ligado; ainda dá para
+     trocar, porque quem começou errado precisa de conserto e não de aviso */
+  let alvo = (getMateria(CRONO_ESTUDO.materia) || S.materias[0]).id;
   const box = h(`<div class="form">
     <h3>Registrar ${esc(fmtMin(min))}</h3>
     <p class="desc">Em qual matéria?</p>
@@ -1277,6 +1289,42 @@ function renderAgua(el, screen) {
   });
   scroll.appendChild(topo);
 
+  /* ---------- a meta, editável aqui mesmo ----------
+
+     Ela morava num botão no fim da tela, depois do gráfico: quem abre a
+     hidratação para beber água não desce até lá, e mudar a meta virava caso de
+     ir às Configurações. Agora ela fica encostada no número que governa, e o
+     passo de 100 ml resolve sem teclado. */
+  const PASSO_META = 100;
+  const metaBloco = h(`<div class="bloco">
+    <div class="bloco-rot">Meta diária</div>
+    <div class="meta-passo">
+      <button data-act="menos" ${meta <= 500 ? 'disabled' : ''}>−</button>
+      <b>${fmtLitros(meta)} L</b>
+      <button data-act="mais">+</button>
+      <button class="meta-livre" data-act="livre">Outro valor</button>
+    </div>
+    <div class="meta-nota">${S.settings.metaAgua
+      ? 'Definida por você. <button class="meta-livre" data-act="peso">Voltar a calcular pelo peso</button>'
+      : 'Calculada pelo seu peso: 35 ml por quilo de ' + S.settings.bodyweight + ' kg.'}</div>
+  </div>`);
+  const mexerMeta = (delta) => {
+    S.settings.metaAgua = Math.max(500, Math.round((meta + delta) / PASSO_META) * PASSO_META);
+    saveNow(); haptic(); screen.refresh();
+  };
+  acts(metaBloco, {
+    menos: () => mexerMeta(-PASSO_META),
+    mais: () => mexerMeta(PASSO_META),
+    livre: () => promptSheet('Meta diária (ml)', String(meta), '2600', (v) => {
+      const n = Math.round(Number(String(v).replace(',', '.')) || 0);
+      S.settings.metaAgua = n > 0 ? Math.max(500, n) : 0;
+      saveNow(); screen.refresh();
+    }),
+    /* zero não é "sem meta": é a meta voltar a acompanhar o peso corporal */
+    peso: () => { S.settings.metaAgua = 0; saveNow(); haptic(); screen.refresh(); },
+  });
+  scroll.appendChild(metaBloco);
+
   /* ---------- os goles de hoje ---------- */
   const goles = (S.aguaLog[dayKey(Date.now())] || []).slice().reverse();
   const bloco = h('<div class="bloco"><div class="bloco-rot">Registros de hoje</div></div>');
@@ -1323,18 +1371,7 @@ function renderAgua(el, screen) {
   })();
   scroll.appendChild(h(`<div class="hint">${bateram
     ? bateram + (bateram > 1 ? ' dias bateram a meta' : ' dia bateu a meta') + ' nos últimos 7.'
-    : 'Nenhum dia bateu a meta nos últimos 7.'} Sem meta definida, o app usa 35 ml por quilo — ${S.settings.bodyweight} kg dá ${metaAgua()} ml.</div>`));
-
-  const extras = h(`<div class="acoes">
-    <button class="acao" data-act="meta">Ajustar meta</button>
-  </div>`);
-  acts(extras, {
-    meta: () => promptSheet('Meta diária (ml)', String(meta), '2600', (v) => {
-      S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
-      saveNow(); screen.refresh();
-    }),
-  });
-  scroll.appendChild(extras);
+    : 'Nenhum dia bateu a meta nos últimos 7.'}</div>`));
 
   el.appendChild(scroll);
 }

@@ -77,6 +77,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const { data } = await send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(OUT, n + '.png'), Buffer.from(data, 'base64'));
   };
+  const tela = () => 'currentScreen().el';
   const ck = (cond, msg) => {
     console.log((cond ? '  ok    ' : '  FALHA ') + msg);
     if (!cond) bad.push('VERIFICAÇÃO: ' + msg);
@@ -236,6 +237,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev('S.settings.metaAgua = 3000; saveNow(); currentScreen().refresh();'); await sleep(300);
   ck(await ev('metaAgua() === 3000'), 'meta manual tem prioridade sobre o cálculo por peso');
   ck(await ev('beberAgua(-9999) === 0'), 'não deixa o consumo ficar negativo');
+
+  /* A meta morava num botão depois do gráfico, e quem abre a hidratação para
+     beber água não desce até lá. Agora ela muda encostada no número. */
+  console.log('\nmudar a meta sem sair da tela:');
+  await ev('S.settings.metaAgua = 0; saveNow(); popToRoot(); abrirModulo("agua");'); await sleep(600);
+  ck(await ev(`!!${tela()}.querySelector('.meta-passo')`),
+    'a meta tem controle próprio na tela da água');
+  ck(await ev(`${tela()}.querySelector('.meta-passo b').textContent === fmtLitros(metaAgua()) + ' L'`),
+    'mostrando a meta que está valendo');
+  ck(await ev(`${tela()}.querySelector('.meta-nota').textContent.indexOf('pelo seu peso') > 0`),
+    'e dizendo que ela vem do peso enquanto ninguém mexeu');
+
+  await ev(`${tela()}.querySelector('[data-act=mais]').click()`); await sleep(500);
+  ck(await ev('S.settings.metaAgua === 2700'),
+    'o + sobe 100 ml e passa a valer como meta escolhida (' + await ev('S.settings.metaAgua') + ')');
+  await ev(`${tela()}.querySelector('[data-act=menos]').click()`); await sleep(500);
+  ck(await ev('S.settings.metaAgua === 2600'), 'o − desce 100 ml');
+  ck(await ev(`${tela()}.querySelector('.agua-meta').textContent === 'meta de ' + fmtLitros(metaAgua()) + ' L'`),
+    'e o número lá de cima acompanha na hora');
+  ck(await ev("JSON.parse(localStorage.getItem('gymnotion.v1')).settings.metaAgua === 2600"),
+    'a meta nova fica guardada');
+
+  await ev(`${tela()}.querySelector('[data-act=peso]').click()`); await sleep(500);
+  ck(await ev('S.settings.metaAgua === 0 && metaAgua() === 2600'),
+    'e dá para voltar a calcular pelo peso, que é o que o zero quer dizer');
+  await shot('h6-agua-meta');
+
+  /* o piso existe para ninguém chegar em zero clicando: zero não é meta, é o
+     modo automático */
+  await ev('S.settings.metaAgua = 500; saveNow(); currentScreen().refresh();'); await sleep(400);
+  ck(await ev(`${tela()}.querySelector('[data-act=menos]').disabled === true`),
+    'no piso de 500 ml o − apaga, para o clique não virar modo automático sem querer');
 
   console.log('\nproblemas:', bad.length);
   bad.forEach((b) => console.log('  !', b));

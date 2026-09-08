@@ -572,6 +572,38 @@ Encerrar não joga o tempo fora — ele vira minutos numa matéria, que é para 
 esse número serve. Abaixo de um minuto não há o que registrar; sem matéria
 nenhuma cadastrada, o app diz isso em vez de perder o tempo em silêncio.
 
+O mesmo cartão aparece em três lugares — Início, Estudos e dentro de uma
+matéria — e todos dividem **um** relógio: começar em Cálculo e conferir no
+Início mostra o mesmo tempo correndo. Começando dentro de uma matéria, o tempo
+já sai **carimbado** com ela (`CRONO_ESTUDO.materia`): encerrar em qualquer tela
+depois disso vem com ela marcada, sem perguntar de novo qual era. Ainda dá para
+trocar na hora de registrar, porque quem começou errado precisa de conserto e
+não de aviso.
+
+Na tela de Estudos o relógio vem **antes** do cadastro de matéria: cronometrar é
+diário, cadastrar matéria acontece uma vez. Dentro de uma matéria ele veste a
+cor dela, e não o amarelo do módulo — a mesma regra de sempre.
+
+## A meta de água muda onde ela aparece
+
+Ela morava num botão no fim da tela da hidratação, depois do gráfico dos sete
+dias. Quem abre essa tela abre para beber água e não desce até lá, então mudar a
+meta virava caso de ir às Configurações — que é exatamente o caminho que o botão
+existia para evitar.
+
+Agora ela fica encostada no número que governa, com passo de **100 ml** nos dois
+sentidos, e resolve sem teclado. "Outro valor" abre o campo livre para quem quer
+um número redondo de uma vez.
+
+O piso é 500 ml, e o `−` apaga ao chegar nele. Não é preciosismo: **zero não é
+"sem meta"** — é a meta voltar a ser calculada pelo peso (35 ml por quilo), e
+alguém descendo de 100 em 100 cairia nesse modo sem entender por quê. Quem quer
+o cálculo automático de volta tem a frase "voltar a calcular pelo peso" logo
+abaixo, dizendo o que faz.
+
+O botão do fim da tela saiu junto: dois caminhos para a mesma coisa era o que
+tínhamos acabado de tirar das outras telas.
+
 ## Cronograma: a semana como grade
 
 A lista responde "o que tem hoje". A grade responde "como o dia está
