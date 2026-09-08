@@ -12,6 +12,7 @@ São seis módulos, cada um com a sua tela:
 | **Academia** | Treinos, cargas, séries, ofensiva, recordes e análises |
 | **Cronograma** | Tarefas e compromissos num calendário de mês |
 | **Hidratação** | Meta diária de água |
+| **Gastos** | Controle mensal de despesas por categoria, com teto |
 | **Jogos** | Estante do que jogar, do que está jogando e do que zerou |
 | **Metas** | Cofrinhos: dinheiro separado por objetivo |
 | **Estudos** | Matérias com tópicos e horas estudadas |
@@ -160,6 +161,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
 | [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
 | [tools/jogos-test.js](tools/jogos-test.js) | Testa a estante de jogos: estados, filtro, capa e compressão |
+| [tools/gastos-test.js](tools/gastos-test.js) | Testa o controle de gastos: mês, categorias, média, projeção e teto |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -390,6 +392,7 @@ node tools/vida-test.js ./__shots        # módulos de organização e navegaç�
 node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
 node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
 node tools/jogos-test.js ./__shots       # estante de jogos
+node tools/gastos-test.js ./__shots      # controle de gastos
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -606,6 +609,34 @@ entra como valor negativo: assim o extrato mostra o que saiu e quando, em vez de
 o saldo encolher sem deixar rastro. Retirar mais do que existe esvazia o
 cofrinho, mas não deixa saldo negativo — `guardarNaMeta` corta a retirada no que
 há dentro. A barra para em 100% mesmo com o guardado passando do alvo.
+
+## Gastos
+
+O **mês é a unidade**: é nele que se pergunta "quanto já foi". O topo responde
+isso, a divisão por categoria diz para onde foi, e a lista mostra cada
+lançamento agrupado por dia. Navegar de mês é o mesmo gesto do calendário, e
+avançar para o futuro fica desligado — não há gasto a ver lá.
+
+A data do lançamento é guardada como **chave de dia** (`'2026-09-07'`), a mesma
+escolha do cronograma e pelo mesmo motivo; de quebra, agrupar por mês vira um
+`slice(0, 7)`.
+
+As **categorias são uma lista fechada com cor própria**. É o que faz a divisão
+do mês se ler de relance — a fatia pelo comprimento da barra, a categoria pela
+cor — e segue a regra da casa: a cor identifica a coisa. Uma categoria
+desconhecida cai em *Outros* em vez de sumir do resumo.
+
+Duas contas que valem a explicação:
+
+- **A média diária divide pelos dias já vividos**, não pelo mês inteiro. No dia
+  3, dividir por 30 diria que ele gasta dez vezes menos do que gasta. Em mês
+  fechado, o divisor é o mês todo.
+- **A projeção** estende esse ritmo até o fim do mês, e só existe no mês
+  corrente: num mês fechado ela é o próprio total, sem inventar futuro.
+
+O teto mensal é opcional. Passando dele, a barra muda para o tom de alerta e o
+cartão diz **quanto passou** — a barra cheia sozinha não distingue "bateu o
+teto" de "passou dele".
 
 ## Jogos: a estante
 

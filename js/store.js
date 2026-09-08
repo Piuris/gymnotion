@@ -77,6 +77,7 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
+  gastos: [],             // controle de gastos: um lançamento por despesa
   jogos: [],              // biblioteca: o que jogar, o que está jogando, o que zerou
   planoDias: {},          // troca avulsa de treino, por dia (AAAA-MM-DD)
   tarefas: [],            // cronograma: tarefas e compromissos
@@ -89,6 +90,7 @@ const DEFAULT_STATE = {
     lastBackup: 0, backupAvisado: 0, tema: 'preto',
     metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
     planoSemanal: [],     // molde da rotina: um treino (ou folga) por dia da semana
+    orcamento: 0,         // teto de gasto no mês; 0 = sem teto
     metaAgua: 0,          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
@@ -162,7 +164,7 @@ function migrarParaV2(estado) {
    O app deixou de ser só academia. Os módulos novos entram vazios: nada do que
    já estava salvo muda de forma, só ganha companhia. */
 
-const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos'];
+const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'gastos'];
 
 function migrarParaV3(estado) {
   if ((estado.version || 1) >= 3) return estado;
@@ -605,6 +607,130 @@ function desfazerAgua(padrao, ts) {
   if (l && !l.length) delete S.aguaLog[k];
   beberAgua(-ml, ts);
   return ml;
+}
+
+/* =========================================================
+   GASTOS
+
+   Um lançamento por despesa, com data guardada como chave de dia — a mesma
+   escolha do cronograma, pelo mesmo motivo: "dia 3" precisa continuar sendo
+   dia 3 depois de exportar e abrir noutro fuso, e agrupar por mês vira um
+   `slice(0, 7)`.
+
+   As categorias são uma lista fechada com cor própria. É o que faz a divisão
+   do mês se ler de relance, e segue a regra da casa: a cor identifica a coisa.
+   ========================================================= */
+
+const COR_GASTOS = '#FF8A00';
+
+const CATEGORIAS_GASTO = [
+  { id: 'mercado', nome: 'Mercado', cor: '#25E36B' },
+  { id: 'comida', nome: 'Comida fora', cor: '#FF8A00' },
+  { id: 'transporte', nome: 'Transporte', cor: '#0A84FF' },
+  { id: 'contas', nome: 'Contas', cor: '#3F4FE0' },
+  { id: 'saude', nome: 'Saúde', cor: '#00D2C4' },
+  { id: 'academia', nome: 'Academia', cor: '#FF3B30' },
+  { id: 'lazer', nome: 'Lazer', cor: '#A020F0' },
+  { id: 'outros', nome: 'Outros', cor: '#8E9AAF' },
+];
+
+const infoCategoria = (id) => CATEGORIAS_GASTO.find((c) => c.id === id)
+  || CATEGORIAS_GASTO[CATEGORIAS_GASTO.length - 1];
+
+const mesKey = (ts) => dayKey(ts == null ? Date.now() : ts).slice(0, 7);
+
+function novoGasto(dados) {
+  const d = dados || {};
+  const valor = Math.round((Number(d.valor) || 0) * 100) / 100;
+  if (valor <= 0) return null;   // gasto de zero não é gasto
+  const g = {
+    id: uid('g_'),
+    valor,
+    categoria: infoCategoria(d.categoria).id,
+    descricao: d.descricao || '',
+    data: d.data || dayKey(Date.now()),
+    criado: Date.now(),
+  };
+  S.gastos.unshift(g);
+  save();
+  return g;
+}
+
+const getGasto = (id) => S.gastos.find((g) => g.id === id);
+
+function removerGasto(id) {
+  S.gastos = S.gastos.filter((g) => g.id !== id);
+  saveNow();
+}
+
+/* Do dia mais novo para o mais velho; no mesmo dia, o lançado por último em
+   cima — é a ordem em que se confere o que acabou de ser gasto. */
+const gastosDoMes = (ts) => S.gastos
+  .filter((g) => g.data.slice(0, 7) === mesKey(ts))
+  .slice()
+  .sort((a, b) => (a.data === b.data ? b.criado - a.criado : (a.data < b.data ? 1 : -1)));
+
+const totalGastos = (lista) => (lista || []).reduce((a, g) => a + g.valor, 0);
+
+/* Divisão do mês por categoria, da maior para a menor, já com a fatia que cada
+   uma representa. Categoria sem gasto no mês fica de fora. */
+function gastoPorCategoria(ts) {
+  const lista = gastosDoMes(ts);
+  const total = totalGastos(lista);
+  const soma = {};
+  lista.forEach((g) => { soma[g.categoria] = (soma[g.categoria] || 0) + g.valor; });
+  return Object.keys(soma)
+    .map((id) => ({
+      cat: infoCategoria(id),
+      total: soma[id],
+      fatia: total ? soma[id] / total : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+const orcamento = () => Math.max(0, S.settings.orcamento || 0);
+
+/* Quanto sobra do teto no mês. Sem teto, não há o que sobrar. */
+const sobraDoMes = (ts) => (orcamento() ? Math.max(0, orcamento() - totalGastos(gastosDoMes(ts))) : 0);
+
+const diasNoMes = (ts) => {
+  const d = new Date(ts == null ? Date.now() : ts);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+};
+
+/* No mês corrente a média divide pelos dias já vividos, não pelo mês inteiro:
+   no dia 3, dividir por 30 diria que ele gasta dez vezes menos do que gasta.
+   Em mês fechado, o divisor é o mês todo. */
+function mediaDiaria(ts) {
+  const quando = ts == null ? Date.now() : ts;
+  const total = totalGastos(gastosDoMes(quando));
+  if (!total) return 0;
+  const ehCorrente = mesKey(quando) === mesKey(Date.now());
+  const dias = ehCorrente ? new Date().getDate() : diasNoMes(quando);
+  return total / Math.max(1, dias);
+}
+
+/* Onde o mês termina se o ritmo continuar. Só faz sentido no mês corrente. */
+function projecaoDoMes(ts) {
+  const quando = ts == null ? Date.now() : ts;
+  if (mesKey(quando) !== mesKey(Date.now())) return totalGastos(gastosDoMes(quando));
+  return mediaDiaria(quando) * diasNoMes(quando);
+}
+
+/* Gasto por dia num mês, para o gráfico de barras. */
+function gastoPorDia(ts) {
+  const quando = ts == null ? Date.now() : ts;
+  const d = new Date(quando);
+  const dias = [];
+  for (let i = 1; i <= diasNoMes(quando); i++) {
+    const dia = new Date(d.getFullYear(), d.getMonth(), i);
+    const k = dayKey(dia.getTime());
+    dias.push({
+      ts: dia.getTime(),
+      total: S.gastos.reduce((a, g) => a + (g.data === k ? g.valor : 0), 0),
+    });
+  }
+  return dias;
 }
 
 /* =========================================================

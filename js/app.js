@@ -138,6 +138,17 @@ const MODULOS = [
     abrir: () => telaJogos(),
   },
   {
+    id: 'gastos', nome: 'Gastos', icone: 'carrinho', iconeO: 'carrinho',
+    cor: () => COR_GASTOS,
+    resumo: () => {
+      const total = totalGastos(gastosDoMes());
+      if (!total) return 'Nada lançado neste mês';
+      const teto = orcamento();
+      return fmtBRL(total) + (teto ? ' de ' + fmtBRL(teto) : ' neste mês');
+    },
+    abrir: () => telaGastos(),
+  },
+  {
     id: 'metas', nome: 'Metas', icone: 'cofre', iconeO: 'cofre',
     cor: () => COR_METAS,
     resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),

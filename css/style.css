@@ -1698,6 +1698,94 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .campo-cor:active { background: var(--fill-1); }
 
 /* =========================================================
+   GASTOS
+
+   A divisão do mês é uma lista de barras, uma por categoria, cada uma na cor
+   dela: a fatia se lê pelo comprimento e a categoria pela cor, sem legenda.
+   ========================================================= */
+
+.cat-lista { padding: 0 16px 4px; }
+
+.cat-linha {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 0;
+}
+.cat-nome {
+  flex: 0 0 108px; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cat-nome i { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--accent); }
+.cat-barra {
+  flex: 1; min-width: 0; height: 9px;
+  border-radius: 5px;
+  background: var(--fill-1);
+  overflow: hidden;
+}
+.cat-barra u {
+  display: block; height: 100%;
+  border-radius: 5px;
+  background: var(--accent);
+  text-decoration: none;
+}
+.cat-valor {
+  flex: 0 0 auto;
+  font-size: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O teto estourado sai no tom de alerta: a barra cheia sozinha não distingue
+   "bateu o teto" de "passou dele". */
+.progress.alto.estourou i { background: var(--perigo); }
+
+.gasto-dia {
+  padding: 16px 16px 6px;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: .6px; text-transform: uppercase;
+  color: var(--txt-3);
+}
+
+.gasto {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px 11px 13px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+}
+.gasto-txt { flex: 1; min-width: 0; }
+.gasto-txt b {
+  display: block; font-size: 16.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gasto-txt span { display: block; font-size: 13px; color: var(--txt-2); margin-top: 2px; }
+.gasto-txt span:empty { display: none; }
+.gasto-valor {
+  font-size: 16.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Um mês inteiro de barras: mais finas e sem rótulo, que aqui o que interessa
+   é o desenho do ritmo, não ler dia por dia. */
+.dias-barras.dias-mes { gap: 2px; height: 92px; padding-bottom: 4px; }
+.dias-mes .dias-barra { border-radius: 3px; }
+.dias-mes .dias-barra i { border-radius: 3px; background: var(--a60); }
+.dias-mes .dias-col.tem .dias-barra i { background: var(--accent); }
+.dias-mes .dias-col.hoje .dias-barra { box-shadow: inset 0 0 0 1.5px var(--a35); }
+
+/* Chips de categoria: o ponto na frente traz a cor dela, para escolher pela
+   cor e não só pelo nome. */
+.cat-chips { flex-wrap: wrap; overflow: visible; }
+.cat-chips .chip { height: 38px; padding: 0 14px; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+.cat-ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--pt); flex: 0 0 9px; }
+
+.campo-data {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px; color: var(--txt-2);
+  padding: 0 20px;
+}
+.campo-data .text-input { width: 100%; margin: 0 0 16px; }
+
+/* =========================================================
    ESTANTE DE JOGOS
 
    A capa é o item; o nome vem depois dela. Três colunas na proporção 3:4 é o

@@ -102,7 +102,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(nAtalhos === await ev('MODULOS.length'),
     'há um atalho para cada módulo (' + nAtalhos + ')');
   ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).map(function (b) { return b.textContent; }).join(',')`)
-    === 'Academia,Cronograma,Hidratação,Jogos,Metas,Estudos,Configurações',
+    === 'Academia,Cronograma,Hidratação,Jogos,Gastos,Metas,Estudos,Configurações',
     'na ordem esperada');
 
   /* cada atalho leva a cor do seu módulo */
