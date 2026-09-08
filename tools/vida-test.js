@@ -122,21 +122,73 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('v1-inicio');
 
   console.log('');
-  console.log('menu suspenso:');
-  await ev(`${tela()}.querySelectorAll('.tabbar .tab')[ABAS.length].click()`); await sleep(600);
-  ck(await ev("!!document.querySelector('.pop')"), 'o último botão da cápsula abre um painel');
-  ck(await ev("document.querySelectorAll('.pop .pop-item').length >= MODULOS.length"),
-    'que lista todos os módulos');
-  ck(await ev("document.querySelector('.pop').textContent.includes('Resumo da academia')"),
+  console.log('a cápsula que cresce:');
+  const caixaCap = () => ev(`(function () {
+    var r = currentScreen().el.querySelector('.tab-capsula').getBoundingClientRect();
+    return JSON.stringify([Math.round(r.width), Math.round(r.height)]);
+  })()`);
+  const fechada = JSON.parse(await caixaCap());
+  ck(fechada[1] === 54, 'fechada, a cápsula tem a altura de uma linha de abas (' + fechada.join('x') + ')');
+  ck(await ev(`${tela()}.querySelectorAll('.tab-linha .tab').length === ABAS.length`),
+    'com as abas dentro dela');
+  ck(await ev(`!!${tela()}.querySelector('.tab-mais')`),
+    'e o botão redondo por fora, como peça separada');
+
+  await ev(`${tela()}.querySelectorAll('.tabbar .tab')[ABAS.length].click()`); await sleep(900);
+  const aberta = JSON.parse(await caixaCap());
+  ck(aberta[1] > fechada[1] * 3 && aberta[0] > fechada[0],
+    'o botão abre a própria cápsula, que cresce nos dois sentidos (' + aberta.join('x') + ')');
+  ck(await ev(`${tela()}.querySelector('.tab-capsula').classList.contains('aberta')`),
+    'e ela abre por classe, não sendo reconstruída: é o que deixa a transição acontecer');
+  ck(await ev(`${tela()}.querySelectorAll('.tab-grade .tab-item').length >= MODULOS.length`),
+    'a grade traz todos os módulos');
+  ck(await ev(`${tela()}.querySelector('.tab-grade').textContent.includes('Resumo')`),
     'e mais os atalhos da academia');
-  ck(await ev("!document.querySelector('.pop-item.on')"),
-    'sem marca nenhuma, porque o Início não é um módulo da lista');
-  /* a cápsula tem de continuar por cima do painel, senão o ✕ some */
+  ck(await ev(`getComputedStyle(${tela()}.querySelector('.tab-linha')).opacity === '0'`),
+    'a linha de abas some enquanto a grade está aberta');
+
+  /* cada ladrilho na cor do seu módulo, a mesma regra dos atalhos do Início */
+  const corJogos = await ev(`(function () {
+    var itens = currentScreen().el.querySelectorAll('.tab-item');
+    for (var i = 0; i < itens.length; i++) {
+      if (itens[i].textContent.trim() === 'Jogos') {
+        return getComputedStyle(itens[i]).getPropertyValue('--accent').trim().toUpperCase();
+      }
+    }
+    return '';
+  })()`);
+  ck(corJogos === (await ev('COR_JOGOS')).toUpperCase(),
+    'cada ladrilho leva a cor do seu módulo (' + corJogos + ')');
+
+  /* "Configurações" não cabe em 72px de ladrilho e vira "Ajustes" */
+  ck(await ev(`${tela()}.querySelector('.tab-grade').textContent.includes('Ajustes')`),
+    'o nome longo tem versão curta, para não sair cortado no meio da palavra');
+
+  /* a cápsula tem de continuar por cima do escurecido, senão o ✕ some */
   ck(await ev(`(function () {
     var b = parseInt(getComputedStyle(document.querySelector('.tabbar')).zIndex, 10);
-    var p = parseInt(getComputedStyle(document.querySelector('.pop-fundo')).zIndex, 10);
-    return b > p;
-  })()`), 'a cápsula fica acima do painel, para o ✕ continuar clicável');
+    var f = parseInt(getComputedStyle(document.querySelector('.tab-fundo')).zIndex, 10);
+    return b > f;
+  })()`), 'a barra fica acima do fundo escurecido, para o ✕ continuar clicável');
+  await shot('v2-menu');
+
+  await ev("document.querySelector('.tab-fundo').click()"); await sleep(800);
+  ck(await ev("!document.querySelector('.tab-fundo')"), 'tocar fora fecha o painel');
+  ck(await ev(`!${tela()}.querySelector('.tab-capsula').classList.contains('aberta')`),
+    'e a cápsula volta ao tamanho de barra');
+  ck(JSON.parse(await caixaCap())[1] === 54, 'com a altura de antes');
+
+  /* trocar de tela com o painel aberto não pode deixar a marca para trás */
+  await ev(`${tela()}.querySelectorAll('.tabbar .tab')[ABAS.length].click()`); await sleep(700);
+  await ev("TAB = 'agua'; popToRoot();"); await sleep(600);
+  ck(await ev('MENU_ABERTO === null'),
+    'trocar de tela com o painel aberto fecha o painel junto');
+  ck(await ev("!document.querySelector('.tab-fundo')"), 'sem deixar o fundo escurecido para trás');
+  await ev(`${tela()}.querySelectorAll('.tabbar .tab')[ABAS.length].click()`); await sleep(700);
+  ck(await ev(`${tela()}.querySelector('.tab-capsula').classList.contains('aberta')`),
+    'e o botão volta a abrir de primeira, em vez de gastar um toque fechando o que não existe');
+  await ev("document.querySelector('.tab-fundo').click()"); await sleep(700);
+
   await ev("TAB = 'inicio'; popToRoot();"); await sleep(400);
   const folga = await ev(`(function () {
     var sc = ${tela()}.querySelector('.scroll');
@@ -146,9 +198,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return Math.round(barra.top - fim.bottom);
   })()`);
   ck(folga >= 0, 'a barra de abas nao cobre o fim da lista (' + folga + 'px de folga)');
-  await shot('v2-menu');
-  await ev("document.querySelector('.pop-fundo').click()"); await sleep(400);
-  ck(await ev("!document.querySelector('.pop')"), 'tocar fora fecha o painel');
+
 
   /* ============================================================
      CRONOGRAMA

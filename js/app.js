@@ -21,27 +21,112 @@ const ABAS = [
 
 let MENU_ABERTO = null;
 
+/* ---------- a cápsula que cresce ----------
+
+   A cápsula tem dois conteúdos no mesmo lugar: a linha de abas e a grade de
+   módulos. O botão redondo ao lado não abre um painel por cima dela — ele
+   **abre a própria cápsula**, que cresce de 234x54 até virar o painel e volta
+   ao encolher. Por isso os dois conteúdos são absolutos dentro dela: se
+   ocupassem espaço, empurrariam a caixa e a animação de tamanho brigaria com o
+   próprio conteúdo.
+
+   E por isso também abrir e fechar não reconstroem a barra: trocar o elemento
+   faria ele nascer já grande, sem transição nenhuma. O que muda é uma classe. */
+
+function itensDoMenu() {
+  const itens = MODULOS.map((m) => ({
+    label: m.curto || m.nome, icone: m.iconeO, cor: m.cor(), onClick: () => m.abrir(),
+  }));
+  itens.push({ label: 'Plano', icone: 'calendario', cor: COR_AGENDA, onClick: () => telaPlanoSemana() });
+  itens.push({ label: 'Resumo', icone: 'grafico', cor: corAcademia(), onClick: () => telaResumo() });
+  if (S.sessions.length) {
+    itens.push({ label: 'Registros', icone: 'lista', cor: corAcademia(), onClick: () => openHistorico() });
+  }
+  return itens;
+}
+
 function tabbar() {
+  /* A barra ser remontada quer dizer que a tela mudou por baixo do painel: ele
+     foi embora junto com ela. Sem isto a marca de "aberto" sobrevivia à troca,
+     e o próximo toque no botão redondo fechava um painel que não existia mais
+     em vez de abrir um. */
+  if (MENU_ABERTO) MENU_ABERTO.fechar();
+
   const bar = h('<nav class="tabbar"></nav>');
+
+  const itens = itensDoMenu();
+  const linhas = Math.ceil(itens.length / 4);
+  const cap = h(`<div class="tab-capsula" style="--linhas:${linhas}"></div>`);
+
+  const linha = h('<div class="tab-linha"></div>');
   ABAS.forEach((a) => {
     const b = h(`<button class="tab${TAB === a.id ? ' on' : ''}">${iconO(a.icone)}</button>`);
     b.addEventListener('click', () => {
-      if (MENU_ABERTO) MENU_ABERTO.fechar();
+      if (MENU_ABERTO) { MENU_ABERTO.fechar(); return; }
       if (TAB === a.id) { popToRoot(); return; }
       TAB = a.id; haptic();
       popToRoot();
     });
-    bar.appendChild(b);
+    linha.appendChild(b);
   });
+  cap.appendChild(linha);
 
-  const menu = h(`<button class="tab${MENU_ABERTO ? ' aberto' : ''}">${iconO(MENU_ABERTO ? 'fechar' : 'menu')}</button>`);
-  menu.addEventListener('click', () => {
-    if (MENU_ABERTO) { MENU_ABERTO.fechar(); return; }
-    haptic();
-    abrirMenuModulos(menu);
+  const grade = h('<div class="tab-grade"></div>');
+  itens.forEach((it, i) => {
+    const b = h(`<button class="tab-item" style="--i:${i}">
+      <span class="tab-ico">${iconO(it.icone)}</span>
+      <span class="tab-nome">${esc(it.label)}</span>
+    </button>`);
+    setAccent(it.cor, b);
+    b.addEventListener('click', () => {
+      haptic();
+      fecharMenuModulos();
+      setTimeout(it.onClick, 140);
+    });
+    grade.appendChild(b);
   });
-  bar.appendChild(menu);
+  cap.appendChild(grade);
+  bar.appendChild(cap);
+
+  const mais = h(`<button class="tab tab-mais">${iconO('menu')}</button>`);
+  mais.addEventListener('click', () => {
+    haptic();
+    if (MENU_ABERTO) fecharMenuModulos();
+    else abrirMenuModulos();
+  });
+  bar.appendChild(mais);
   return bar;
+}
+
+function abrirMenuModulos() {
+  if (MENU_ABERTO) return;
+  const sc = currentScreen();
+  const bar = sc && sc.el.querySelector('.tabbar');
+  if (!bar) return;
+
+  const cap = bar.querySelector('.tab-capsula');
+  const mais = bar.querySelector('.tab-mais');
+  const fundo = h('<div class="tab-fundo"></div>');
+  fundo.addEventListener('click', () => fecharMenuModulos());
+  bar.parentNode.insertBefore(fundo, bar);
+
+  cap.classList.add('aberta');
+  mais.classList.add('aberto');
+  mais.innerHTML = iconO('fechar');
+
+  MENU_ABERTO = {
+    fechar: () => {
+      MENU_ABERTO = null;
+      fundo.remove();
+      /* a barra pode ter sido reconstruída no meio do caminho */
+      if (cap.isConnected) cap.classList.remove('aberta');
+      if (mais.isConnected) { mais.classList.remove('aberto'); mais.innerHTML = iconO('menu'); }
+    },
+  };
+}
+
+function fecharMenuModulos() {
+  if (MENU_ABERTO) MENU_ABERTO.fechar();
 }
 
 /* =========================================================
@@ -102,31 +187,6 @@ function montarLateral() {
 /* Redesenhar a lateral é barato e mantém o item aceso coerente com a tela. */
 function atualizarLateral() {
   if (APP.querySelector('.lateral')) montarLateral();
-}
-
-/* O menu lista tudo, inclusive o que já está na cápsula: quem procura uma tela
-   pelo nome não deveria precisar saber se ela virou ícone lá embaixo. */
-function abrirMenuModulos(ancora) {
-  const itens = MODULOS.map((m) => ({
-    label: m.nome, icone: m.iconeO, on: m.id === TAB,
-    onClick: () => m.abrir(),
-  }));
-  itens.push({ label: 'Plano da semana', icone: 'calendario', onClick: () => telaPlanoSemana() });
-  itens.push({ label: 'Resumo da academia', icone: 'grafico', onClick: () => telaResumo() });
-  if (S.sessions.length) {
-    itens.push({ label: 'Todos os registros', icone: 'lista', onClick: () => openHistorico() });
-  }
-
-  ancora.classList.add('aberto');
-  ancora.innerHTML = iconO('fechar');
-  MENU_ABERTO = menuSuspenso(itens, {
-    ancora,
-    aoFechar: () => {
-      MENU_ABERTO = null;
-      ancora.classList.remove('aberto');
-      ancora.innerHTML = iconO('menu');
-    },
-  });
 }
 
 function buildRoot(el, screen) {
@@ -219,7 +279,7 @@ const MODULOS = [
     abrir: () => telaEstudos(),
   },
   {
-    id: 'config', nome: 'Configurações', icone: 'engrenagem', iconeO: 'ajustes', sub: 'Tema, conta e metas',
+    id: 'config', nome: 'Configurações', curto: 'Ajustes', icone: 'engrenagem', iconeO: 'ajustes', sub: 'Tema, conta e metas',
     cor: () => contextAccent(),
     resumo: () => 'Tema, conta e backup',
     abrir: () => telaConfig(),

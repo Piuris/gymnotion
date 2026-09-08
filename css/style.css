@@ -609,21 +609,55 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 /* Cápsula flutuante em vez de faixa colada na borda: o conteúdo passa por
    baixo dela, o que dá profundidade e devolve altura à lista. O botão do menu
    não navega — abre um painel por cima e vira ✕ enquanto ele está aberto. */
+/* =========================================================
+   A CÁPSULA QUE CRESCE
+
+   A cápsula das abas e o botão redondo ao lado são duas peças separadas. O
+   botão não abre um painel por cima: ele abre a **própria cápsula**, que cresce
+   de 234x54 até virar a grade de módulos e volta ao encolher.
+
+   Os dois conteúdos — a linha de abas e a grade — ficam absolutos dentro dela.
+   Se ocupassem espaço, empurrariam a caixa e a animação de tamanho brigaria com
+   o próprio conteúdo; assim a caixa manda no tamanho e eles só aparecem e
+   somem.
+   ========================================================= */
+
 .tabbar {
   position: absolute; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--tabbar-pb) + 4px);
-  display: flex; gap: 2px;
-  padding: 5px;
+  display: flex; align-items: flex-end; gap: 8px;
+  /* acima do fundo escurecido: o ✕ precisa continuar visível e clicável
+     enquanto o painel está aberto, como na referência */
+  z-index: 28;
+}
+
+.tab-capsula {
+  position: relative; overflow: hidden;
+  width: 234px; height: 54px;
   border-radius: 999px;
   background: var(--vidro);
   backdrop-filter: blur(26px) saturate(1.6);
   -webkit-backdrop-filter: blur(26px) saturate(1.6);
   border: 1px solid var(--line);
   box-shadow: 0 12px 34px var(--sombra);
-  /* acima do menu suspenso: o ✕ precisa continuar visível e clicável
-     enquanto o painel está aberto, como na referência */
-  z-index: 28;
+  transition:
+    width .44s cubic-bezier(.32, .72, 0, 1),
+    height .44s cubic-bezier(.32, .72, 0, 1),
+    border-radius .44s cubic-bezier(.32, .72, 0, 1);
 }
+.tab-capsula.aberta {
+  width: min(304px, calc(100vw - 88px));
+  height: calc(var(--linhas) * 82px + 16px);
+  border-radius: 28px;
+}
+
+.tab-linha {
+  position: absolute; inset: 4px;
+  display: flex; gap: 2px;
+  transition: opacity .16s;
+}
+.tab-capsula.aberta .tab-linha { opacity: 0; pointer-events: none; }
+
 .tab {
   width: 56px; height: 44px;
   border-radius: 999px;
@@ -633,7 +667,74 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .tab svg { width: 22px; height: 22px; }
 .tab.on { background: var(--fill-1); color: var(--accent); }
-.tab.aberto { background: var(--fill-2); color: var(--txt); }
+
+/* O botão redondo é peça à parte, como no desenho: ele não pertence à cápsula,
+   e é por isso que continua no lugar enquanto ela cresce atrás dele. */
+.tab-mais {
+  width: 54px; height: 54px; flex: 0 0 54px;
+  border-radius: 50%;
+  background: var(--vidro);
+  backdrop-filter: blur(26px) saturate(1.6);
+  -webkit-backdrop-filter: blur(26px) saturate(1.6);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 34px var(--sombra);
+  transition: background .2s, color .2s, transform .2s;
+}
+.tab-mais:active { transform: scale(.92); }
+/* Aberto ele fica opaco: o vidro estava puxando a cor do que passasse atrás —
+   o botão amarelo do cronômetro tingia o ✕ de amarelo. */
+.tab-mais.aberto { background: var(--card-2); color: var(--txt); }
+
+.tab-grade {
+  position: absolute; inset: 8px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px 2px;
+  align-content: start;
+  opacity: 0; pointer-events: none;
+  transition: opacity .14s;
+}
+.tab-capsula.aberta .tab-grade { opacity: 1; pointer-events: auto; transition: opacity .2s .12s; }
+
+.tab-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 6px 2px 8px;
+  min-width: 0;
+  border-radius: 14px;
+  /* cada ladrilho entra um pouquinho depois do anterior: a grade se monta da
+     esquerda para a direita em vez de piscar inteira */
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .2s, transform .2s;
+}
+.tab-capsula.aberta .tab-item {
+  opacity: 1; transform: none;
+  transition-delay: calc(var(--i) * 22ms + 110ms);
+}
+.tab-ico {
+  width: 42px; height: 42px;
+  border-radius: 13px;
+  background: var(--a15);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.tab-ico svg { width: 20px; height: 20px; }
+.tab-nome {
+  max-width: 100%;
+  font-size: 10.5px; font-weight: 600; letter-spacing: -.1px;
+  color: var(--txt-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tab-item:active .tab-ico { transform: scale(.92); }
+.tab-item:active .tab-nome { color: var(--txt); }
+
+/* Escurece o que está atrás sem cobrir a cápsula: ela tem z-index maior, senão
+   o ✕ deixaria de ser clicável no exato momento em que ele é a única saída. */
+.tab-fundo {
+  position: absolute; inset: 0;
+  z-index: 26;
+  background: rgba(0, 0, 0, .34);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  animation: fade .2s;
+}
 
 /* ---------- sessão / treino aberto ---------- */
 
@@ -1936,7 +2037,7 @@ body.arrastando-algo .scroll { overflow: hidden; }
   .backdrop, .pop-fundo { left: var(--lateral); }
 
   /* sem cápsula e sem botão flutuante: a coluna já dá conta */
-  .tabbar { display: none; }
+  .tabbar, .tab-fundo { display: none; }
   .screen.com-abas > .scroll { padding-bottom: calc(32px + var(--safe-b)); padding-top: 26px; }
 
   /* O conteúdo respira mas não estica sem fim numa tela de 27 polegadas.

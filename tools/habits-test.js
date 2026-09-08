@@ -106,13 +106,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       folgaAbaixoDaBarra: Math.round(tela - barra.bottom),
       folgaAbaixoDoIcone: Math.round(tela - icone.bottom),
       centrada: Math.abs((barra.left + barra.right) / 2 - larg / 2) < 1.5,
-      raio: getComputedStyle(currentScreen().el.querySelector('.tabbar')).borderTopLeftRadius,
+      raio: getComputedStyle(currentScreen().el.querySelector('.tab-capsula')).borderTopLeftRadius,
     });
   })()`));
   ck(geo.altura <= 60, 'a cápsula mede ' + geo.altura + 'px de altura');
   ck(geo.largura < 393 - 24, 'e flutua sem encostar nas bordas (' + geo.largura + 'px de largura)');
   ck(geo.centrada, 'centrada na tela');
   ck(parseInt(geo.raio, 10) >= 24, 'com as pontas arredondadas em cápsula (' + geo.raio + ')');
+  ck(await ev("!!currentScreen().el.querySelector('.tab-mais')"),
+    'e o botão de abrir a grade ao lado dela');
   ck(geo.folgaAbaixoDaBarra >= 12,
     'deixando espaço para o indicador de gesto (' + geo.folgaAbaixoDaBarra + 'px)');
   ck(geo.folgaAbaixoDaBarra <= 34,

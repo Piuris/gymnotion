@@ -854,6 +854,40 @@ a cor da matéria que mais rendeu naquele dia**, pela mesma regra do gráfico de
 volume da academia. As barras têm piso de 8% de altura — um dia de 10 minutos
 virava um risco invisível, e o que importa ali é ver que houve estudo.
 
+## A cápsula que cresce
+
+A barra de baixo são **duas peças**: a cápsula com as quatro abas e um botão
+redondo ao lado. O botão não abre um painel por cima da cápsula — ele abre **a
+própria cápsula**, que cresce de 234x54 até virar a grade dos módulos e volta ao
+encolher. É a mesma caixa o tempo todo, e é isso que dá a sensação de uma coisa
+só se desdobrando em vez de duas coisas se sobrepondo.
+
+Três decisões seguram esse desenho:
+
+**Os dois conteúdos são absolutos dentro da cápsula.** A linha de abas e a grade
+ocupam o mesmo lugar, ambas com `position: absolute`. Se ocupassem espaço,
+empurrariam a caixa e a animação de tamanho brigaria com o próprio conteúdo; do
+jeito que está, a caixa manda no tamanho e eles só aparecem e somem.
+
+**Abrir e fechar não reconstroem a barra.** Trocar o elemento faria ele nascer
+já grande, sem transição nenhuma — o que muda é uma classe no elemento que já
+está lá. Por isso `abrirMenuModulos()` procura a cápsula na tela e liga
+`.aberta`, em vez de mandar a tela se redesenhar.
+
+**Mas ser remontada fecha o painel.** Quando a tela muda por baixo — trocar de
+aba, empilhar outra tela — a barra é remontada e o painel vai embora junto. Sem
+isso a marca de "aberto" sobrevivia à troca, e o toque seguinte no botão redondo
+fechava um painel que não existia mais em vez de abrir um.
+
+Cada ladrilho leva a cor do seu módulo, a mesma regra dos atalhos do Início. O
+nome vai embaixo do ícone em 72px de largura, o que não serve para
+"Configurações": módulos podem declarar um `curto` — ali, "Ajustes" — usado só
+onde o espaço aperta.
+
+O botão redondo fica **fora** da cápsula, e é por isso que ele continua no lugar
+enquanto ela cresce atrás dele. Aberto, ele vira ✕ e ganha fundo opaco: com o
+vidro, o botão amarelo do cronômetro passando atrás tingia o ✕ de amarelo.
+
 ## Barra de abas: o que sobrou de duas correções antigas
 
 Dois problemas diferentes, com causas diferentes, resolvidos quando a barra
