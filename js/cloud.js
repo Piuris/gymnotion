@@ -17,6 +17,7 @@ const CLOUD = {
   email: null,
   expiraEm: 0,
   ultimoEnvio: 0,
+  sincronizou: false,   // já enviou ou restaurou nesta instalação
 };
 
 const cloudConfigurado = () => !!(FIREBASE.apiKey && FIREBASE.projectId);
@@ -35,7 +36,7 @@ function cloudGravar() {
 }
 
 function cloudEsquecer() {
-  Object.assign(CLOUD, { idToken: null, refreshToken: null, uid: null, email: null, expiraEm: 0, ultimoEnvio: 0 });
+  Object.assign(CLOUD, { idToken: null, refreshToken: null, uid: null, email: null, expiraEm: 0, ultimoEnvio: 0, sincronizou: false });
   try { localStorage.removeItem(CLOUD_KEY); } catch (e) { /* nada a fazer */ }
 }
 
@@ -201,6 +202,7 @@ async function cloudEnviar() {
   if (!res.ok) throw new Error(traduzErro(d.error && d.error.message));
 
   CLOUD.ultimoEnvio = Date.now();
+  CLOUD.sincronizou = true;
   cloudGravar();
   return { bytes: dados.length, formato };
 }
@@ -228,6 +230,29 @@ async function cloudBaixar() {
 function cloudEnviarEmSegundoPlano() {
   if (!cloudConfigurado() || !cloudLogado()) return;
   cloudEnviar().catch((e) => console.warn('[nuvem] envio adiado:', e.message));
+}
+
+/* Este aparelho já trocou dados com a conta — enviou ou restaurou. Enquanto
+   isso não acontece, ele NÃO envia sozinho: entrar num computador vazio e
+   subir esse vazio apagaria o backup feito no celular. */
+const cloudJaSincronizou = () => !!(CLOUD.sincronizou || CLOUD.ultimoEnvio);
+
+function cloudMarcarSincronizado() {
+  CLOUD.sincronizou = true;
+  cloudGravar();
+}
+
+/* Envio automático com trava de tempo: guardar tarefa, gasto e jogo mexe no
+   estado o tempo todo, e subir a cada tecla seria desperdício. */
+let ULTIMO_AUTO = 0;
+const AUTO_A_CADA = 60 * 1000;
+
+function cloudAutoEnviar() {
+  if (!cloudConfigurado() || !cloudLogado() || !cloudJaSincronizou()) return false;
+  if (Date.now() - ULTIMO_AUTO < AUTO_A_CADA) return false;
+  ULTIMO_AUTO = Date.now();
+  cloudEnviarEmSegundoPlano();
+  return true;
 }
 
 cloudCarregar();

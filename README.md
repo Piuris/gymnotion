@@ -85,6 +85,34 @@ O estado é compactado com gzip antes de subir (cerca de 10x menor), porque um
 documento do Firestore tem teto de 1 MiB e alguns anos de treino chegariam perto
 disso sem compactar.
 
+### Entrar num aparelho novo tem de falar
+
+Entrar com a mesma conta no computador e não ver nada era o comportamento antigo,
+e ele mentia por omissão: `ofertaRestaurar()` devolvia calada tanto quando a
+leitura falhava quanto quando a conta estava vazia. Como as duas coisas parecem
+iguais na tela — nada acontece —, não dava para saber se o problema era a conta,
+a rede ou as regras do banco.
+
+Agora ela fala nos três casos: **achou** (pergunta se quer substituir, dizendo
+quantos treinos, tarefas e lançamentos deste aparelho serão trocados), **conta
+vazia** (avisa que não há backup e manda enviar do aparelho que tem os dados) e
+**erro** (mostra o motivo — quase sempre `firestore.rules` ainda não publicado).
+O aviso fica na tela até ser lido, e não some sozinho como um `toast`: é
+justamente a explicação que diz o que fazer em seguida.
+
+### Enviar sozinho, mas só depois de sincronizar uma vez
+
+Antes só o fim de um treino, a criação da conta e o envio manual subiam dados.
+Quem passou a semana anotando tarefa, gasto e jogo ficava sem backup nenhum.
+Agora `cloudAutoEnviar()` sobe quando o app é escondido — o momento em que o
+estado acabou de parar de mudar — com trava de um minuto entre os envios.
+
+A trava importante, porém, é outra: **ele se recusa a enviar até este aparelho
+ter enviado ou restaurado uma vez** (`cloudJaSincronizou()`). Sem isso, entrar
+com a conta num computador vazio e trocar de aba subiria o vazio por cima do
+backup feito no celular — apagando tudo sem um clique sequer. Restaurar marca a
+sincronização; sair da conta desmarca.
+
 ### Como ligar
 
 1. Em <https://console.firebase.google.com>, crie um projeto. Pode recusar o

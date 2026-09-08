@@ -1451,16 +1451,44 @@ function telaLogin(paiScreen, aoEntrar) {
   }, { mode: 'sheet', name: 'login' });
 }
 
-/* Depois de entrar num aparelho novo, pergunta se quer puxar o que está lá. */
+/* Depois de entrar num aparelho novo, pergunta se quer puxar o que está lá.
+
+   Antes esta função devolvia em silêncio quando dava erro ou quando não havia
+   backup, e entrar num computador novo simplesmente não trazia nada — sem
+   dizer por quê. Agora ela fala nos três casos: achou, não achou, ou falhou. */
 async function ofertaRestaurar(screen) {
   let remoto;
-  try { remoto = await cloudBaixar(); } catch (e) { return; }
-  if (!remoto) return;
-  const local = S.sessions.length;
+  try {
+    remoto = await cloudBaixar();
+  } catch (e) {
+    avisoNuvem('Não consegui ler a conta', e.message);
+    return;
+  }
+
+  if (!remoto) {
+    avisoNuvem('Esta conta ainda não tem backup',
+      'Você entrou, mas não há nada guardado nela. Abra o aparelho que tem os dados e use '
+      + 'Configurações → Enviar para a nuvem; depois volte aqui e use Restaurar da nuvem.');
+    return;
+  }
+
   confirmSheet('Restaurar da nuvem?',
-    'Há um backup de ' + fmtDate(remoto.atualizadoEm) + ' na sua conta. Restaurar substitui os '
-    + local + ' treino(s) deste aparelho.',
+    'Há um backup de ' + fmtDate(remoto.atualizadoEm) + ' na sua conta. Restaurar substitui o '
+    + 'que está neste aparelho: ' + S.sessions.length + ' treino(s), ' + S.tarefas.length
+    + ' tarefa(s) e ' + S.lancamentos.length + ' lançamento(s).',
     'Restaurar', () => aplicarRestauracao(remoto.texto, screen));
+}
+
+/* Um aviso que fica na tela até ser lido. Com `toast` a explicação some em dois
+   segundos, e é justamente ela que diz o que fazer em seguida. */
+function avisoNuvem(titulo, texto) {
+  const box = h(`<div>
+    <h3>${esc(titulo)}</h3>
+    <p class="desc">${esc(texto)}</p>
+    <div class="sheet-actions"><button class="pill-btn" data-x="ok">Entendi</button></div>
+  </div>`);
+  const r = openSheet(box, { center: true });
+  box.querySelector('[data-x="ok"]').addEventListener('click', r.close);
 }
 
 async function enviarNuvem(screen) {
@@ -1486,6 +1514,9 @@ async function restaurarNuvem(screen) {
 function aplicarRestauracao(texto) {
   try {
     importJSON(texto);
+    /* a partir daqui este aparelho pode enviar sozinho: ele já tem o que a
+       conta tem, então não vai sobrescrever a nuvem com um estado vazio */
+    if (typeof cloudMarcarSincronizado === 'function') cloudMarcarSincronizado();
     popToRoot();
     currentScreen().refresh();
     toast('Restaurado da nuvem');
@@ -2476,6 +2507,10 @@ function boot() {
   /* mantém o cronômetro coerente ao voltar do segundo plano */
   document.addEventListener('visibilitychange', () => {
     ajustarTravaTela();   /* o sistema solta a trava ao esconder o app */
+    /* Sair do app é o momento certo de subir: o estado acabou de parar de
+       mudar. Antes só o fim de um treino enviava, e quem só anotava tarefa ou
+       gasto ficava semanas sem backup nenhum. */
+    if (document.hidden) cloudAutoEnviar();
     if (!document.hidden) {
       const sc = currentScreen();
       if (sc) sc.refresh();

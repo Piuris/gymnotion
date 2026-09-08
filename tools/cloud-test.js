@@ -25,6 +25,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const MOCK = `
 window.__req = [];
 window.__doc = null;
+window.__falhaGet = null;   // simula o Firestore recusando a leitura
 const fetchReal = window.fetch;
 window.fetch = async (url, opts) => {
   url = String(url); opts = opts || {};
@@ -49,6 +50,7 @@ window.fetch = async (url, opts) => {
   }
   if (url.includes('firestore.googleapis.com')) {
     if ((opts.method || 'GET') === 'PATCH') { window.__doc = JSON.parse(corpo); return ok(window.__doc); }
+    if (window.__falhaGet) return erro(403, window.__falhaGet);
     if (!window.__doc) return new Response(JSON.stringify({}), { status: 404 });
     return ok(window.__doc);
   }
@@ -233,12 +235,77 @@ window.fetch = async (url, opts) => {
   await ev('window.__doc = null;');
   ck(await ev("cloudBaixar().then(r => r === null)"), 'conta sem backup devolve null em vez de erro');
 
+  console.log('\nentrar num aparelho novo:');
+  /* Era aqui que ele quebrava calado: a oferta de restaurar devolvia sem dizer
+     nada quando dava erro ou quando a conta estava vazia. Quem entrava com a
+     conta no computador via a tela vazia e nenhuma explicação. */
+  const sheetH3 = "(function () { var e = document.querySelector('.sheet h3'); return e ? e.textContent : ''; })()";
+  const sheetDesc = "(function () { var e = document.querySelector('.sheet .desc'); return e ? e.textContent : ''; })()";
+  const fechar = (x) => ev(`(function () { var b = document.querySelector('.sheet [data-x=${x}]'); if (b) b.click(); })()`);
+
+  await ev("popToRoot(); abrirModulo('config');"); await sleep(500);
+
+  /* 1. a conta tem backup: tem de perguntar se quer puxar */
+  ck(await ev('cloudEnviar().then(() => true, () => false)'), 'preparo: a conta volta a ter backup');
+  await ev('ofertaRestaurar(currentScreen())'); await sleep(700);
+  ck(await ev("!!document.querySelector('.sheet')"), 'com backup na conta, ele pergunta');
+  const pergunta = await ev(sheetH3);
+  ck(pergunta === 'Restaurar da nuvem?', 'e a pergunta é a de restaurar (' + pergunta + ')');
+  ck((await ev(sheetDesc)).indexOf('lançamento') > 0,
+    'dizendo tudo o que será substituído, e não só os treinos');
+  await fechar('no'); await sleep(400);
+
+  /* 2. a conta está vazia: tem de dizer isso e o que fazer em seguida */
+  await ev('window.__doc = null;');
+  await ev('ofertaRestaurar(currentScreen())'); await sleep(700);
+  const vazio = await ev(sheetH3);
+  ck(vazio.indexOf('ainda não tem backup') > 0,
+    'conta sem backup abre um aviso dizendo isso (' + vazio + ')');
+  ck((await ev(sheetDesc)).indexOf('Enviar para a nuvem') > 0,
+    'e aponta o caminho: enviar do aparelho que tem os dados');
+  await fechar('ok'); await sleep(400);
+
+  /* 3. o Firestore recusa a leitura: tem de mostrar o motivo */
+  await ev("window.__falhaGet = 'PERMISSION_DENIED';");
+  await ev('ofertaRestaurar(currentScreen())'); await sleep(700);
+  ck((await ev(sheetH3)).indexOf('ler a conta') > 0,
+    'erro de leitura também abre um aviso, em vez de não fazer nada');
+  ck((await ev(sheetDesc)).indexOf('firestore.rules') > 0,
+    'com o motivo: as regras do banco ainda não foram publicadas');
+  await shot('c3-aviso-nuvem');
+  await fechar('ok'); await sleep(400);
+  await ev('window.__falhaGet = null;');
+
+  console.log('\nenvio automático:');
+  ck(await ev('cloudJaSincronizou() === true'),
+    'quem já enviou uma vez pode enviar sozinho depois');
+  await ev('CLOUD.sincronizou = false; CLOUD.ultimoEnvio = 0; cloudGravar();');
+  ck(await ev('cloudJaSincronizou() === false'),
+    'um aparelho que nunca trocou dados com a conta, não');
+  ck(await ev('cloudAutoEnviar() === false'),
+    'e ele não envia sozinho: subir um estado vazio apagaria o backup do outro aparelho');
+
+  ck(await ev('cloudEnviar().then(() => true, () => false)'), 'enviar à mão funciona');
+  ck(await ev('cloudJaSincronizou() === true'), 'e libera o envio automático');
+  await ev('ULTIMO_AUTO = 0;');
+  ck(await ev('cloudAutoEnviar() === true'), 'aí ele passa a enviar sozinho');
+  ck(await ev('cloudAutoEnviar() === false'),
+    'mas não duas vezes seguidas: há trava de tempo entre os envios');
+
+  /* restaurar também libera, porque o aparelho passa a ter o que a conta tem */
+  await ev('CLOUD.sincronizou = false; CLOUD.ultimoEnvio = 0; cloudGravar();');
+  await ev("cloudBaixar().then((r) => { aplicarRestauracao(r.texto); return 'ok'; })");
+  await sleep(700);
+  ck(await ev('cloudJaSincronizou() === true'), 'restaurar também libera o envio automático');
+
   console.log('\nsair:');
   await ev("popToRoot(); abrirModulo('config');"); await sleep(300);
   await shot('c2-perfil-logado');
   await ev('cloudEsquecer();');
   ck(await ev('cloudLogado() === false'), 'sair limpa a sessão');
   ck(await ev("localStorage.getItem('gymnotion.cloud') === null"), 'sair apaga o token guardado');
+  ck(await ev('cloudJaSincronizou() === false'),
+    'e zera a marca de sincronização: entrar de novo volta a esperar por você');
   ck(await ev('S.workouts.length === 1'), 'sair NÃO apaga os treinos do aparelho');
 
   console.log('\nproblemas:', bad.length);
