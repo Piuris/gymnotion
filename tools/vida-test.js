@@ -102,7 +102,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(nAtalhos === await ev('MODULOS.length'),
     'há um atalho para cada módulo (' + nAtalhos + ')');
   ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).map(function (b) { return b.textContent; }).join(',')`)
-    === 'Academia,Cronograma,Hidratação,Jogos,Gastos,Metas,Estudos,Configurações',
+    === 'Academia,Cronograma,Hidratação,Jogos,Financeiro,Metas,Estudos,Configurações',
     'na ordem esperada');
 
   /* cada atalho leva a cor do seu módulo */
@@ -357,21 +357,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\nhidratação:');
   await ev("popToRoot(); abrirModulo('agua');"); await sleep(600);
   ck(await ev("currentScreen().name === 'agua'"), 'a tela de água abre pelo módulo');
-  const copos = await ev(`Array.from(${tela()}.querySelectorAll('.agua-copo b')).map(function (b) { return b.textContent; }).join(',')`);
-  ck(copos === '+300,+500,+800', 'os copos são 300, 500 e 800 ml (' + copos + ')');
-  ck(await ev(`${tela()}.textContent.includes('Desfazer 800 ml')`),
-    'e o desfazer parte de 800, o tamanho da garrafa');
+  const copos = await ev(`Array.from(${tela()}.querySelectorAll('.agua-copos .acao')).map(function (b) { return b.textContent.trim(); }).join(',')`);
+  ck(copos === '+ 300 ml,+ 500 ml,+ 800 ml', 'os copos são 300, 500 e 800 ml (' + copos + ')');
+  ck(await ev(`${tela()}.textContent.includes('Nenhum copo registrado hoje')`),
+    'e o dia começa sem registro nenhum');
 
-  await ev(`${tela()}.querySelectorAll('.agua-copo')[2].click()`); await sleep(450);
+  await ev(`${tela()}.querySelectorAll('.agua-copos .acao')[2].click()`); await sleep(450);
   ck(await ev('aguaDoDia() === 800'), 'tocar em +800 registra a garrafa cheia');
-  await ev(`${tela()}.querySelectorAll('.agua-copo')[0].click()`); await sleep(450);
+  await ev(`${tela()}.querySelectorAll('.agua-copos .acao')[0].click()`); await sleep(450);
   ck(await ev('aguaDoDia() === 1100'), 'somando os 300 do copo seguinte');
-  ck(await ev(`${tela()}.textContent.includes('Desfazer 300 ml')`),
-    'o desfazer passa a oferecer os 300 que entraram por último');
-  await ev(`${tela()}.querySelector('.agua-extras [data-act="menos"]').click()`); await sleep(450);
+  ck(await ev(`${tela()}.querySelectorAll('.gole').length === 2`),
+    'cada gole vira um registro do dia');
+  ck(await ev(`${tela()}.querySelector('.gole b').textContent === '300 ml'`),
+    'com o último em cima');
+  await ev(`${tela()}.querySelector('.gole [data-act="desfazer"]').click()`); await sleep(450);
   ck(await ev('aguaDoDia() === 800'),
-    'e tira exatamente esse valor, em vez de descontar um número fixo');
-  await ev(`${tela()}.querySelector('.agua-extras [data-act="menos"]').click()`); await sleep(450);
+    'desfazer tira exatamente esse valor, em vez de descontar um número fixo');
+  await ev(`${tela()}.querySelector('.gole [data-act="desfazer"]').click()`); await sleep(450);
   ck(await ev('aguaDoDia() === 0'), 'desfazendo de novo, sai a garrafa de 800');
   await shot('v8-agua');
 
@@ -382,7 +384,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("popToRoot(); abrirModulo('academia');"); await sleep(600);
   ck(await ev("currentScreen().name === 'academia'"), 'a academia é uma das abas');
   ck(await ev(`!!${tela()}.querySelector('.week')`), 'com a faixa da semana no lugar');
-  ck(await ev(`!!${tela()}.querySelector('.acad-barra .streak')`), 'e a ofensiva no topo');
+  ck(await ev(`!${tela()}.querySelector('.streak')`),
+    'e sem a ofensiva, que saiu da academia');
   /* sem treino montado nao ha cartao do dia; o que tem de existir e o caminho
      para montar um e as pilulas de acao */
   ck(await ev(`!!${tela()}.querySelector('[data-act="criar"]')`),

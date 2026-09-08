@@ -323,13 +323,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\ncor da agua:');
   await irPara('agua'); await sleep(700);
   const AZUL = (await ev('AZUL_AGUA')).toUpperCase();
-  const azul = (await ev(`getComputedStyle(${tela()}.querySelector('.agua-anel')).getPropertyValue('--accent').trim()`)).toUpperCase();
+  const azul = (await ev(`getComputedStyle(${tela()}.querySelector('.bloco')).getPropertyValue('--accent').trim()`)).toUpperCase();
   ck(azul === AZUL, 'a agua tem cor propria, azul (' + azul + '), por nao ser treino');
   ck(azul !== corPull.toUpperCase() && azul !== corPush.toUpperCase(),
     'e nao segue nenhuma cor de treino');
   await ev('beberAgua(500); currentScreen().refresh();'); await sleep(500);
   const barra = await ev(`(function () {
-    var b = ${tela()}.querySelectorAll('.agua-barra i');
+    var b = ${tela()}.querySelectorAll('.agua-semana .dias-barra i');
     var u = b[b.length - 1];
     return [getComputedStyle(u).backgroundColor, u.style.height].join('|');
   })()`);

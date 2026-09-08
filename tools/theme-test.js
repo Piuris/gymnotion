@@ -106,12 +106,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   `);
 
   console.log('temas:');
-  ck(await ev('TEMAS.length === 5'), 'cinco temas disponíveis');
-  ck(await ev("S.settings.tema === 'preto'"), 'padrão é Preto');
-  ck(await ev('!document.documentElement.dataset.tema'),
-    'tema padrão não põe atributo no html');
+  ck(await ev('TEMAS.length === 6'), 'seis temas disponíveis');
+  ck(await ev("S.settings.tema === 'ardosia'"), 'padrão é Ardósia');
+  ck(await ev("document.documentElement.dataset.tema === 'ardosia'"),
+    'e ele marca o html, porque não é mais o tema base do CSS');
 
-  for (const t of ['preto', 'grafite', 'meia-noite', 'sepia', 'claro']) {
+  for (const t of ['ardosia', 'preto', 'grafite', 'meia-noite', 'sepia', 'claro']) {
     await ev(`S.settings.tema = '${t}'; saveNow(); aplicarTema('${t}'); popToRoot(); currentScreen().refresh();`);
     await sleep(350);
     const fundo = await ev('getComputedStyle(document.body).backgroundColor');
@@ -124,7 +124,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("S.settings.tema = 'claro'; aplicarTema('claro'); popToRoot(); abrirModulo('academia');");
   await sleep(400);
   /* o botao flutuante saiu da academia; a chama da ofensiva usa o mesmo acento */
-  const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.streak svg')).fill");
+  const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.sec .eyebrow')).color");
   ck(acento === 'rgb(28, 28, 30)',
     'fora do treino o detalhe e neutro, e no tema claro ele escurece (veio ' + acento + ')');
   await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(500);
@@ -145,13 +145,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("popToRoot(); abrirModulo('config');"); await sleep(350);
   ck(await ev("currentScreen().el.textContent.includes('Tema')"), 'entrada Tema aparece no Perfil');
   await ev("telaTemas(currentScreen())"); await sleep(450);
-  ck(await ev("currentScreen().el.querySelectorAll('.tema-row').length === 5"), 'lista os 5 temas');
+  ck(await ev("currentScreen().el.querySelectorAll('.tema-row').length === TEMAS.length"),
+    'lista os ' + await ev('TEMAS.length') + ' temas');
   await shot('escolha-tema');
-  await ev("currentScreen().el.querySelectorAll('.tema-row')[1].click()"); await sleep(350);
+  await ev("currentScreen().el.querySelectorAll('.tema-row')[2].click()"); await sleep(350);
   ck(await ev("S.settings.tema === 'grafite'"), 'tocar troca o tema na hora');
   ck(await ev("document.documentElement.dataset.tema === 'grafite'"), 'atributo aplicado no html');
   ck(await ev("JSON.parse(localStorage.getItem('gymnotion.v1')).settings.tema === 'grafite'"),
     'escolha persiste');
+  ck(await ev("S.settings.temaEscolhido === true"),
+    'e fica marcado como escolha na mão, para o padrão não sobrescrever depois');
   await ev("S.settings.tema = 'preto'; saveNow(); aplicarTema('preto'); popScreen();"); await sleep(400);
 
   console.log('\ntela de login:');

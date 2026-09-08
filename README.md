@@ -9,18 +9,18 @@ São seis módulos, cada um com a sua tela:
 
 | Módulo | Para quê |
 | --- | --- |
-| **Academia** | Treinos, cargas, séries, ofensiva, recordes e análises |
+| **Academia** | Treinos, cargas, séries, plano da semana, recordes e análises |
 | **Cronograma** | Tarefas e compromissos num calendário de mês |
 | **Hidratação** | Meta diária de água |
-| **Gastos** | Controle mensal de despesas por categoria, com teto |
+| **Financeiro** | Entradas, saídas e saldo do mês, por categoria |
 | **Jogos** | Estante do que jogar, do que está jogando e do que zerou |
 | **Metas** | Cofrinhos: dinheiro separado por objetivo |
 | **Estudos** | Matérias com tópicos e horas estudadas |
 | **Configurações** | Tema, peso, metas, conta e backup |
 
-A barra de baixo tem duas abas: **Início**, com os atalhos e o que há para hoje,
-e **Menu**, com a lista inteira. Todo módulo é uma tela empilhada por cima — ver
-[Navegação: dois níveis](#navegação-dois-níveis).
+No celular a navegação é a cápsula flutuante de baixo; **a partir de 900px de
+largura ela vira uma coluna fixa à esquerda**, e o app serve igual no
+computador. Ver [Duas navegações, um app](#duas-navegações-um-app).
 
 ## A regra da cor
 
@@ -161,7 +161,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/folhas-test.js](tools/folhas-test.js) | Testa as folhas de cadastro e o seletor de cores num iPhone 15 Pro, com e sem teclado |
 | [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
 | [tools/jogos-test.js](tools/jogos-test.js) | Testa a estante de jogos: estados, filtro, capa e compressão |
-| [tools/gastos-test.js](tools/gastos-test.js) | Testa o controle de gastos: mês, categorias, média, projeção e teto |
+| [tools/financeiro-test.js](tools/financeiro-test.js) | Testa entradas e saídas, categorias, média, projeção e o formulário na tela |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -392,7 +392,7 @@ node tools/vida-test.js ./__shots        # módulos de organização e navegaç�
 node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aberto
 node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
 node tools/jogos-test.js ./__shots       # estante de jogos
-node tools/gastos-test.js ./__shots      # controle de gastos
+node tools/financeiro-test.js ./__shots  # entradas, saídas e saldo
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -437,134 +437,82 @@ futuros ficam apagados e não respondem ao toque. Arrastar a faixa troca de
 semana, sem passar de hoje. O histórico corrido continua acessível em *Todos os
 registros*.
 
-## Ofensiva e dias de descanso
+## A meta da semana e os dias de descanso
 
-A sequência antiga exigia treinar **todos os dias** — inútil para quem treina
-três ou quatro vezes por semana, porque ficava sempre em 1.
+A sequência de dias saiu da tela: contar dias seguidos é inútil para quem treina
+três ou quatro vezes por semana — o número ficava sempre em 1 e não dizia nada.
+**O que a academia mostra agora é a meta semanal**: quantos treinos foram feitos
+de quantos, e é ela que o cartão do painel repete.
 
-Hoje o descanso é **automático**: um dia sem treino já é descanso, não há nada a
-marcar. Quem segura a ofensiva é a **meta semanal** (`metaSemanal`, padrão 2,
-ajustável nas *Configurações*): os dias vazios de uma semana só cobrem a corrente se
-aquela semana tiver batido a meta. Semana fechada abaixo dela quebra a sequência
-naquele ponto.
-
-O descanso **congela, não soma**: a ofensiva conta dias *treinados*. Com dois
-treinos numa semana e cinco dias vazios, o número é 2 — os vazios só costuram a
-corrente para ela não cair.
+O descanso é **automático**: um dia sem treino já é descanso, não há nada a
+marcar. Quem decide se ele conta é a **meta semanal** (`metaSemanal`, padrão 2,
+ajustável nas *Configurações*): os dias vazios de uma semana só valem como
+descanso se aquela semana tiver batido a meta.
 
 Dois cuidados na interface:
 
 - **Hoje não é descanso.** O dia ainda pode virar treino, então não recebe a
   marca nem é chamado assim; o aviso olha para a frente ("faltam N treinos nesta
   semana"). Dias futuros também não são marcados.
-- **A semana em curso é poupada** da regra da meta, porque ela ainda pode bater —
-  senão a ofensiva quebraria toda segunda-feira.
+- **A semana em curso é poupada** da regra da meta, porque ela ainda pode bater.
 
-Na faixa da semana, ponto cheio é dia treinado e anel vazado é descanso coberto.
+Na faixa da semana, ponto cheio é dia treinado — na cor do treino daquele dia — e
+anel vazado é descanso coberto. `streak()` continua no código, alimentando essa
+regra de cobertura; o que saiu foi mostrar o número.
 
 ## Meta de água
 
-Copos de 300, 500 e **800 ml** (o tamanho da garrafa levada para a academia), os
-últimos 7 dias e meta ajustável. Sem meta definida, usa **35 ml por quilo** de
-peso corporal — a referência mais citada — arredondado para a centena.
+Copos de 300, 500 e **800 ml** (o tamanho da garrafa levada para a academia), o
+percentual da meta, cada gole do dia listado e o gráfico dos **últimos 7 dias** —
+é por ele que se vê a meta batida ou não em cada dia, e por isso ele fica: o
+número de hoje sozinho não conta a semana.
+
+Sem meta definida, usa **35 ml por quilo** de peso corporal — a referência mais
+citada — arredondado para a centena.
 
 O desfazer não desconta um número fixo: cada gole entra em `aguaLog` na ordem em
-que foi registrado, e desfazer tira **exatamente o último**. Descontar sempre
-800 erraria toda vez que o toque anterior tivesse sido um copo de 300, e o
-rótulo do botão acompanha (`Desfazer 300 ml`).
+que foi registrado, e desfazer tira **exatamente o último**. Descontar sempre 800
+erraria toda vez que o toque anterior tivesse sido um copo de 300 — e é esse
+mesmo registro que a lista de goles do dia mostra.
 
 O anel, os botões e as barras usam um azul próprio (`AZUL_AGUA`): água não é
 treino, então não herda a cor de nenhum.
 
-## O sistema visual
+## Duas navegações, um app
 
-Cinco peças, usadas por todas as telas. Trocar uma delas troca o app inteiro,
-que é o ponto de terem virado peça em vez de marcação solta em cada tela.
+O mesmo app com a navegação trocada de lugar. **No celular**, uma cápsula
+flutuante de cinco botões — Início, Cronograma, Academia, Hidratação e um menu
+que abre um painel por cima e vira ✕ enquanto está aberto. **A partir de 900px**,
+uma coluna fixa à esquerda com todos os módulos, o item aberto aceso, e a
+cápsula some.
 
-**Cabeçalho de seção** (`secao()`) — uma sobrancelha curta em maiúsculas, na cor
-do contexto, e um título grande logo abaixo. Ocupa menos que uma barra de título
-fixa e diz mais: *PLANO DO DIA / Seus exercícios*.
+A coluna vive fora da pilha de telas, então sobrevive a empilhar e desempilhar;
+`atualizarLateral()` é chamada de `pushScreen` e `popScreen` para o item aceso
+acompanhar. As telas passam a começar depois dela (`.screen { left: var(--lateral) }`),
+e o conteúdo tem largura máxima de 1120px — sem isso, uma tela de 27 polegadas
+esticaria uma lista de tarefas de ponta a ponta.
 
-**Cartão-herói** (`heroi()`) — o número que importa naquela tela, ocupando o
-topo, pintado com a cor do item que o gerou: o treino do dia, o total do
-cofrinho, as horas da semana. O texto usa `--on-accent`, que já é calculado por
-luminância, então sobre lima ele sai preto e sobre roxo, branco. Os anéis do
-canto são desenhados com `currentColor`, então acompanham esse contraste em vez
-de precisarem de um tom fixo. Um título com mais de 15 caracteres cai de corpo
-40 para 30 sozinho — "Push" pede o corpo grande, "Quinta-feira, 03 de set." não.
+O botão do menu **não navega**: abre um painel e o painel se ancora em quem o
+chamou. `menuSuspenso()` trava a altura antes de medir e recorta nos dois eixos;
+mede com `offsetHeight` e não com `getBoundingClientRect`, porque a animação de
+entrada começa em `scale(.92)` e o rect sai encolhido enquanto ela roda.
 
-**Pílulas de ação** (`.acoes`) — o que era linha de lista com seta virou botão
-redondo: *Ver evolução*, *1/2 na semana*, *Todos os registros*.
-
-**Linha do tempo** (`.linha-tempo`) — os exercícios do treino como um roteiro: a
-bolha traz a foto do movimento e um fio liga um ao outro. Uma sequência lê como
-sequência, e não como linhas soltas.
-
-**Ícones de contorno** (`iconO()`) — traço de 1.7px para a cápsula de baixo e o
-menu suspenso. Os cheios continuam onde estão: num quadradinho de 20px sobre
-fundo colorido, o cheio ainda lê melhor.
-
-## Navegação: cápsula e menu suspenso
-
-A barra virou uma **cápsula flutuante** com as quatro telas de uso diário —
-Início, Cronograma, Academia, Hidratação — mais um botão de menu. O conteúdo
-passa por baixo dela, o que dá profundidade e devolve altura à lista.
-
-O botão do menu **não navega**: abre um painel por cima e vira ✕ enquanto está
-aberto. É a diferença entre navegar e escolher. O painel lista todos os módulos,
-inclusive os que já estão na cápsula — quem procura uma tela pelo nome não
-deveria precisar saber se ela virou ícone lá embaixo — mais o resumo e o
-histórico da academia. A cápsula fica num `z-index` acima do painel, senão o ✕
-sumiria justamente quando é preciso tocá-lo.
-
-`menuSuspenso()` se ancora em quem o chamou e se prende dentro da tela: trava a
-altura antes de medir e recorta nos dois eixos. Um detalhe custou uma correção —
-o painel era medido com `getBoundingClientRect()` **durante** a animação de
-entrada, que começa em `scale(.92)`, então o recorte calculava com 46px a menos
-e a lista de doze cores vazava 34px por baixo da tela. `offsetHeight` ignora a
-transformação e resolve.
-
-As telas de aba não têm mais barra de título, e era ela que reservava a faixa do
-relógio e da câmera: esse recuo passou para `.screen.com-abas > .scroll`.
+A cápsula fica num `z-index` acima do painel, senão o ✕ sumiria justamente
+quando é preciso tocá-lo.
 
 Concluir um treino chama `voltarPara('academia')`, não `popToRoot()`: quem
 acabou de treinar quer cair de volta na academia.
 
-## O plano de treino
+## O tema Ardósia
 
-Duas camadas, porque são dois problemas diferentes.
+O desenho novo trouxe uma base cinza-azulada — fundo `#0B0E12`, cartão `#151A20`
+e uma borda visível, que é o que separa cartão de fundo sem precisar de sombra.
+Ela entrou como um tema a mais, **Ardósia**, e virou o padrão.
 
-O **molde da semana** é como uma rotina de academia costuma ser pensada:
-"segunda é peito, terça é costas". Vale toda semana, e mora em
-`settings.planoSemanal` — sete posições, cada uma com um `workoutId`, a
-constante `FOLGA` ou nada.
-
-A **troca avulsa** marca uma data só, em `planoDias['2026-09-03']`, para a
-semana que sai do script sem que a rotina inteira mude junto. Ela vence o
-molde; sem nenhum dos dois, o dia cai no rodízio automático.
-
-`treinoDoDia(ts)` resolve as três camadas e devolve também a **origem** —
-`'dia'`, `'semana'` ou `'rodizio'`. É a origem que deixa o cartão dizer
-*Quinta* quando o treino veio da rotina, *Treino de hoje* quando foi uma troca
-e *Sugestão de hoje* quando ninguém marcou nada.
-
-Onde se mexe:
-
-- **Plano da semana** (pílula *Editar semana* na academia, ou o menu suspenso):
-  sete linhas, uma por dia, cada uma abrindo o menu de treinos. Também dá para
-  marcar *Descanso* ou deixar *Livre*.
-- **Só um dia**: o ⋯ no canto do cartão do dia. Com uma troca no ar, o menu
-  ganha *Seguir o plano da semana*, que **apaga** a troca em vez de gravar
-  outra igual à rotina — senão mudar a rotina depois não alcançaria aquele dia.
-
-O plano diz o que treinar, **não** o que conta como descanso: a ofensiva
-continua presa à meta semanal. Marcar folga nos sete dias não a segura, e
-`plano-test.js` verifica exatamente isso. Apagar um treino limpa as marcações
-que apontavam para ele (`limparPlano`), para nenhum dia ficar apontando para o
-vazio.
-
-Na faixa da semana, um dia ainda por vir e sem registro mostra, apagadinho, a
-cor do que está marcado — dá para ler a semana inteira de relance.
+Trocar o padrão não bastaria: quem já usava o app tem o tema gravado, e ficaria
+para trás. Por isso existe `settings.temaEscolhido`, ligado só quando alguém
+escolhe um tema na mão — até lá, o app acompanha o padrão quando ele muda. Quem
+tinha escolhido Preto de propósito continua no Preto.
 
 ## A academia em um cartão
 
@@ -610,33 +558,38 @@ o saldo encolher sem deixar rastro. Retirar mais do que existe esvazia o
 cofrinho, mas não deixa saldo negativo — `guardarNaMeta` corta a retirada no que
 há dentro. A barra para em 100% mesmo com o guardado passando do alvo.
 
-## Gastos
+## Financeiro
 
-O **mês é a unidade**: é nele que se pergunta "quanto já foi". O topo responde
-isso, a divisão por categoria diz para onde foi, e a lista mostra cada
-lançamento agrupado por dia. Navegar de mês é o mesmo gesto do calendário, e
-avançar para o futuro fica desligado — não há gasto a ver lá.
+O **mês é a unidade**: entradas, saídas e o saldo entre as duas, nos três
+cartões do topo. A divisão por categoria diz para onde as saídas foram, e a
+lista mostra cada lançamento agrupado por dia. Navegar de mês é o mesmo gesto do
+calendário, e avançar para o futuro fica desligado — não há lançamento a ver lá.
 
-A data do lançamento é guardada como **chave de dia** (`'2026-09-07'`), a mesma
-escolha do cronograma e pelo mesmo motivo; de quebra, agrupar por mês vira um
-`slice(0, 7)`.
+O lançamento é feito num **formulário que fica na própria tela**, não numa folha
+modal: aqui se lança várias coisas seguidas, e abrir e fechar uma folha a cada
+uma seria trabalho a mais. O rascunho vive fora do formulário (`RASCUNHO_FIN`),
+porque a tela é redesenhada a cada troca de tipo — a lista de categorias muda
+junto, já que salário não é uma saída. Depois de lançar, tipo e categoria ficam
+escolhidos e o valor limpa: quem lança mercado costuma lançar de novo, e repetir
+o valor sem querer seria pior.
 
-As **categorias são uma lista fechada com cor própria**. É o que faz a divisão
-do mês se ler de relance — a fatia pelo comprimento da barra, a categoria pela
-cor — e segue a regra da casa: a cor identifica a coisa. Uma categoria
-desconhecida cai em *Outros* em vez de sumir do resumo.
+A data é chave de dia (`'2026-09-08'`), a mesma escolha do cronograma e pelo
+mesmo motivo; agrupar por mês vira um `slice(0, 7)`. As **categorias são listas
+fechadas com cor própria, uma para cada lado**: a fatia se lê pelo comprimento
+da barra e a categoria pela cor. Só as saídas entram na divisão — misturar
+salário com mercado não responde "para onde foi".
 
 Duas contas que valem a explicação:
 
 - **A média diária divide pelos dias já vividos**, não pelo mês inteiro. No dia
-  3, dividir por 30 diria que ele gasta dez vezes menos do que gasta. Em mês
-  fechado, o divisor é o mês todo.
+  3, dividir por 30 diria que ele gasta dez vezes menos do que gasta.
 - **A projeção** estende esse ritmo até o fim do mês, e só existe no mês
   corrente: num mês fechado ela é o próprio total, sem inventar futuro.
 
-O teto mensal é opcional. Passando dele, a barra muda para o tom de alerta e o
-cartão diz **quanto passou** — a barra cheia sozinha não distingue "bateu o
-teto" de "passou dele".
+Quem já tinha lançado gastos na versão anterior não perde nada: `migrarGastos`
+converte a lista antiga em lançamentos de saída. Ela roda em `completarCampos`,
+e não em `migrarParaV3` — um backup que já esteja na v3 pode ter gastos antigos,
+e a migração de versão sai cedo nesse caso.
 
 ## Jogos: a estante
 

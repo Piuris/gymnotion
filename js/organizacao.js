@@ -832,213 +832,210 @@ function editorJogo(jogo, screen) {
   setTimeout(() => { if (!jogo) campo('nome').focus(); }, 250);
 }
 
-
 /* =========================================================
-   GASTOS
+   FINANCEIRO
 
-   O mês é a unidade: é nele que se pergunta "quanto já foi". O topo responde
-   isso, a divisão por categoria diz para onde foi, e a lista mostra cada
-   lançamento. Navegar de mês é o mesmo gesto do calendário.
+   O mês é a unidade: entradas, saídas e o saldo entre as duas. O lançamento é
+   feito num formulário que fica na própria tela, e não numa folha modal — aqui
+   se lança várias coisas seguidas, e abrir e fechar uma folha a cada uma seria
+   trabalho a mais.
    ========================================================= */
 
-let MES_GASTOS = Date.now();
+let MES_FIN = Date.now();
+let RASCUNHO_FIN = { tipo: 'saida', categoria: 'outros' };
 
-function telaGastos() {
-  MES_GASTOS = Date.now();
+function telaFinanceiro() {
+  MES_FIN = Date.now();
+  RASCUNHO_FIN = { tipo: 'saida', categoria: 'outros' };
   pushScreen((el, screen) => {
-    setAccent(COR_GASTOS, el);
-    el.appendChild(navBar('Gastos', {
+    setAccent(COR_FINANCEIRO, el);
+    el.appendChild(navBar('Financeiro', {
       icone: 'dots',
-      aoTocar: () => actionSheet('Gastos', [
-        { label: orcamento() ? 'Mudar o teto do mês' : 'Definir um teto mensal', icon: 'target',
-          onClick: () => promptSheet('Teto do mês (R$)', String(orcamento() || ''), '2000', (v) => {
+      aoTocar: () => actionSheet('Financeiro', [
+        { label: orcamento() ? 'Mudar o teto de gastos' : 'Definir um teto de gastos', icon: 'target',
+          onClick: () => promptSheet('Teto de saídas no mês (R$)', String(orcamento() || ''), '2000', (v) => {
             S.settings.orcamento = Math.max(0, Number(String(v).replace(/\./g, '').replace(',', '.')) || 0);
             saveNow(); screen.refresh();
           }) },
         { label: 'Voltar para o mês atual', icon: 'repeat',
-          onClick: () => { MES_GASTOS = Date.now(); screen.refresh(); } },
+          onClick: () => { MES_FIN = Date.now(); screen.refresh(); } },
       ]),
     }));
 
     const scroll = h('<div class="scroll"></div>');
-    const lista = gastosDoMes(MES_GASTOS);
-    const total = totalGastos(lista);
-    const teto = orcamento();
-    const ehCorrente = mesKey(MES_GASTOS) === mesKey(Date.now());
+    scroll.appendChild(h(secaoSub('Financeiro', 'Controle do mês', 'Para onde o seu dinheiro está indo')));
 
-    /* ---------- o mês ---------- */
-    const topo = h(`<div class="cal-topo" style="padding:2px 22px 12px">
+    const ehCorrente = mesKey(MES_FIN) === mesKey(Date.now());
+    const topo = h(`<div class="cal-topo mes-troca">
       <button class="icon-btn stroke" data-act="ant">${icon('back')}</button>
-      <b>${esc(fmtMesAno(MES_GASTOS))}</b>
+      <b>${esc(fmtMesAno(MES_FIN))}</b>
       <button class="icon-btn stroke" data-act="prox" ${ehCorrente ? 'disabled' : ''}>${icon('chev')}</button>
     </div>`);
-    const andar = (n) => {
-      const d = new Date(MES_GASTOS);
-      MES_GASTOS = new Date(d.getFullYear(), d.getMonth() + n, 1).getTime();
-      haptic(); screen.refresh();
-    };
-    acts(topo, { ant: () => andar(-1), prox: () => andar(1) });
+    acts(topo, {
+      ant: () => { const d = new Date(MES_FIN); MES_FIN = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime(); haptic(); screen.refresh(); },
+      prox: () => { const d = new Date(MES_FIN); MES_FIN = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); haptic(); screen.refresh(); },
+    });
     scroll.appendChild(topo);
 
-    const projecao = projecaoDoMes(MES_GASTOS);
-    scroll.appendChild(h(heroi({
-      sobrancelha: ehCorrente ? 'Gasto neste mês' : 'Gasto no mês',
-      titulo: fmtBRL(total),
-      classe: 'compacto',
-      numero: teto ? 'de ' + fmtBRL(teto) + ' de teto' : (lista.length ? fmtMediaDia(MES_GASTOS) : 'Nada lançado ainda'),
-      nota: teto
-        ? (total > teto
-          ? 'Passou ' + fmtBRL(total - teto) + ' do teto'
-          : 'Sobram ' + fmtBRL(teto - total) + ' · ' + fmtMediaDia(MES_GASTOS))
-        : (ehCorrente && lista.length ? 'Neste ritmo, o mês fecha em ' + fmtBRL(projecao) : ''),
-    })));
-
-    if (teto) {
-      const barra = h(`<div class="progress alto${total > teto ? ' estourou' : ''}" style="margin:0 16px 14px">
-        <i style="width:${Math.min(100, (total / teto) * 100)}%"></i>
+    /* ---------- entradas, saídas, saldo ---------- */
+    const entradas = entradasDoMes(MES_FIN);
+    const saidas = saidasDoMes(MES_FIN);
+    const saldo = entradas - saidas;
+    const stats = h('<div class="stats"></div>');
+    [
+      ['Entradas', fmtBRL(entradas), COR_ENTRADA, ''],
+      ['Saídas', fmtBRL(saidas), COR_SAIDA, orcamento() ? 'de ' + fmtBRL(orcamento()) + ' de teto' : ''],
+      ['Saldo', fmtBRL(saldo), saldo < 0 ? COR_SAIDA : COR_FINANCEIRO, ''],
+    ].forEach(([rot, val, cor, sub]) => {
+      const c = h(`<div class="stat">
+        <div class="stat-rot">${esc(rot)}</div>
+        <b>${esc(val)}</b>
+        ${sub ? `<span>${esc(sub)}</span>` : ''}
       </div>`);
-      scroll.appendChild(barra);
-    }
+      setAccent(cor, c);
+      stats.appendChild(c);
+    });
+    scroll.appendChild(stats);
 
-    if (!lista.length) {
-      scroll.appendChild(h(`<div class="empty">${icon('cofre')}<b>Nenhum gasto ${ehCorrente ? 'neste mês' : 'neste mês'}</b>Toque no + para lançar o primeiro. A divisão por categoria aparece assim que houver o que dividir.</div>`));
-      el.appendChild(scroll);
-      const fabVazio = h(`<button class="fab">${icon('plus')}</button>`);
-      fabVazio.addEventListener('click', () => editorGasto(null, screen));
-      el.appendChild(fabVazio);
-      return;
-    }
+    /* ---------- novo lançamento ---------- */
+    scroll.appendChild(formLancamento(screen));
 
     /* ---------- para onde foi ---------- */
-    scroll.appendChild(h(secao('Para onde foi', 'Por categoria')));
-    const cats = h('<div class="cat-lista"></div>');
-    gastoPorCategoria(MES_GASTOS).forEach((c) => {
-      const linha = h(`<div class="cat-linha">
-        <div class="cat-nome"><i></i>${esc(c.cat.nome)}</div>
-        <div class="cat-barra"><u style="width:${(c.fatia * 100).toFixed(1)}%"></u></div>
-        <div class="cat-valor">${fmtBRL(c.total)}</div>
-      </div>`);
-      setAccent(c.cat.cor, linha);
-      cats.appendChild(linha);
-    });
-    scroll.appendChild(cats);
-
-    /* ---------- ritmo do mês ---------- */
-    const dias = gastoPorDia(MES_GASTOS);
-    const teto2 = Math.max(1, ...dias.map((d) => d.total));
-    scroll.appendChild(h(secao('Ritmo', 'Dia a dia')));
-    const barras = h('<div class="dias-barras dias-mes"></div>');
-    const hojeK = dayKey(Date.now());
-    dias.forEach((d) => {
-      const alt = d.total ? Math.max(8, (d.total / teto2) * 100) : 0;
-      barras.appendChild(h(`<div class="dias-col${d.total ? ' tem' : ''}${dayKey(d.ts) === hojeK ? ' hoje' : ''}" title="${esc(fmtBRL(d.total))}">
-        <div class="dias-barra"><i style="height:${alt}%"></i></div>
-      </div>`));
-    });
-    scroll.appendChild(barras);
+    const porCat = saidaPorCategoria(MES_FIN);
+    scroll.appendChild(h(`<div class="bloco"><div class="bloco-rot">Gastos por categoria (mês)</div>${
+      porCat.length ? '<div class="cat-lista"></div>' : '<div class="vazio-tracejado">Nenhuma saída registrada neste mês.</div>'
+    }</div>`));
+    if (porCat.length) {
+      const cats = scroll.querySelector('.bloco:last-child .cat-lista');
+      porCat.forEach((c) => {
+        const linha = h(`<div class="cat-linha">
+          <div class="cat-nome"><i></i>${esc(c.cat.nome)}</div>
+          <div class="cat-barra"><u style="width:${(c.fatia * 100).toFixed(1)}%"></u></div>
+          <div class="cat-valor">${fmtBRL(c.total)}</div>
+        </div>`);
+        setAccent(c.cat.cor, linha);
+        cats.appendChild(linha);
+      });
+    }
 
     /* ---------- lançamentos ---------- */
-    scroll.appendChild(h(secao(lista.length + (lista.length > 1 ? ' lançamentos' : ' lançamento'), 'O que foi gasto')));
-    let ultimoDia = '';
-    lista.forEach((g) => {
-      if (g.data !== ultimoDia) {
-        ultimoDia = g.data;
-        scroll.appendChild(h(`<div class="gasto-dia">${esc(fmtDataLonga(tsDaData(g.data)))}</div>`));
-      }
-      scroll.appendChild(linhaGasto(g, screen));
-    });
+    const lista = lancamentosDoMes(MES_FIN);
+    const bloco = h(`<div class="bloco"><div class="bloco-rot">Lançamentos${lista.length ? ' · ' + lista.length : ''}</div></div>`);
+    if (!lista.length) {
+      bloco.appendChild(h('<div class="vazio-tracejado">Nada lançado ainda.</div>'));
+    } else {
+      let ultimoDia = '';
+      lista.forEach((l) => {
+        if (l.data !== ultimoDia) {
+          ultimoDia = l.data;
+          bloco.appendChild(h(`<div class="gasto-dia">${esc(fmtDataLonga(tsDaData(l.data)))}</div>`));
+        }
+        bloco.appendChild(linhaLancamento(l, screen));
+      });
+    }
+    scroll.appendChild(bloco);
 
     el.appendChild(scroll);
-
-    const fab = h(`<button class="fab">${icon('plus')}</button>`);
-    fab.addEventListener('click', () => editorGasto(null, screen));
-    el.appendChild(fab);
-  }, { name: 'gastos' });
+  }, { name: 'financeiro' });
 }
 
-const fmtMediaDia = (ts) => fmtBRL(mediaDiaria(ts)) + ' por dia';
+/* Formulário na própria tela. Guardar o rascunho fora dele deixa a tela ser
+   redesenhada sem perder o que estava sendo digitado — e ela é redesenhada a
+   cada troca de tipo, porque a lista de categorias muda junto. */
+function formLancamento(screen) {
+  const r = RASCUNHO_FIN;
+  const cats = categoriasDe(r.tipo);
+  if (!cats.some((c) => c.id === r.categoria)) r.categoria = cats[cats.length - 1].id;
 
-/* Um lançamento. A faixa da esquerda é a cor da categoria, do mesmo jeito que
-   a tarefa carrega a cor dela — identifica sem roubar a linha. */
-function linhaGasto(g, screen) {
-  const cat = infoCategoria(g.categoria);
-  const row = h(`<div class="gasto">
-    <div class="gasto-txt">
-      <b>${esc(g.descricao || cat.nome)}</b>
-      <span>${esc(g.descricao ? cat.nome : '')}</span>
+  const box = h(`<div class="bloco">
+    <div class="bloco-rot">Novo lançamento</div>
+    <div class="form-linhas">
+      <label class="campo cresce">Descrição
+        <input class="text-input" data-c="desc" placeholder="Mercado, salário..." value="${esc(r.descricao || '')}"/>
+      </label>
+      <label class="campo">Valor
+        <input class="text-input" type="number" inputmode="decimal" step="0.01" data-c="valor" placeholder="0,00" value="${r.valor || ''}"/>
+      </label>
+      <label class="campo">Tipo
+        <select class="text-input" data-c="tipo">
+          <option value="saida"${r.tipo === 'saida' ? ' selected' : ''}>Saída</option>
+          <option value="entrada"${r.tipo === 'entrada' ? ' selected' : ''}>Entrada</option>
+        </select>
+      </label>
+      <label class="campo">Categoria
+        <select class="text-input" data-c="cat">
+          ${cats.map((c) => `<option value="${c.id}"${r.categoria === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="campo">Data
+        <input class="text-input" type="date" data-c="data" value="${esc(r.data || dayKey(Date.now()))}"/>
+      </label>
     </div>
-    <div class="gasto-valor">${fmtBRL(g.valor)}</div>
+    <button class="pill-btn sm" data-act="lancar">Lançar</button>
+  </div>`);
+
+  const campo = (n) => box.querySelector(`[data-c="${n}"]`);
+  const guardar = () => {
+    RASCUNHO_FIN = {
+      descricao: campo('desc').value,
+      valor: campo('valor').value,
+      tipo: campo('tipo').value,
+      categoria: campo('cat').value,
+      data: campo('data').value,
+    };
+  };
+  ['desc', 'valor', 'data', 'cat'].forEach((n) => campo(n).addEventListener('input', guardar));
+
+  /* trocar o tipo troca a lista de categorias: salário não é uma saída */
+  campo('tipo').addEventListener('change', () => {
+    guardar();
+    RASCUNHO_FIN.categoria = '';
+    screen.refresh();
+  });
+
+  acts(box, {
+    lancar: () => {
+      guardar();
+      const valor = Number(String(RASCUNHO_FIN.valor).replace(',', '.')) || 0;
+      if (valor <= 0) { toast('Informe o valor'); campo('valor').focus(); return; }
+      novoLancamento({
+        valor,
+        tipo: RASCUNHO_FIN.tipo,
+        categoria: RASCUNHO_FIN.categoria,
+        descricao: String(RASCUNHO_FIN.descricao || '').trim(),
+        data: RASCUNHO_FIN.data,
+      });
+      /* o mês aberto acompanha o lançamento, senão ele some da tela ao salvar */
+      MES_FIN = tsDaData(RASCUNHO_FIN.data || dayKey(Date.now()));
+      /* o tipo e a categoria ficam: quem lança mercado costuma lançar de novo */
+      RASCUNHO_FIN = { tipo: RASCUNHO_FIN.tipo, categoria: RASCUNHO_FIN.categoria, data: RASCUNHO_FIN.data };
+      haptic();
+      screen.refresh();
+    },
+  });
+  return box;
+}
+
+/* Um lançamento. A faixa da esquerda é a cor da categoria; o valor sai em verde
+   quando entra e em vermelho quando sai, com o sinal na frente. */
+function linhaLancamento(l, screen) {
+  const cat = infoCategoria(l.categoria, l.tipo);
+  const row = h(`<div class="gasto ${l.tipo}">
+    <div class="gasto-txt">
+      <b>${esc(l.descricao || cat.nome)}</b>
+      <span>${esc(l.descricao ? cat.nome : (l.tipo === 'entrada' ? 'Entrada' : 'Saída'))}</span>
+    </div>
+    <div class="gasto-valor">${l.tipo === 'entrada' ? '+' : '−'}${fmtBRL(l.valor)}</div>
     <button class="kebab" data-act="menu">${icon('dots')}</button>
   </div>`);
   setAccent(cat.cor, row);
   acts(row, {
-    menu: () => actionSheet(g.descricao || cat.nome, [
-      { label: 'Editar', icon: 'pencil', onClick: () => editorGasto(g, screen) },
+    menu: () => actionSheet(l.descricao || cat.nome, [
       { label: 'Apagar', icon: 'trash', danger: true,
-        onClick: () => confirmSheet('Apagar lançamento?', fmtBRL(g.valor) + ' em ' + cat.nome, 'Apagar', () => {
-          removerGasto(g.id); screen.refresh();
+        onClick: () => confirmSheet('Apagar lançamento?', fmtBRL(l.valor) + ' em ' + cat.nome, 'Apagar', () => {
+          removerLancamento(l.id); screen.refresh();
         }) },
     ]),
   });
-  row.addEventListener('click', (e) => { if (!e.target.closest('[data-act]')) editorGasto(g, screen); });
   return row;
-}
-
-function editorGasto(gasto, screen) {
-  const g = gasto || {
-    valor: '', categoria: 'mercado', descricao: '',
-    data: dayKey(mesKey(MES_GASTOS) === mesKey(Date.now()) ? Date.now() : tsDaData(mesKey(MES_GASTOS) + '-01')),
-  };
-  let categoria = g.categoria;
-
-  const box = h(`<div class="form">
-    <h3>${gasto ? 'Editar gasto' : 'Novo gasto'}</h3>
-    <div class="form-corpo">
-      <div class="calc-peso" style="margin-bottom:16px">
-        <span>Valor</span>
-        <div class="field"><u>R$</u><input type="number" inputmode="decimal" step="0.01" data-c="valor" value="${g.valor || ''}" placeholder="0,00"/></div>
-      </div>
-      <input class="text-input" data-c="desc" placeholder="No que foi (opcional)" value="${esc(g.descricao)}"/>
-      <label class="campo-data">Dia<input class="text-input" type="date" data-c="data" value="${esc(g.data)}"/></label>
-      <div class="section-title" style="padding-bottom:6px">Categoria</div>
-      <div class="chips cat-chips">
-        ${CATEGORIAS_GASTO.map((c) => `<button class="chip" data-cat="${c.id}" style="--pt:${c.cor}"><i class="cat-ponto"></i>${esc(c.nome)}</button>`).join('')}
-      </div>
-    </div>
-    <div class="sheet-actions">
-      <button class="pill-btn grey" data-x="no">Cancelar</button>
-      <button class="pill-btn" data-x="yes">Salvar</button>
-    </div>
-  </div>`);
-
-  const r = openSheet(box, { center: true });
-  r.sheet.classList.add('com-form');
-  const campo = (n) => box.querySelector(`[data-c="${n}"]`);
-
-  const marcar = () => {
-    box.querySelectorAll('[data-cat]').forEach((b) => b.classList.toggle('on', b.dataset.cat === categoria));
-    /* a folha veste a cor da categoria escolhida, como o resto do app */
-    setAccent(infoCategoria(categoria).cor, box);
-  };
-  marcar();
-  on(box, '[data-cat]', 'click', (ev) => { categoria = ev.currentTarget.dataset.cat; haptic(); marcar(); });
-
-  box.querySelector('[data-x="no"]').addEventListener('click', r.close);
-  box.querySelector('[data-x="yes"]').addEventListener('click', () => {
-    const valor = Number(String(campo('valor').value).replace(',', '.')) || 0;
-    if (valor <= 0) { toast('Informe o valor'); return; }
-    const dados = {
-      valor,
-      categoria,
-      descricao: campo('desc').value.trim(),
-      data: campo('data').value || dayKey(Date.now()),
-    };
-    if (gasto) { Object.assign(gasto, dados); saveNow(); }
-    else novoGasto(dados);
-    /* o mês aberto acompanha o lançamento, senão ele some da tela ao salvar */
-    MES_GASTOS = tsDaData(dados.data);
-    r.close();
-    setTimeout(() => screen.refresh(), 120);
-  });
-  setTimeout(() => { if (!gasto) campo('valor').focus(); }, 250);
 }

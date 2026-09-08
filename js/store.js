@@ -65,7 +65,8 @@ const infoTipo = (id) => SET_TIPOS.find((t) => t.id === id) || SET_TIPOS[0];
 /* `neutro` é a cor dos detalhes fora do treino. Branco nos temas escuros;
    no claro precisa escurecer, senão o botão sumiria no fundo. */
 const TEMAS = [
-  { id: 'preto', nome: 'Preto', desc: 'Preto puro, o padrão', amostra: ['#000000', '#121212'], neutro: '#FFFFFF' },
+  { id: 'ardosia', nome: 'Ardósia', desc: 'Cinza-azulado, o padrão', amostra: ['#0B0E12', '#151A20'], neutro: '#FFFFFF' },
+  { id: 'preto', nome: 'Preto', desc: 'Preto puro, contraste máximo', amostra: ['#000000', '#121212'], neutro: '#FFFFFF' },
   { id: 'grafite', nome: 'Grafite', desc: 'Cinza escuro, menos contraste', amostra: ['#141416', '#2A2A2E'], neutro: '#FFFFFF' },
   { id: 'meia-noite', nome: 'Meia-noite', desc: 'Azul-marinho profundo', amostra: ['#080B14', '#17203A'], neutro: '#FFFFFF' },
   { id: 'sepia', nome: 'Sépia', desc: 'Marrom quente, à noite cansa menos', amostra: ['#14100C', '#2C241B'], neutro: '#F5EDE2' },
@@ -77,7 +78,7 @@ const DEFAULT_STATE = {
   workouts: [],
   sessions: [],
   customExercises: [],
-  gastos: [],             // controle de gastos: um lançamento por despesa
+  lancamentos: [],        // financeiro: entradas e saídas, um por movimento
   jogos: [],              // biblioteca: o que jogar, o que está jogando, o que zerou
   planoDias: {},          // troca avulsa de treino, por dia (AAAA-MM-DD)
   tarefas: [],            // cronograma: tarefas e compromissos
@@ -87,7 +88,8 @@ const DEFAULT_STATE = {
   aguaLog: {},            // cada gole do dia, na ordem, para o desfazer
   settings: {
     unit: 'kg', restDefault: 1, bodyweight: 75,
-    lastBackup: 0, backupAvisado: 0, tema: 'preto',
+    lastBackup: 0, backupAvisado: 0, tema: 'ardosia',
+    temaEscolhido: false, // true quando ele escolheu um na mão; até lá, o padrão manda
     metaSemanal: 2,       // treinos por semana para a ofensiva sobreviver
     planoSemanal: [],     // molde da rotina: um treino (ou folga) por dia da semana
     orcamento: 0,         // teto de gasto no mês; 0 = sem teto
@@ -164,7 +166,18 @@ function migrarParaV2(estado) {
    O app deixou de ser só academia. Os módulos novos entram vazios: nada do que
    já estava salvo muda de forma, só ganha companhia. */
 
-const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'gastos'];
+const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'lancamentos'];
+
+/* Os gastos viraram lançamentos com tipo: o que existia era tudo saída. */
+function migrarGastos(estado) {
+  if (!Array.isArray(estado.gastos) || !estado.gastos.length) { delete estado.gastos; return estado; }
+  if (!Array.isArray(estado.lancamentos)) estado.lancamentos = [];
+  estado.gastos.forEach((g) => {
+    estado.lancamentos.push(Object.assign({}, g, { tipo: 'saida', id: g.id || uid('l_') }));
+  });
+  delete estado.gastos;
+  return estado;
+}
 
 function migrarParaV3(estado) {
   if ((estado.version || 1) >= 3) return estado;
@@ -175,10 +188,16 @@ function migrarParaV3(estado) {
 
 function completarCampos(estado) {
   LISTAS_V3.forEach((k) => { if (!Array.isArray(estado[k])) estado[k] = []; });
+  /* Aqui e nao dentro de migrarParaV3: um backup que ja esteja na v3 pode ter
+     gastos antigos, e a migracao de versao sai cedo nesse caso. */
+  migrarGastos(estado);
   delete estado.descansos;   // o descanso passou a ser automático
   if (!estado.agua || typeof estado.agua !== 'object') estado.agua = {};
   if (!estado.aguaLog || typeof estado.aguaLog !== 'object') estado.aguaLog = {};
   if (!estado.planoDias || typeof estado.planoDias !== 'object') estado.planoDias = {};
+  /* Quem nunca escolheu tema na mão acompanha o padrão quando ele muda —
+     senão o desenho novo só apareceria para instalações novas. */
+  if (!estado.settings.temaEscolhido) estado.settings.tema = DEFAULT_STATE.settings.tema;
   if (!Array.isArray(estado.settings.planoSemanal)) estado.settings.planoSemanal = [];
   const p = DEFAULT_STATE.settings;
   Object.keys(p).forEach((k) => {
@@ -610,20 +629,22 @@ function desfazerAgua(padrao, ts) {
 }
 
 /* =========================================================
-   GASTOS
+   FINANCEIRO
 
-   Um lançamento por despesa, com data guardada como chave de dia — a mesma
-   escolha do cronograma, pelo mesmo motivo: "dia 3" precisa continuar sendo
-   dia 3 depois de exportar e abrir noutro fuso, e agrupar por mês vira um
-   `slice(0, 7)`.
+   Um lançamento por movimento, de entrada ou de saída. A data é chave de dia
+   ('AAAA-MM-DD'), a mesma escolha do cronograma e pelo mesmo motivo — e de
+   quebra agrupar por mês vira um `slice(0, 7)`.
 
-   As categorias são uma lista fechada com cor própria. É o que faz a divisão
-   do mês se ler de relance, e segue a regra da casa: a cor identifica a coisa.
+   As categorias são listas fechadas com cor própria, uma para cada lado: a
+   divisão do mês se lê de relance e segue a regra da casa, cor identifica a
+   coisa. Categoria desconhecida cai em "Outros" em vez de sumir do resumo.
    ========================================================= */
 
-const COR_GASTOS = '#FF8A00';
+const COR_FINANCEIRO = '#3B82F6';
+const COR_ENTRADA = '#25E36B';
+const COR_SAIDA = '#FF3B30';
 
-const CATEGORIAS_GASTO = [
+const CATEGORIAS_SAIDA = [
   { id: 'mercado', nome: 'Mercado', cor: '#25E36B' },
   { id: 'comida', nome: 'Comida fora', cor: '#FF8A00' },
   { id: 'transporte', nome: 'Transporte', cor: '#0A84FF' },
@@ -631,57 +652,79 @@ const CATEGORIAS_GASTO = [
   { id: 'saude', nome: 'Saúde', cor: '#00D2C4' },
   { id: 'academia', nome: 'Academia', cor: '#FF3B30' },
   { id: 'lazer', nome: 'Lazer', cor: '#A020F0' },
+  { id: 'assinatura', nome: 'Assinaturas', cor: '#F05BE0' },
+  { id: 'casa', nome: 'Casa', cor: '#FFD60A' },
   { id: 'outros', nome: 'Outros', cor: '#8E9AAF' },
 ];
 
-const infoCategoria = (id) => CATEGORIAS_GASTO.find((c) => c.id === id)
-  || CATEGORIAS_GASTO[CATEGORIAS_GASTO.length - 1];
+const CATEGORIAS_ENTRADA = [
+  { id: 'salario', nome: 'Salário', cor: '#25E36B' },
+  { id: 'freela', nome: 'Freela', cor: '#00D2C4' },
+  { id: 'venda', nome: 'Venda', cor: '#A8ED2E' },
+  { id: 'presente', nome: 'Presente', cor: '#F05BE0' },
+  { id: 'outros', nome: 'Outros', cor: '#8E9AAF' },
+];
+
+const categoriasDe = (tipo) => (tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA);
+
+function infoCategoria(id, tipo) {
+  const lista = categoriasDe(tipo);
+  return lista.find((c) => c.id === id) || lista[lista.length - 1];
+}
 
 const mesKey = (ts) => dayKey(ts == null ? Date.now() : ts).slice(0, 7);
 
-function novoGasto(dados) {
+function novoLancamento(dados) {
   const d = dados || {};
   const valor = Math.round((Number(d.valor) || 0) * 100) / 100;
-  if (valor <= 0) return null;   // gasto de zero não é gasto
-  const g = {
-    id: uid('g_'),
+  if (valor <= 0) return null;   // lançamento de zero não é lançamento
+  const tipo = d.tipo === 'entrada' ? 'entrada' : 'saida';
+  const l = {
+    id: uid('l_'),
+    tipo,
     valor,
-    categoria: infoCategoria(d.categoria).id,
+    categoria: infoCategoria(d.categoria, tipo).id,
     descricao: d.descricao || '',
     data: d.data || dayKey(Date.now()),
     criado: Date.now(),
   };
-  S.gastos.unshift(g);
+  S.lancamentos.unshift(l);
   save();
-  return g;
+  return l;
 }
 
-const getGasto = (id) => S.gastos.find((g) => g.id === id);
+const getLancamento = (id) => S.lancamentos.find((l) => l.id === id);
 
-function removerGasto(id) {
-  S.gastos = S.gastos.filter((g) => g.id !== id);
+function removerLancamento(id) {
+  S.lancamentos = S.lancamentos.filter((l) => l.id !== id);
   saveNow();
 }
 
 /* Do dia mais novo para o mais velho; no mesmo dia, o lançado por último em
-   cima — é a ordem em que se confere o que acabou de ser gasto. */
-const gastosDoMes = (ts) => S.gastos
-  .filter((g) => g.data.slice(0, 7) === mesKey(ts))
-  .slice()
-  .sort((a, b) => (a.data === b.data ? b.criado - a.criado : (a.data < b.data ? 1 : -1)));
+   cima — é a ordem em que se confere o que acabou de acontecer. */
+function lancamentosDoMes(ts, tipo) {
+  return S.lancamentos
+    .filter((l) => l.data.slice(0, 7) === mesKey(ts) && (!tipo || l.tipo === tipo))
+    .slice()
+    .sort((a, b) => (a.data === b.data ? b.criado - a.criado : (a.data < b.data ? 1 : -1)));
+}
 
-const totalGastos = (lista) => (lista || []).reduce((a, g) => a + g.valor, 0);
+const somaLancamentos = (lista) => (lista || []).reduce((a, l) => a + l.valor, 0);
 
-/* Divisão do mês por categoria, da maior para a menor, já com a fatia que cada
-   uma representa. Categoria sem gasto no mês fica de fora. */
-function gastoPorCategoria(ts) {
-  const lista = gastosDoMes(ts);
-  const total = totalGastos(lista);
+const entradasDoMes = (ts) => somaLancamentos(lancamentosDoMes(ts, 'entrada'));
+const saidasDoMes = (ts) => somaLancamentos(lancamentosDoMes(ts, 'saida'));
+const saldoDoMes = (ts) => entradasDoMes(ts) - saidasDoMes(ts);
+
+/* Divisão das SAÍDAS do mês por categoria, da maior para a menor. Entrada não
+   entra aqui: misturar salário com mercado não responde "para onde foi". */
+function saidaPorCategoria(ts) {
+  const lista = lancamentosDoMes(ts, 'saida');
+  const total = somaLancamentos(lista);
   const soma = {};
-  lista.forEach((g) => { soma[g.categoria] = (soma[g.categoria] || 0) + g.valor; });
+  lista.forEach((l) => { soma[l.categoria] = (soma[l.categoria] || 0) + l.valor; });
   return Object.keys(soma)
     .map((id) => ({
-      cat: infoCategoria(id),
+      cat: infoCategoria(id, 'saida'),
       total: soma[id],
       fatia: total ? soma[id] / total : 0,
     }))
@@ -690,8 +733,7 @@ function gastoPorCategoria(ts) {
 
 const orcamento = () => Math.max(0, S.settings.orcamento || 0);
 
-/* Quanto sobra do teto no mês. Sem teto, não há o que sobrar. */
-const sobraDoMes = (ts) => (orcamento() ? Math.max(0, orcamento() - totalGastos(gastosDoMes(ts))) : 0);
+const sobraDoMes = (ts) => (orcamento() ? Math.max(0, orcamento() - saidasDoMes(ts)) : 0);
 
 const diasNoMes = (ts) => {
   const d = new Date(ts == null ? Date.now() : ts);
@@ -703,7 +745,7 @@ const diasNoMes = (ts) => {
    Em mês fechado, o divisor é o mês todo. */
 function mediaDiaria(ts) {
   const quando = ts == null ? Date.now() : ts;
-  const total = totalGastos(gastosDoMes(quando));
+  const total = saidasDoMes(quando);
   if (!total) return 0;
   const ehCorrente = mesKey(quando) === mesKey(Date.now());
   const dias = ehCorrente ? new Date().getDate() : diasNoMes(quando);
@@ -713,12 +755,12 @@ function mediaDiaria(ts) {
 /* Onde o mês termina se o ritmo continuar. Só faz sentido no mês corrente. */
 function projecaoDoMes(ts) {
   const quando = ts == null ? Date.now() : ts;
-  if (mesKey(quando) !== mesKey(Date.now())) return totalGastos(gastosDoMes(quando));
+  if (mesKey(quando) !== mesKey(Date.now())) return saidasDoMes(quando);
   return mediaDiaria(quando) * diasNoMes(quando);
 }
 
-/* Gasto por dia num mês, para o gráfico de barras. */
-function gastoPorDia(ts) {
+/* Saída por dia num mês, para o gráfico de barras. */
+function saidaPorDia(ts) {
   const quando = ts == null ? Date.now() : ts;
   const d = new Date(quando);
   const dias = [];
@@ -727,7 +769,7 @@ function gastoPorDia(ts) {
     const k = dayKey(dia.getTime());
     dias.push({
       ts: dia.getTime(),
-      total: S.gastos.reduce((a, g) => a + (g.data === k ? g.valor : 0), 0),
+      total: S.lancamentos.reduce((a, l) => a + (l.tipo === 'saida' && l.data === k ? l.valor : 0), 0),
     });
   }
   return dias;

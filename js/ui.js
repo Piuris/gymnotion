@@ -39,6 +39,7 @@ const I = {
      outro vira buraco, então o calendário ganha grade e a engrenagem ganha
      eixo sem precisar de uma segunda cor. */
   calendario: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M6.6 1.8h2.2v1.7h6.4V1.8h2.2v1.7h1.8A1.8 1.8 0 0 1 21 5.3v14.9A1.8 1.8 0 0 1 19.2 22H4.8A1.8 1.8 0 0 1 3 20.2V5.3a1.8 1.8 0 0 1 1.8-1.8h1.8zM5.2 9.8v10h13.6v-10zm2.1 1.9h2.6v2.5H7.3zm4.6 0h2.6v2.5h-2.6zm-4.6 4.2h2.6v2.5H7.3zm4.6 0h2.6v2.5h-2.6z"/></svg>',
+  porquinho: '<svg viewBox="0 0 24 24" fill-rule="evenodd"><path d="M13 5.4c4 0 7.4 2.9 7.4 6.6 0 1.7-.7 3.2-1.9 4.4l-.3 2.5a1.1 1.1 0 0 1-1.1 1h-1.8a1.1 1.1 0 0 1-1.1-.9l-.1-.7c-.7.1-1.4.2-2.1.2s-1.4-.1-2.1-.2l-.1.7a1.1 1.1 0 0 1-1.1.9H7a1.1 1.1 0 0 1-1.1-1l-.3-2.4a7.4 7.4 0 0 1-1.8-2.9H2.9A1.4 1.4 0 0 1 1.5 12.2v-1.1A1.4 1.4 0 0 1 2.9 9.7h.9c.7-1.5 1.9-2.7 3.5-3.5L6.6 3.6c-.2-.7.6-1.2 1.2-.8l2.7 1.6c.8-.2 1.6-.3 2.5-.3zM9.2 10.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
   cofre: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4.2 3.6h12.4A2.4 2.4 0 0 1 19 6v1.2H6.1a.6.6 0 0 0 0 1.2H20.4A1.6 1.6 0 0 1 22 10v8.4a2.4 2.4 0 0 1-2.4 2.4H4.2A2.4 2.4 0 0 1 1.8 18.4V6a2.4 2.4 0 0 1 2.4-2.4zm12.6 9.2a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
   livro: '<svg viewBox="0 0 24 24"><path d="M11 6.6C9.4 5.2 7.1 4.4 4.6 4.4c-.8 0-1.6.1-2.3.2a1 1 0 0 0-.8 1v12.6a1 1 0 0 0 1.2 1c.6-.1 1.2-.2 1.9-.2 2.3 0 4.3.8 5.6 2a1 1 0 0 0 .8.3zm2 16.7a1 1 0 0 0 .8-.3c1.3-1.2 3.3-2 5.6-2 .7 0 1.3.1 1.9.2a1 1 0 0 0 1.2-1V5.6a1 1 0 0 0-.8-1c-.7-.1-1.5-.2-2.3-.2-2.5 0-4.8.8-6.4 2.2z" transform="translate(-.5 -1.3)"/></svg>',
   engrenagem: '<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10.4 1.8h3.2l.4 2.5c.7.2 1.3.5 1.9.8l2.1-1.4 2.3 2.3-1.4 2.1c.3.6.6 1.2.8 1.9l2.5.4v3.2l-2.5.4c-.2.7-.5 1.3-.8 1.9l1.4 2.1-2.3 2.3-2.1-1.4c-.6.3-1.2.6-1.9.8l-.4 2.5h-3.2l-.4-2.5c-.7-.2-1.3-.5-1.9-.8l-2.1 1.4-2.3-2.3 1.4-2.1c-.3-.6-.6-1.2-.8-1.9l-2.5-.4v-3.2l2.5-.4c.2-.7.5-1.3.8-1.9L3.7 6l2.3-2.3 2.1 1.4c.6-.3 1.2-.6 1.9-.8zM12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4z"/></svg>',
@@ -64,6 +65,7 @@ const O = {
   menu: `<path d="M4.2 7.2h15.6M4.2 12h15.6M4.2 16.8h15.6"/>`,
   fechar: `<path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/>`,
   calendario: `<rect x="3.6" y="5.4" width="16.8" height="15" rx="3.4"/><path d="M7.8 3.2v4M16.2 3.2v4M3.6 9.8h16.8"/>`,
+  porquinho: `<path d="M12.9 6.2c3.7 0 6.7 2.7 6.7 6 0 1.6-.7 3-1.8 4.1l-.3 2.3a.9.9 0 0 1-.9.8h-1.7a.9.9 0 0 1-.9-.7l-.2-.9"/><path d="M10.2 17.8l-.2.9a.9.9 0 0 1-.9.7H7.4a.9.9 0 0 1-.9-.8l-.3-2.3a6.6 6.6 0 0 1-1.7-2.7H3.1a1.2 1.2 0 0 1-1.2-1.2v-1a1.2 1.2 0 0 1 1.2-1.2h1c.7-1.4 1.9-2.6 3.4-3.3"/><path d="M8.3 6.4 7.4 3.7c-.1-.5.4-.9.9-.7l2.6 1.3"/><path d="M12.9 6.2c-.8 0-1.6.1-2.3.3"/><circle cx="9.5" cy="11.8" r="1"/>`,
   cofre: `<path d="M3.6 8.2h14.6a2.2 2.2 0 0 1 2.2 2.2v7.4a2.4 2.4 0 0 1-2.4 2.4H6a2.4 2.4 0 0 1-2.4-2.4z"/><path d="M3.6 8.2V6.6A2.4 2.4 0 0 1 6 4.2h9.6"/><circle cx="16.6" cy="14.2" r="1.3"/>`,
   livro: `<path d="M12 6.6C10.4 5.1 8.3 4.3 5.9 4.3c-.8 0-1.5.1-2.3.2v13.9c.8-.1 1.5-.2 2.3-.2 2.4 0 4.5.8 6.1 2.3"/><path d="M12 6.6c1.6-1.5 3.7-2.3 6.1-2.3.8 0 1.5.1 2.3.2v13.9c-.8-.1-1.5-.2-2.3-.2-2.4 0-4.5.8-6.1 2.3z"/>`,
   cronometro: `<circle cx="12" cy="13.4" r="7.6"/><path d="M12 9.6v4l2.4 1.7M9.4 2.6h5.2"/>`,
@@ -378,6 +380,7 @@ function pushScreen(builder, opts) {
   builder(el, screen);
   APP.appendChild(el);
   stack.push(screen);
+  if (typeof atualizarLateral === 'function') atualizarLateral();
   el.addEventListener('animationend', () => el.classList.remove('push-in', 'sheet-in'), { once: true });
   return screen;
 }
@@ -391,6 +394,7 @@ function popScreen() {
   const below = currentScreen();
   if (below && below.onReturn) below.onReturn();
   if (below) below.refresh();
+  if (typeof atualizarLateral === 'function') atualizarLateral();
 }
 
 function popToRoot() {
@@ -439,6 +443,16 @@ function secao(sobrancelha, titulo) {
   return `<div class="sec">
     <div class="eyebrow">${esc(sobrancelha)}</div>
     <h2>${esc(titulo)}</h2>
+  </div>`;
+}
+
+/* Igual ao `secao`, com uma linha de apoio embaixo — o desenho novo usa as
+   três em sequência: sobrancelha, título e uma frase curta explicando. */
+function secaoSub(sobrancelha, titulo, sub) {
+  return `<div class="sec">
+    <div class="eyebrow">${esc(sobrancelha)}</div>
+    <h2>${esc(titulo)}</h2>
+    ${sub ? `<div class="sub">${esc(sub)}</div>` : ''}
   </div>`;
 }
 

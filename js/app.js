@@ -44,6 +44,61 @@ function tabbar() {
   return bar;
 }
 
+/* =========================================================
+   BARRA LATERAL (telas largas)
+
+   No celular a navegação é a cápsula de baixo; no computador ela vira uma
+   coluna fixa à esquerda, sempre visível. É o mesmo `abrirModulo` nos dois
+   casos — o que muda é só onde os botões moram. A barra vive fora da pilha de
+   telas, então sobrevive a empilhar e desempilhar.
+   ========================================================= */
+
+function montarLateral() {
+  let lat = APP.querySelector('.lateral');
+  if (!lat) {
+    lat = h('<nav class="lateral"></nav>');
+    APP.appendChild(lat);
+  }
+  lat.innerHTML = '';
+
+  lat.appendChild(h(`<div class="lat-topo">
+    <div class="eyebrow">Sua</div>
+    <b>Rotina</b>
+  </div>`));
+
+  const lista = h('<div class="lat-lista"></div>');
+  const itens = [{ id: 'inicio', nome: 'Painel', iconeO: 'grade' }].concat(MODULOS);
+  itens.forEach((m) => {
+    const ativo = m.id === TAB || (currentScreen() && currentScreen().name === m.id);
+    const b = h(`<button class="lat-item${ativo ? ' on' : ''}">${iconO(m.iconeO)}<span>${esc(m.nome)}</span></button>`);
+    if (m.cor) setAccent(m.cor(), b);
+    b.addEventListener('click', () => {
+      haptic();
+      if (m.id === 'inicio') irParaAba('inicio');
+      else abrirModulo(m.id);
+    });
+    lista.appendChild(b);
+  });
+  lat.appendChild(lista);
+
+  const sair = h(`<button class="lat-item lat-fim">${iconO('fechar')}<span>Sair</span></button>`);
+  sair.addEventListener('click', () => {
+    if (cloudConfigurado() && cloudLogado()) {
+      confirmSheet('Sair da conta?', 'Os dados continuam neste aparelho.', 'Sair',
+        () => { cloudEsquecer(); atualizarLateral(); toast('Você saiu da conta'); });
+    } else {
+      abrirModulo('config');
+    }
+  });
+  lat.appendChild(sair);
+  return lat;
+}
+
+/* Redesenhar a lateral é barato e mantém o item aceso coerente com a tela. */
+function atualizarLateral() {
+  if (APP.querySelector('.lateral')) montarLateral();
+}
+
 /* O menu lista tudo, inclusive o que já está na cápsula: quem procura uma tela
    pelo nome não deveria precisar saber se ela virou ícone lá embaixo. */
 function abrirMenuModulos(ancora) {
@@ -71,6 +126,7 @@ function abrirMenuModulos(ancora) {
 
 function buildRoot(el, screen) {
   setAccent(contextAccent());
+  atualizarLateral();
   el.className = 'screen com-abas';
   /* o nome da raiz acompanha a aba: quem pergunta em que tela está recebe
      'academia', não 'root' */
@@ -92,7 +148,7 @@ function buildRoot(el, screen) {
 
 const MODULOS = [
   {
-    id: 'academia', nome: 'Academia', icone: 'dumbbell', iconeO: 'haltere',
+    id: 'academia', nome: 'Academia', icone: 'dumbbell', iconeO: 'haltere', sub: 'Treinos da semana',
     cor: () => corAcademia(),            // única que herda a cor de um treino
     resumo: () => {
       if (S.active) return S.active.name + ' em andamento';
@@ -108,7 +164,7 @@ const MODULOS = [
     abrir: () => irParaAba('academia'),
   },
   {
-    id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario',
+    id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario', sub: 'Compromissos do dia',
     cor: () => COR_AGENDA,
     resumo: () => {
       const abertas = pendentesDoDia();
@@ -121,13 +177,13 @@ const MODULOS = [
     abrir: () => irParaAba('cronograma'),
   },
   {
-    id: 'agua', nome: 'Hidratação', icone: 'gota', iconeO: 'gota',
+    id: 'agua', nome: 'Hidratação', icone: 'gota', iconeO: 'gota', sub: 'Água ao longo do dia',
     cor: () => AZUL_AGUA,
     resumo: () => fmtLitros(aguaDoDia()) + ' de ' + fmtLitros(metaAgua()) + ' L',
     abrir: () => irParaAba('agua'),
   },
   {
-    id: 'jogos', nome: 'Jogos', icone: 'jogos', iconeO: 'jogos',
+    id: 'jogos', nome: 'Jogos', icone: 'jogos', iconeO: 'jogos', sub: 'Sua estante de jogos',
     cor: () => COR_JOGOS,
     resumo: () => {
       if (!S.jogos.length) return 'Estante vazia';
@@ -138,30 +194,25 @@ const MODULOS = [
     abrir: () => telaJogos(),
   },
   {
-    id: 'gastos', nome: 'Gastos', icone: 'carrinho', iconeO: 'carrinho',
-    cor: () => COR_GASTOS,
-    resumo: () => {
-      const total = totalGastos(gastosDoMes());
-      if (!total) return 'Nada lançado neste mês';
-      const teto = orcamento();
-      return fmtBRL(total) + (teto ? ' de ' + fmtBRL(teto) : ' neste mês');
-    },
-    abrir: () => telaGastos(),
+    id: 'financeiro', nome: 'Financeiro', icone: 'cofre', iconeO: 'cofre', sub: 'Entradas e saídas',
+    cor: () => COR_FINANCEIRO,
+    resumo: () => 'Entradas e saídas',
+    abrir: () => telaFinanceiro(),
   },
   {
-    id: 'metas', nome: 'Metas', icone: 'cofre', iconeO: 'cofre',
+    id: 'metas', nome: 'Metas', icone: 'porquinho', iconeO: 'porquinho', sub: 'Cofrinhos e objetivos',
     cor: () => COR_METAS,
     resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),
     abrir: () => telaMetas(),
   },
   {
-    id: 'estudos', nome: 'Estudos', icone: 'livro', iconeO: 'livro',
+    id: 'estudos', nome: 'Estudos', icone: 'livro', iconeO: 'livro', sub: 'Matérias e progresso',
     cor: () => COR_ESTUDOS,
     resumo: () => (S.materias.length ? fmtMin(estudoDaSemana()) + ' nesta semana' : 'Nenhuma matéria ainda'),
     abrir: () => telaEstudos(),
   },
   {
-    id: 'config', nome: 'Configurações', icone: 'engrenagem', iconeO: 'ajustes',
+    id: 'config', nome: 'Configurações', icone: 'engrenagem', iconeO: 'ajustes', sub: 'Tema, conta e metas',
     cor: () => contextAccent(),
     resumo: () => 'Tema, conta e backup',
     abrir: () => telaConfig(),
@@ -207,37 +258,77 @@ function saudacao() {
    ABA INÍCIO — atalhos e o dia de hoje
    ========================================================= */
 
+/* Três números que respondem o dia sem abrir tela nenhuma. Cada um leva a cor
+   do módulo de onde veio — a mesma regra do resto do app. */
+function cartoesDoDia() {
+  const stats = h('<div class="stats"></div>');
+
+  const bebido = aguaDoDia();
+  const metaA = metaAgua();
+  stats.appendChild(cartaoStat('Hidratação', fmtLitros(bebido) + ' L', 'de ' + fmtLitros(metaA) + ' L',
+    AZUL_AGUA, bebido / metaA, () => irParaAba('agua')));
+
+  const feitos = treinosNaSemana(inicioDaSemana());
+  const metaT = metaSemanal();
+  const faltam = Math.max(0, metaT - feitos);
+  stats.appendChild(cartaoStat('Academia', feitos + '/' + metaT,
+    faltam ? 'Faltam ' + faltam + (faltam > 1 ? ' treinos nesta semana' : ' treino nesta semana') : 'Meta da semana batida',
+    corAcademia(), feitos / metaT, () => irParaAba('academia')));
+
+  const ent = entradasDoMes();
+  const sai = saidasDoMes();
+  stats.appendChild(cartaoStat('Saldo do mês', fmtBRL(ent - sai),
+    fmtBRL(ent) + ' entrou · ' + fmtBRL(sai) + ' saiu',
+    ent - sai < 0 ? COR_SAIDA : COR_ENTRADA, ent ? sai / ent : 0, () => abrirModulo('financeiro')));
+
+  return stats;
+}
+
+function cartaoStat(rot, valor, sub, cor, pct, aoTocar) {
+  const c = h(`<button class="stat">
+    <div class="stat-rot">${esc(rot)}</div>
+    <b>${esc(valor)}</b>
+    <span>${esc(sub)}</span>
+    <div class="progress mini"><i style="width:${Math.max(0, Math.min(1, pct || 0)) * 100}%"></i></div>
+  </button>`);
+  setAccent(cor, c);
+  c.addEventListener('click', () => { haptic(); aoTocar(); });
+  return c;
+}
+
 function renderInicio(el, screen) {
   const scroll = h('<div class="scroll"></div>');
   scroll.appendChild(h(secao(fmtDataLonga(Date.now()), saudacao())));
+  scroll.appendChild(cartoesDoDia());
 
-  /* Cada atalho leva a cor do seu módulo — é o que faz a grade ser reconhecida
-     de relance, sem ler os nomes. */
+  /* ---------- o que há para hoje ---------- */
+  const abertas = tarefasDoDia().filter((t) => !t.feito);
+  const atrasadas = tarefasAtrasadas();
+  const bloco = h('<div class="bloco"><div class="bloco-rot">Cronograma de hoje</div></div>');
+  if (!abertas.length && !atrasadas.length) {
+    bloco.appendChild(h('<div class="vazio-tracejado">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
+  } else {
+    abertas.slice(0, 5).forEach((t) => bloco.appendChild(linhaTarefa(t, screen)));
+    if (atrasadas.length) {
+      const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} tarefa${atrasadas.length > 1 ? 's' : ''} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} aberta${atrasadas.length > 1 ? 's' : ''}. Toque para abrir o cronograma.</span></div>`);
+      aviso.addEventListener('click', () => irParaAba('cronograma'));
+      bloco.appendChild(aviso);
+    }
+  }
+  scroll.appendChild(bloco);
+
+  /* ---------- atalhos ---------- */
   const grade = h('<div class="hub-grid"></div>');
   MODULOS.forEach((m) => {
     const card = h(`<button class="hub-card">
-      <div class="hub-ico">${icon(m.icone)}</div>
-      <b>${esc(m.nome)}</b>
-      <span>${esc(m.resumo())}</span>
+      <div class="hub-ico">${iconO(m.iconeO)}</div>
+      <div class="hub-txt"><b>${esc(m.nome)}</b><span>${esc(m.sub || m.resumo())}</span></div>
     </button>`);
     setAccent(m.cor(), card);
     card.addEventListener('click', () => { haptic(); m.abrir(); });
     grade.appendChild(card);
   });
   scroll.appendChild(grade);
-
-  const abertas = tarefasDoDia().filter((t) => !t.feito);
-  const atrasadas = tarefasAtrasadas();
-  scroll.appendChild(h(secao('Cronograma', 'Hoje')));
-  if (!abertas.length && !atrasadas.length) {
-    scroll.appendChild(h('<div class="hint">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
-  }
-  abertas.slice(0, 5).forEach((t) => scroll.appendChild(linhaTarefa(t, screen)));
-  if (atrasadas.length) {
-    const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} tarefa${atrasadas.length > 1 ? 's' : ''} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} aberta${atrasadas.length > 1 ? 's' : ''}. Toque para abrir o cronograma.</span></div>`);
-    aviso.addEventListener('click', () => irParaAba('cronograma'));
-    scroll.appendChild(aviso);
-  }
 
   el.appendChild(scroll);
 }
@@ -254,12 +345,7 @@ function renderAcademia(el, screen) {
   setAccent(contextAccent(), el);
   const scroll = h('<div class="scroll"></div>');
 
-  const barra = h(`<div class="acad-barra">
-    <div class="streak">${icon('flame')}<span>${streak()}</span> <u>de ofensiva</u></div>
-    <button class="acao" data-act="lista">${iconO('lista')}Meus treinos</button>
-  </div>`);
-  acts(barra, { lista: () => openWorkoutsSheet() });
-  scroll.appendChild(barra);
+  scroll.appendChild(h(secaoSub('Academia', 'Seus treinos', 'O que fazer e o que já foi feito')));
 
   /* ---------- faixa da semana: navega entre os dias ---------- */
   const domingo = new Date(inicioDaSemana(selecionado));
@@ -401,11 +487,13 @@ function renderAcademia(el, screen) {
   scroll.appendChild(h(`<div class="acoes">
     <button class="acao" data-act="evolucao">${iconO('grafico')}Ver evolução</button>
     <button class="acao" data-act="semana">${iconO('calendario')}Editar semana</button>
+    <button class="acao" data-act="lista">${iconO('lista')}Meus treinos</button>
     <button class="acao" data-act="metaSemana">${feitosSemana}/${meta} nesta semana</button>
   </div>`));
   acts(scroll, {
     evolucao: () => telaResumo(),
     semana: () => telaPlanoSemana(),
+    lista: () => openWorkoutsSheet(),
     metaSemana: () => promptSheet('Treinos por semana', String(meta), '2', (v) => {
       S.settings.metaSemanal = Math.max(1, Math.round(Number(v) || 2));
       saveNow(); screen.refresh();
@@ -709,7 +797,7 @@ function renderResumo(el) {
     <div class="plan-foot" style="margin-bottom:14px"><span>Total de treinos</span><span>${total}</span></div>
     <div class="plan-foot" style="margin-bottom:14px"><span>Volume acumulado</span><span>${fmtNum(volTotal)} kg</span></div>
     <div class="plan-foot" style="margin-bottom:14px"><span>Tempo na academia</span><span>${Math.round(tempo / 3600)} h</span></div>
-    <div class="plan-foot"><span>Sequência atual</span><span>${streak()} dia(s)</span></div>
+    <div class="plan-foot"><span>Treinos nesta semana</span><span>${treinosNaSemana(inicioDaSemana())} de ${metaSemanal()}</span></div>
   </div>`));
 
   /* volume das últimas 12 sessões */
@@ -915,51 +1003,86 @@ const COPOS = [300, 500, 800];
 const COPO_PADRAO = 800;
 
 function renderAgua(el, screen) {
-  setAccent(contextAccent(), el);
+  setAccent(AZUL_AGUA, el);
   const scroll = h('<div class="scroll"></div>');
-  scroll.appendChild(h(secao('Nutrição', 'Hidratação')));
-  /* água não é treino: tem cor própria, e o anel enche em azul */
-  setAccent(AZUL_AGUA, scroll);
+  scroll.appendChild(h(secaoSub('Hidratação', 'Água de hoje', 'Um gole de cada vez')));
 
   const meta = metaAgua();
   const hoje = aguaDoDia();
   const pct = Math.min(1, hoje / meta);
-  const falta = Math.max(0, meta - hoje);
 
-  const R = 52;
-  const C = 2 * Math.PI * R;
-  scroll.appendChild(h(`<div class="agua-topo">
-    <div class="agua-anel">
-      <svg viewBox="0 0 120 120">
-        <circle class="ring-bg" cx="60" cy="60" r="${R}" stroke-width="9"/>
-        <circle class="ring-fg" cx="60" cy="60" r="${R}" stroke-width="9"
-          stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - Math.max(0.02, pct))).toFixed(1)}"/>
-      </svg>
-      <div class="agua-valor">
-        <b>${(hoje / 1000).toFixed(hoje % 1000 === 0 ? 0 : 1).replace('.', ',')}</b>
-        <span>de ${(meta / 1000).toFixed(meta % 1000 === 0 ? 0 : 1).replace('.', ',')} L</span>
+  /* ---------- o número do dia ---------- */
+  const topo = h(`<div class="bloco">
+    <div class="agua-cabeca">
+      <div>
+        <b class="agua-num">${fmtLitros(hoje)} L</b>
+        <span class="agua-meta">meta de ${fmtLitros(meta)} L</span>
       </div>
+      <div class="agua-pct">${Math.round(pct * 100)}%</div>
     </div>
-    <div class="agua-falta">${falta
-      ? 'Faltam ' + falta + ' ml hoje'
-      : 'Meta batida hoje'}</div>
-  </div>`));
-
-  const botoes = h('<div class="agua-copos"></div>');
+    <div class="progress mini"><i style="width:${pct * 100}%"></i></div>
+    <div class="agua-copos"></div>
+  </div>`);
+  const botoes = topo.querySelector('.agua-copos');
   COPOS.forEach((ml) => {
-    const b = h(`<button class="agua-copo"><b>+${ml}</b><span>ml</span></button>`);
+    const b = h(`<button class="acao">+ ${ml} ml</button>`);
     b.addEventListener('click', () => { beberAgua(ml); haptic(); screen.refresh(); });
     botoes.appendChild(b);
   });
-  scroll.appendChild(botoes);
+  scroll.appendChild(topo);
 
-  const desfazer = aguaUltimo() || COPO_PADRAO;
-  const extras = h(`<div class="agua-extras">
-    <button data-act="menos" ${hoje ? '' : 'disabled'}>Desfazer ${desfazer} ml</button>
-    <button data-act="meta">Ajustar meta</button>
+  /* ---------- os goles de hoje ---------- */
+  const goles = (S.aguaLog[dayKey(Date.now())] || []).slice().reverse();
+  const bloco = h('<div class="bloco"><div class="bloco-rot">Registros de hoje</div></div>');
+  if (!goles.length) {
+    bloco.appendChild(h('<div class="vazio-tracejado">Nenhum copo registrado hoje.</div>'));
+  } else {
+    goles.forEach((ml, i) => {
+      const linha = h(`<div class="gole">
+        <div class="gole-txt"><b>${ml} ml</b><span>${i === 0 ? 'último registrado' : ''}</span></div>
+        ${i === 0 ? `<button class="acao" data-act="desfazer">Desfazer</button>` : ''}
+      </div>`);
+      acts(linha, {
+        desfazer: () => { desfazerAgua(COPO_PADRAO); haptic(); screen.refresh(); },
+      });
+      bloco.appendChild(linha);
+    });
+  }
+  scroll.appendChild(bloco);
+
+  /* ---------- os últimos 7 dias ----------
+     É por aqui que se vê a meta batida ou não em cada dia, e por isso o
+     gráfico continua: o número de hoje sozinho não conta a semana. */
+  scroll.appendChild(h(secao('Ritmo', 'Últimos 7 dias')));
+  const barras = h('<div class="dias-barras agua-semana"></div>');
+  const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ml = aguaDoDia(d.getTime());
+    const alt = Math.min(100, (ml / meta) * 100);
+    barras.appendChild(h(`<div class="dias-col${ml ? ' tem' : ''}${ml >= meta ? ' bateu' : ''}" title="${ml} ml">
+      <div class="dias-barra"><i style="height:${alt}%"></i></div>
+      <div class="dias-rotulo">${i === 0 ? 'hoje' : nomes[d.getDay()]}</div>
+    </div>`));
+  }
+  scroll.appendChild(barras);
+
+  const bateram = (() => {
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      if (aguaDoDia(d.getTime()) >= meta) n += 1;
+    }
+    return n;
+  })();
+  scroll.appendChild(h(`<div class="hint">${bateram
+    ? bateram + (bateram > 1 ? ' dias bateram a meta' : ' dia bateu a meta') + ' nos últimos 7.'
+    : 'Nenhum dia bateu a meta nos últimos 7.'} Sem meta definida, o app usa 35 ml por quilo — ${S.settings.bodyweight} kg dá ${metaAgua()} ml.</div>`));
+
+  const extras = h(`<div class="acoes">
+    <button class="acao" data-act="meta">Ajustar meta</button>
   </div>`);
   acts(extras, {
-    menos: () => { desfazerAgua(COPO_PADRAO); haptic(); screen.refresh(); },
     meta: () => promptSheet('Meta diária (ml)', String(meta), '2600', (v) => {
       S.settings.metaAgua = Math.max(0, Math.round(Number(String(v).replace(',', '.')) || 0));
       saveNow(); screen.refresh();
@@ -967,22 +1090,6 @@ function renderAgua(el, screen) {
   });
   scroll.appendChild(extras);
 
-  /* últimos 7 dias */
-  scroll.appendChild(h('<div class="section-title">Últimos 7 dias</div>'));
-  const barras = h('<div class="agua-semana"></div>');
-  const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const ml = aguaDoDia(d.getTime());
-    const alt = Math.min(100, (ml / meta) * 100);
-    barras.appendChild(h(`<div class="agua-dia${ml >= meta ? ' bateu' : ''}">
-      <div class="agua-barra"><i style="height:${alt}%"></i></div>
-      <div class="agua-rotulo">${nomes[d.getDay()]}</div>
-    </div>`));
-  }
-  scroll.appendChild(barras);
-
-  scroll.appendChild(h(`<div class="hint" style="padding-top:16px">Sem meta definida, o app usa 35 ml por quilo — ${S.settings.bodyweight} kg dá ${metaAgua()} ml. O registro de refeições chega numa próxima versão.</div>`));
   el.appendChild(scroll);
 }
 
@@ -1234,6 +1341,7 @@ function telaTemas(paiScreen) {
       </button>`);
       linha.addEventListener('click', () => {
         S.settings.tema = t.id;
+      S.settings.temaEscolhido = true;
         saveNow();
         aplicarTema(t.id);
         haptic();
@@ -2344,6 +2452,7 @@ function boot() {
   aplicarTema(S.settings.tema);
   ajustarTravaTela();   /* treino retomado depois de fechar o app */
   replaceRoot(buildRoot, 'root');
+  montarLateral();
 
   clearInterval(TICK);
   TICK = setInterval(globalTick, 1000);

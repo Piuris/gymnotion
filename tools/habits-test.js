@@ -206,27 +206,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\nmeta de água:');
   await ev("popToRoot(); abrirModulo('agua');"); await sleep(500);
   ck(await ev("TAB === 'agua'"), 'hidratação é uma das abas da cápsula');
-  ck(await ev("currentScreen().el.querySelector('.sec h2').textContent.trim() === 'Hidratação'"),
+  ck(await ev("currentScreen().el.querySelector('.sec h2').textContent.trim() === 'Água de hoje'"),
     'e o módulo abre na tela da água');
   ck(await ev("!currentScreen().el.textContent.includes('Em breve')"), 'o "Em breve" saiu');
   ck(await ev('metaAgua() === 2600'), '75 kg × 35 ml dá meta de ' + await ev('metaAgua()') + ' ml');
   ck(await ev('aguaDoDia() === 0'), 'o dia começa zerado');
   await shot('h3-agua-vazia');
 
-  await ev("currentScreen().el.querySelectorAll('.agua-copo')[2].click()"); await sleep(400);
+  await ev("currentScreen().el.querySelectorAll('.agua-copos .acao')[2].click()"); await sleep(400);
   ck(await ev('aguaDoDia() === 800'), 'a garrafa de 800 ml soma');
-  await ev("currentScreen().el.querySelectorAll('.agua-copo')[0].click()"); await sleep(400);
+  await ev("currentScreen().el.querySelectorAll('.agua-copos .acao')[0].click()"); await sleep(400);
   ck(await ev('aguaDoDia() === 1100'), 'somando 300, vai a ' + await ev('aguaDoDia()') + ' ml');
-  ck(await ev("currentScreen().el.textContent.includes('Faltam 1500 ml')"), 'mostra quanto falta');
+  ck(await ev("currentScreen().el.textContent.includes('42%')"), 'mostra a fatia da meta');
   await shot('h4-agua-parcial');
 
-  await ev("currentScreen().el.querySelector('[data-act=menos]').click()"); await sleep(400);
+  /* o desfazer agora mora no primeiro registro do dia */
+  await ev("currentScreen().el.querySelector('.gole [data-act=desfazer]').click()"); await sleep(400);
   ck(await ev('aguaDoDia() === 800'), 'desfazer tira os 300 que entraram por último');
 
   await ev('beberAgua(1900); currentScreen().refresh();'); await sleep(400);
   ck(await ev('aguaDoDia() === 2700'), 'chegando a 2700 ml');
-  ck(await ev("currentScreen().el.textContent.includes('Meta batida')"), 'avisa quando bate a meta');
-  ck(await ev("!!currentScreen().el.querySelector('.agua-dia.bateu')"),
+  ck(await ev("currentScreen().el.textContent.includes('100%')"), 'a fatia chega a 100%');
+  ck(await ev("!!currentScreen().el.querySelector('.dias-col.bateu')"),
     'o dia aparece marcado no gráfico da semana');
   await shot('h5-agua-batida');
 
