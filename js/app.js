@@ -68,8 +68,13 @@ function montarLateral() {
 
   const lista = h('<div class="lat-lista"></div>');
   const itens = [{ id: 'inicio', nome: 'Painel', iconeO: 'grade' }].concat(MODULOS);
+  /* Com uma tela empilhada por cima, quem manda é ela. Marcando a aba junto,
+     dois itens acendiam ao mesmo tempo — o módulo aberto e a aba que ficou
+     embaixo dele. */
+  const noTopo = currentScreen() ? currentScreen().name : '';
+  const daPilha = itens.some((x) => x.id === noTopo);
   itens.forEach((m) => {
-    const ativo = m.id === TAB || (currentScreen() && currentScreen().name === m.id);
+    const ativo = daPilha ? m.id === noTopo : m.id === TAB;
     const b = h(`<button class="lat-item${ativo ? ' on' : ''}">${iconO(m.iconeO)}<span>${esc(m.nome)}</span></button>`);
     if (m.cor) setAccent(m.cor(), b);
     b.addEventListener('click', () => {
@@ -81,7 +86,7 @@ function montarLateral() {
   });
   lat.appendChild(lista);
 
-  const sair = h(`<button class="lat-item lat-fim">${iconO('fechar')}<span>Sair</span></button>`);
+  const sair = h(`<button class="lat-item lat-fim">${iconO('sair')}<span>Sair</span></button>`);
   sair.addEventListener('click', () => {
     if (cloudConfigurado() && cloudLogado()) {
       confirmSheet('Sair da conta?', 'Os dados continuam neste aparelho.', 'Sair',
@@ -126,7 +131,6 @@ function abrirMenuModulos(ancora) {
 
 function buildRoot(el, screen) {
   setAccent(contextAccent());
-  atualizarLateral();
   el.className = 'screen com-abas';
   /* o nome da raiz acompanha a aba: quem pergunta em que tela está recebe
      'academia', não 'root' */
@@ -136,6 +140,9 @@ function buildRoot(el, screen) {
   else if (TAB === 'agua') renderAgua(el, screen, true);
   else renderInicio(el, screen);
   el.appendChild(tabbar());
+  /* depois de `screen.name = TAB`: a coluna lê esse nome para saber qual item
+     acender, e chamada antes acenderia o da tela anterior */
+  atualizarLateral();
 }
 
 /* =========================================================

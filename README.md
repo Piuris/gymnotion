@@ -162,6 +162,7 @@ deixam cada conta ler e escrever o próprio documento. Pode versionar sem medo.
 | [tools/plano-test.js](tools/plano-test.js) | Testa o plano da semana, a troca avulsa de um dia e o rodízio |
 | [tools/jogos-test.js](tools/jogos-test.js) | Testa a estante de jogos: estados, filtro, capa e compressão |
 | [tools/financeiro-test.js](tools/financeiro-test.js) | Testa entradas e saídas, categorias, média, projeção e o formulário na tela |
+| [tools/desktop-test.js](tools/desktop-test.js) | Testa a coluna lateral e o alinhamento do conteúdo em tela larga |
 
 Nenhuma dependência, nenhum build. Editar um arquivo e recarregar já basta.
 
@@ -393,6 +394,7 @@ node tools/folhas-test.js ./__shots      # folhas de cadastro com o teclado aber
 node tools/plano-test.js ./__shots       # plano da semana e troca de um dia
 node tools/jogos-test.js ./__shots       # estante de jogos
 node tools/financeiro-test.js ./__shots  # entradas, saídas e saldo
+node tools/desktop-test.js ./__shots     # coluna lateral e alinhamento em tela larga
 ```
 
 Os dois usam um perfil do Chrome em caminho curto (`%TEMP%\gymnotion-chrome`)
@@ -487,10 +489,23 @@ uma coluna fixa à esquerda com todos os módulos, o item aberto aceso, e a
 cápsula some.
 
 A coluna vive fora da pilha de telas, então sobrevive a empilhar e desempilhar;
-`atualizarLateral()` é chamada de `pushScreen` e `popScreen` para o item aceso
-acompanhar. As telas passam a começar depois dela (`.screen { left: var(--lateral) }`),
-e o conteúdo tem largura máxima de 1120px — sem isso, uma tela de 27 polegadas
+`atualizarLateral()` é chamada de `pushScreen`, de `popScreen` e do fim de
+`buildRoot` — do fim, e não do começo, porque é ali que `screen.name` já vale o
+da aba nova; chamada antes, ela acendia o item da tela anterior. Com uma tela
+empilhada, quem manda é ela: marcar a aba junto acendia **dois** itens, o módulo
+aberto e a aba que ficou embaixo.
+
+As telas começam depois da coluna (`.screen { left: var(--lateral) }`) e o
+conteúdo fica numa faixa de 1120px — sem o limite, uma tela de 27 polegadas
 esticaria uma lista de tarefas de ponta a ponta.
+
+**A faixa é centrada com recuo no container, não com `margin: auto` nos
+filhos.** A primeira versão usava `max-width` mais `margin: auto` em cada filho
+do `.scroll`, e quase todo cartão traz o próprio `margin: 0 16px` — que vence o
+`auto`. O resultado era o título no meio e o cartão grudado à esquerda, 92px
+fora do eixo numa janela de 1568px. Com o recuo no `.scroll` (e o mesmo recuo na
+barra de topo, senão o título dela sai do eixo), todo filho se alinha, tenha
+margem própria ou não.
 
 O botão do menu **não navega**: abre um painel e o painel se ancora em quem o
 chamou. `menuSuspenso()` trava a altura antes de medir e recorta nos dois eixos;

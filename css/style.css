@@ -1930,9 +1930,21 @@ body.arrastando-algo .scroll { overflow: hidden; }
   .tabbar { display: none; }
   .screen.com-abas > .scroll { padding-bottom: calc(32px + var(--safe-b)); padding-top: 26px; }
 
-  /* o conteúdo respira mas não estica sem fim numa tela de 27 polegadas */
-  .scroll > * { max-width: var(--miolo); margin-left: auto; margin-right: auto; }
-  .scroll > .sec, .scroll > .hint, .scroll > .section-title { width: 100%; }
+  /* O conteúdo respira mas não estica sem fim numa tela de 27 polegadas.
+
+     A centralização é feita com recuo no container, e não com `max-width` mais
+     `margin: auto` em cada filho: quase todo cartão traz o próprio
+     `margin: 0 16px`, que vence o `auto` e o deixava grudado à esquerda
+     enquanto o título ia para o meio — 92px de diferença numa tela de 1568. */
+  .screen > .scroll {
+    padding-left: max(0px, calc((100% - var(--miolo)) / 2));
+    padding-right: max(0px, calc((100% - var(--miolo)) / 2));
+  }
+  /* a barra de topo acompanha, senão o título dela sai do eixo do conteúdo */
+  .nav, .top-bar {
+    padding-left: calc(16px + max(0px, (100% - var(--miolo)) / 2));
+    padding-right: calc(16px + max(0px, (100% - var(--miolo)) / 2));
+  }
 
   .nav { padding-top: 22px; }
   .fab { right: calc(50% - var(--miolo) / 2); }
