@@ -340,8 +340,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     });
     return v.join(',');
   })()`);
-  ck(coresMetas === await ev("S.metas.map(function (m) { return m.cor; }).join(',')"),
-    'cada cofrinho tem a sua cor (' + coresMetas + ')');
+  /* cor vazia quer dizer "segue o app": quem escolheu uma fica com ela, quem
+     não escolheu acompanha o esquema */
+  ck(coresMetas === await ev("S.metas.map(corDe).join(',')"),
+    'cada cofrinho na sua cor, e quem não escolheu nenhuma na do app (' + coresMetas + ')');
   ck(coresMetas.split(',')[0] !== coresMetas.split(',')[1],
     'e dois cofrinhos novos nao saem da mesma cor');
   await shot('v4-metas');
@@ -688,8 +690,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   })()`);
   await sleep(700);
   ck(await ev('S.cadernos.length === 1'), 'criar um caderno pelo cadastro rápido');
-  ck(await ev('S.cadernos[0].cor === corMarca()'),
-    'que nasce na cor do app, e não numa cor sorteada da paleta');
+  ck(await ev("S.cadernos[0].cor === '' && corDe(S.cadernos[0]) === corMarca()"),
+    'que nasce sem cor própria: cor vazia quer dizer que ele segue o app');
+  ck(await ev(`(function () {
+    S.settings.esquema = 'verde'; aplicarEsquema();
+    var pintado = corDe(S.cadernos[0]) === corMarca();
+    S.settings.esquema = 'rosa'; aplicarEsquema();
+    return pintado;
+  })()`), 'e por isso ele acompanha quando a cor do app muda');
   ck(await ev(`${tela()}.querySelector('.caderno .caderno-txt i').textContent === '0 anotações'`),
     'a capa mostra a contagem, que começa em zero');
 

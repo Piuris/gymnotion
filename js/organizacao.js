@@ -160,7 +160,7 @@ function gradeCronograma(screen, modo) {
       const cel = h('<div class="gc-avulsos"></div>');
       d.semHora.forEach((t) => {
         const chip = h(`<button class="gc-chip${t.feito ? ' feito' : ''}">${esc(t.titulo)}</button>`);
-        setAccent(t.cor || corMarca(), chip);
+        setAccent(corDe(t), chip);
         chip.addEventListener('click', () => editorTarefa(t, t.data, screen));
         cel.appendChild(chip);
       });
@@ -188,7 +188,7 @@ function gradeCronograma(screen, modo) {
         <b>${esc(t.titulo)}</b>
         <span>${esc(horaDeMinutos(f.ini) + ' – ' + horaDeMinutos(f.fim))}</span>
       </button>`);
-      setAccent(t.cor || corMarca(), bl);
+      setAccent(corDe(t), bl);
       bl.addEventListener('click', (e) => { e.stopPropagation(); editorTarefa(t, t.data, screen); });
       col.appendChild(bl);
     });
@@ -322,7 +322,7 @@ function linhaTarefa(t, screen, mostrarData) {
     </div>
     <button class="kebab" data-act="menu">${icon('dots')}</button>
   </div>`);
-  setAccent(t.cor, row);
+  setAccent(corDe(t), row);
   acts(row, {
     ok: () => { alternarTarefa(t.id); haptic(); screen.refresh(); },
     menu: () => actionSheet(t.titulo, [
@@ -464,7 +464,7 @@ function estanteDeCadernos(lista, screen, aoAbrir) {
         <i>${c.notas.length} ${c.notas.length === 1 ? 'anotação' : 'anotações'}</i>
       </span>
     </button>`);
-    setAccent(c.cor || contextAccent(), b);
+    setAccent(corDe(c), b);
     b.addEventListener('click', () => { haptic(); (aoAbrir || telaCaderno)(c.id); });
     g.appendChild(b);
   });
@@ -475,7 +475,7 @@ function telaCaderno(id) {
   pushScreen((el, screen) => {
     const c = getCaderno(id);
     if (!c) { popScreen(); return; }
-    setAccent(c.cor || contextAccent(), el);
+    setAccent(corDe(c), el);
 
     el.appendChild(navBar(c.nome, {
       icone: 'dots',
@@ -516,7 +516,7 @@ function telaCaderno(id) {
           </div>
           <button class="kebab" data-act="menu">${icon('dots')}</button>
         </div>`);
-        setAccent(c.cor || contextAccent(), row);
+        setAccent(corDe(c), row);
         acts(row, {
           menu: () => actionSheet(n.titulo, [
             { label: 'Apagar anotação', icon: 'trash', danger: true,
@@ -538,8 +538,8 @@ function corDoCaderno(c, screen) {
   const box = h('<div><h3>Cor do caderno</h3><div class="lugar-cor"></div>'
     + '<div class="sheet-actions"><button class="pill-btn" data-x="ok">Pronto</button></div></div>');
   const r = openSheet(box, { center: true });
-  setAccent(c.cor || contextAccent(), box);
-  box.querySelector('.lugar-cor').replaceWith(campoCor(c.cor || contextAccent(), (nova) => {
+  setAccent(corDe(c), box);
+  box.querySelector('.lugar-cor').replaceWith(campoCor(corDe(c), (nova) => {
     c.cor = nova; saveNow(); setAccent(nova, box);
   }));
   box.querySelector('[data-x="ok"]').addEventListener('click', () => { r.close(); screen.refresh(); });
@@ -552,7 +552,7 @@ function editorNota(cadernoId, notaId, pai) {
     const c = getCaderno(cadernoId);
     const n = c && c.notas.find((x) => x.id === notaId);
     if (!n) { popScreen(); return; }
-    setAccent(c.cor || contextAccent(), el);
+    setAccent(corDe(c), el);
 
     const nav = h(`<div class="nav">
       <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
@@ -639,7 +639,7 @@ function telaMetas() {
         <div class="progress"><i style="width:${metaPct(m) * 100}%"></i></div>
         <div class="meta-foot">${metaBatida(m) ? 'Meta batida' : 'Faltam ' + fmtBRL(metaFalta(m))}</div>
       </div>`);
-      setAccent(m.cor, card);           // cada cofrinho tem a sua cor
+      setAccent(corDe(m), card);        // cada cofrinho pode ter a sua cor
       card.addEventListener('click', () => telaMeta(m.id));
       scroll.appendChild(card);
     });
@@ -652,7 +652,7 @@ function telaMeta(id) {
   pushScreen((el, screen) => {
     const m = getMeta(id);
     if (!m) { popScreen(); return; }
-    setAccent(m.cor, el);
+    setAccent(corDe(m), el);
 
     el.appendChild(navBar(m.nome, {
       icone: 'dots',
@@ -855,7 +855,7 @@ function telaEstudos() {
         <div class="progress alto"><i style="width:${pctBarra * 100}%"></i></div>
         <div class="meta-foot">${m.metaSemanal ? 'Meta de ' + fmtMin(m.metaSemanal) + ' por semana' : 'Sem meta semanal'}</div>
       </div>`);
-      setAccent(m.cor, card);
+      setAccent(corDe(m), card);
       card.addEventListener('click', () => telaMateria(m.id));
       scroll.appendChild(card);
     });
@@ -868,7 +868,7 @@ function telaMateria(id) {
   pushScreen((el, screen) => {
     const m = getMateria(id);
     if (!m) { popScreen(); return; }
-    setAccent(m.cor, el);
+    setAccent(corDe(m), el);
 
     el.appendChild(navBar(m.nome, {
       icone: 'dots',

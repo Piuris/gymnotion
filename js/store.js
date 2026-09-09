@@ -27,7 +27,9 @@ const COLORS = [
 ];
 
 const nomeDaCor = (hex) => {
-  if (hex === corMarca()) return 'Cor do app';
+  /* vazio é o padrão; o hexadecimal da marca aparece em item antigo, de quando
+     o padrão era guardado dentro do item */
+  if (!hex || hex === corMarca()) return 'Cor do app';
   const c = COLORS.find((x) => x.hex === hex);
   return c ? c.nome : 'Cor própria';
 };
@@ -94,10 +96,14 @@ const TEMAS = [
      decoração. */
 const ESQUEMAS = [
   { id: 'rosa', nome: 'Rosa', cor: '#F0B7C5', desc: 'Rosado claro, o padrão' },
-  { id: 'azul', nome: 'Azul', cor: '#93ABD1', desc: 'Azul escuro pastel' },
+  /* os id não mudam quando o tom muda: quem já tinha escolhido continua com a
+     escolha de pé, só que no tom novo */
+  { id: 'azul', nome: 'Marinho', cor: '#8D9CC9', desc: 'Azul-marinho pastel' },
   { id: 'amarelo', nome: 'Amarelo', cor: '#E8D08A', desc: 'Amarelo pastel' },
   { id: 'verde', nome: 'Verde', cor: '#9CD1A6', desc: 'Verde pastel' },
-  { id: 'vermelho', nome: 'Vermelho', cor: '#E8A2A2', desc: 'Vermelho pastel' },
+  /* mais escuro e um pouco mais roxo que o rosa: com dois tons no mesmo matiz,
+     a paleta de cinco viraria uma de quatro */
+  { id: 'vermelho', nome: 'Vinho', cor: '#B0708A', desc: 'Vinho pastel' },
 ];
 
 const esquemaAtual = () => ESQUEMAS.find((e) => e.id === S.settings.esquema) || ESQUEMAS[0];
@@ -132,7 +138,8 @@ const DEFAULT_STATE = {
     nome: '',              // usado na saudação do Início; vazio some sem estorvar
     cronoModo: '',         // 'semana' | 'dia'; vazio deixa a largura da tela decidir
     nuvemAuto: true,       // sobe e baixa sozinho quando há conta configurada
-    esquema: 'rosa',       // a cor do app; o tema cuida só do fundo          // ml por dia; 0 = calcula a partir do peso
+    esquema: 'rosa',       // a cor do app; o tema cuida só do fundo
+    lateralAberta: true,   // coluna larga com nome, ou trilho só de ícones          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
 };
@@ -1066,11 +1073,18 @@ function marcarBackupFeito() {
    ========================================================= */
 
 
-/* Item novo nasce na cor do app. Antes nascia na primeira cor livre da
-   paleta, para dois itens não saírem iguais — o que dava variedade de graça,
-   mas também dava uma tela de metas em cinco cores que não queriam dizer nada.
-   Quem quiser diferenciar continua tendo o seletor de cor no editor. */
-const corLivre = () => corMarca();
+/* Item novo nasce **sem** cor, e cor vazia quer dizer "segue o app". Guardar a
+   cor de marca dentro do item congelaria o padrão no dia em que ele nasceu:
+   trocar o esquema depois deixaria metade da tela na cor antiga, e o que era o
+   padrão passaria a parecer uma escolha. Quem quiser diferenciar continua tendo
+   o seletor no editor — e aí sim a cor vira dado do item.
+
+   Antes o item nascia na primeira cor livre da paleta, o que dava variedade de
+   graça mas também dava uma tela de metas em cinco cores que não diziam nada. */
+const corLivre = () => '';
+
+/* A cor com que um item deve ser desenhado: a dele, se escolheu uma. */
+const corDe = (item) => (item && item.cor) || corMarca();
 
 /* =========================================================
    CADERNOS E ANOTAÇÕES
@@ -1088,7 +1102,7 @@ function novoCaderno(nome, cor) {
   const c = {
     id: uid('cd_'),
     nome: String(nome || 'Novo caderno').trim(),
-    cor: cor || corMarca(),
+    cor: cor || '',
     criado: Date.now(),
     notas: [],
   };
@@ -1163,10 +1177,10 @@ function novaTarefa(dados) {
     titulo: 'Nova tarefa',
     nota: '',
     data: dayKey(Date.now()),   // null = sem dia marcado
+    cor: '',                    // vazio = segue a cor do app
     hora: '',                   // 'HH:MM' quando tem hora marcada
     fim: '',                    // 'HH:MM' de término; vazio vale uma hora na grade
     tipo: 'tarefa',             // 'tarefa' | 'compromisso'
-    cor: corMarca(),
     feito: false,
     feitoEm: 0,
     criada: Date.now(),

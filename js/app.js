@@ -146,8 +146,16 @@ function montarLateral() {
   }
   lat.innerHTML = '';
 
-  /* A marca em cima, na cor do app: é ela que diz de que cor o resto vai ser. */
-  lat.appendChild(h(`<div class="lat-topo"><b>Rotina</b></div>`));
+  /* A marca em cima, na cor do app: é ela que diz de que cor o resto vai ser.
+     Ao lado dela, o botão que recolhe a coluna a um trilho de ícones — numa
+     tela de notebook, 232px de nomes é o que separa o conteúdo de caber. */
+  const topo = h(`<div class="lat-topo">
+    <b>Rotina</b>
+    <button class="lat-dobrar" data-act="dobrar"
+      title="${lateralAberta() ? 'Recolher a coluna' : 'Expandir a coluna'}">${iconO('painel')}</button>
+  </div>`);
+  acts(topo, { dobrar: () => { haptic(); alternarLateral(); } });
+  lat.appendChild(topo);
 
   lat.appendChild(h('<div class="lat-rotulo">Módulos</div>'));
   const lista = h('<div class="lat-lista"></div>');
@@ -159,7 +167,7 @@ function montarLateral() {
   const daPilha = itens.some((x) => x.id === noTopo);
   itens.forEach((m) => {
     const ativo = daPilha ? m.id === noTopo : m.id === TAB;
-    const b = h(`<button class="lat-item${ativo ? ' on' : ''}">${iconO(m.iconeO)}<span>${esc(m.nome)}</span></button>`);
+    const b = h(`<button class="lat-item${ativo ? ' on' : ''}" title="${esc(m.nome)}">${iconO(m.iconeO)}<span>${esc(m.nome)}</span></button>`);
     if (m.cor) setAccent(m.cor(), b);
     b.addEventListener('click', () => {
       haptic();
@@ -270,6 +278,25 @@ function repintarTelas() {
 /* Redesenhar a lateral é barato e mantém o item aceso coerente com a tela. */
 function atualizarLateral() {
   if (APP.querySelector('.lateral')) montarLateral();
+}
+
+/* ---------- recolher a coluna ----------
+
+   O estado mora num atributo do documento e não numa classe da coluna, porque
+   quem precisa saber a largura é o CSS inteiro: `--lateral` empurra as telas,
+   o fundo dos painéis e o recuo da barra de topo. Uma classe na própria coluna
+   não alcançaria nada disso. */
+const lateralAberta = () => S.settings.lateralAberta !== false;
+
+function aplicarLateral() {
+  document.documentElement.dataset.lateral = lateralAberta() ? 'aberta' : 'fechada';
+}
+
+function alternarLateral() {
+  S.settings.lateralAberta = !lateralAberta();
+  saveNow();
+  aplicarLateral();
+  atualizarLateral();
 }
 
 function buildRoot(el, screen) {
@@ -546,7 +573,7 @@ function cartaoProximos() {
           <span>${esc([t.hora, t.nota].filter(Boolean).join(' · ') || fmtDataLonga(ts))}</span>
         </div>
       </button>`);
-      setAccent(t.cor || corMarca(), linha);
+      setAccent(corDe(t), linha);
       linha.addEventListener('click', () => { haptic(); DIA_AGENDA = ts; irParaAba('cronograma'); });
       c.appendChild(linha);
     });
@@ -621,7 +648,7 @@ function cartaoCronometro(screen, opts) {
       <button class="icon-btn stroke" data-act="zerar" title="Encerrar">${icon('stop')}</button>
     </div>
   </div>`);
-  setAccent(mat ? mat.cor : corMarca(), c);
+  setAccent(mat ? corDe(mat) : corMarca(), c);
   acts(c, {
     abrir: () => abrirModulo('estudos'),
     tocar: () => {
@@ -676,7 +703,7 @@ function encerrarCronoEstudo(screen) {
   on(box, '[data-m]', 'click', (e) => {
     alvo = e.currentTarget.dataset.m;
     box.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === alvo));
-    setAccent((getMateria(alvo) || {}).cor || corMarca(), box);
+    setAccent(corDe(getMateria(alvo)), box);
   });
   box.querySelector('[data-x="no"]').addEventListener('click', () => { r.close(); zera(); });
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
@@ -3058,6 +3085,7 @@ function openSessionDetail(id) {
 function boot() {
   aplicarTema(S.settings.tema);
   aplicarEsquema();
+  aplicarLateral();
   ajustarTravaTela();   /* treino retomado depois de fechar o app */
   replaceRoot(buildRoot, 'root');
   montarLateral();

@@ -2027,6 +2027,8 @@ body.arrastando-algo .scroll { overflow: hidden; }
 
 @media (min-width: 900px) {
   :root { --lateral: 232px; }
+  /* recolhida, a coluna vira trilho: os ícones continuam lá, os nomes saem */
+  :root[data-lateral="fechada"] { --lateral: 64px; }
 
   .lateral {
     position: absolute; left: 0; top: 0; bottom: 0;
@@ -2037,7 +2039,32 @@ body.arrastando-algo .scroll { overflow: hidden; }
     border-right: 1px solid var(--line);
     z-index: 30;
   }
-  .lat-topo { padding: 0 12px 22px; }
+  .lat-topo {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 6px 22px 12px;
+  }
+  .lat-topo b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .lat-dobrar {
+    width: 30px; height: 30px; flex: 0 0 30px;
+    border-radius: var(--r-campo);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--txt-3);
+    transition: color .15s, background .15s;
+  }
+  .lat-dobrar svg { width: 17px; height: 17px; }
+  .lat-dobrar:hover { color: var(--txt); background: var(--fill-1); }
+
+  /* ---------- o trilho ---------- */
+  :root[data-lateral="fechada"] .lateral { padding-left: 8px; padding-right: 8px; }
+  :root[data-lateral="fechada"] .lat-topo { padding: 0 0 22px; justify-content: center; }
+  :root[data-lateral="fechada"] .lat-topo b,
+  :root[data-lateral="fechada"] .lat-rotulo,
+  :root[data-lateral="fechada"] .lat-item span,
+  :root[data-lateral="fechada"] .lat-quem,
+  :root[data-lateral="fechada"] .lat-icone { display: none; }
+  :root[data-lateral="fechada"] .lat-item { justify-content: center; padding: 11px 0; }
+  :root[data-lateral="fechada"] .lat-pe { flex-direction: column; gap: 10px; }
+  :root[data-lateral="fechada"] .lat-conta { flex: none; padding: 0; justify-content: center; }
   .lat-topo .eyebrow {
     font-size: 11.5px; font-weight: 510;
     letter-spacing: 1.4px; text-transform: uppercase;

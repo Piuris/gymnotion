@@ -123,11 +123,20 @@ do app — antes era branco contra colorido, agora é marca contra a cor do trei
 específico e continua vindo da paleta de doze. E o verde e o vermelho do
 dinheiro, onde a cor é o dado — entrou, saiu — e não decoração.
 
-Item novo (tarefa, meta, matéria, caderno) nasce na cor do app. Antes nascia na
-primeira cor livre da paleta, o que dava variedade de graça mas também dava uma
-tela de metas em cinco cores que não queriam dizer nada. Quem quiser diferenciar
-continua tendo o seletor no editor, e lá a cor do app abre a lista com o próprio
-nome — deixá-la no fim como "Cor própria" faria o padrão parecer exceção.
+### Cor vazia quer dizer "segue o app"
+
+Item novo (tarefa, meta, matéria, caderno) nasce **sem** cor. Guardar a cor de
+marca dentro dele congelaria o padrão no dia em que ele nasceu: trocar o esquema
+depois deixaria metade da tela na cor antiga, e o que era o padrão passaria a
+parecer uma escolha. `corDe(item)` resolve na hora de desenhar — a cor dele, se
+escolheu uma; a do app, se não.
+
+Antes o item nascia na primeira cor livre da paleta, o que dava variedade de
+graça mas também dava uma tela de metas em cinco cores que não diziam nada. Quem
+quiser diferenciar continua tendo o seletor no editor, e lá a cor do app abre a
+lista com o próprio nome — deixá-la no fim como "Cor própria" faria o padrão
+parecer exceção. Escolher qualquer outra grava o hexadecimal e aí sim a cor vira
+dado do item.
 
 ### O pastel no tema claro
 
@@ -135,6 +144,17 @@ Um pastel sobre fundo branco some: ele foi escolhido para ter contraste contra
 quase preto. `corDoTema()` escurece a mesma cor em 52% quando o tema é o claro —
 o matiz se mantém e a legibilidade volta. É a cor do app continuar sendo a cor do
 app nos dois temas, em vez de existirem duas paletas para manter em pé.
+
+### Recolher a coluna
+
+Numa tela de notebook, 232px de nomes é o que separa o conteúdo de caber. O
+botão ao lado da marca recolhe a coluna a um trilho de 64px: os ícones ficam, os
+nomes saem.
+
+O estado mora num atributo do documento (`data-lateral`) e não numa classe da
+coluna, porque quem precisa saber a largura é o CSS inteiro — `--lateral` empurra
+as telas, o fundo dos painéis e o recuo da barra de topo. Uma classe na própria
+coluna não alcançaria nada disso.
 
 ### Onde se troca
 
