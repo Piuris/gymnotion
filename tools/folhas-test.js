@@ -272,8 +272,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       tela: [window.innerWidth, window.innerHeight],
     });
   })()`));
-  ck(menu.quantos === await ev('COLORS.length'),
-    'o menu suspenso traz as ' + menu.quantos + ' cores com nome');
+  /* doze da paleta mais a cor do app, que é a que o item novo já veste */
+  ck(menu.quantos === await ev('COLORS.length') + 1,
+    'o menu traz as ' + await ev('COLORS.length') + ' cores da paleta mais a cor do app');
   ck(menu.dentro, 'e cabe inteiro na tela (' + menu.caixa.join('x') + ' em ' + menu.pos.join(',') + ' de ' + menu.tela.join('x') + ')');
   ck(menu.marcado.indexOf('Verde') >= 0 || menu.marcado.length > 0,
     'com a cor atual marcada (' + menu.marcado.trim() + ')');
@@ -362,7 +363,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       cor: marcada ? marcada.querySelector('.dot').style.background : null,
     });
   })()`));
-  ck(antiga.quantos === await ev('COLORS.length + 1'),
+  /* a paleta, mais a cor do app na frente, mais esta que veio de fora */
+  ck(antiga.quantos === await ev('COLORS.length + 2'),
     'ela entra no fim da lista (' + antiga.quantos + ' opções)');
   ck(antiga.marcada === 'Cor própria',
     'e continua marcada como a escolhida, em vez de o item parecer sem cor');

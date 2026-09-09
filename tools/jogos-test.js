@@ -96,7 +96,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev("popToRoot(); abrirModulo('jogos');"); await sleep(700);
   ck(await ev("currentScreen().name === 'jogos'"), 'o módulo abre a estante');
   const corTela = await ev(`getComputedStyle(${tela()}).getPropertyValue('--accent').trim()`);
-  ck(corTela === await ev('COR_JOGOS'), 'com a cor própria do módulo (' + corTela + ')');
+  ck(corTela === await ev('corMarca()'), 'na cor do app (' + corTela + ')');
   ck(await ev(`${tela()}.querySelector('.sec h2').textContent.trim() === 'Estante'`),
     'com o título do desenho');
   ck(await ev(`${tela()}.textContent.includes('Estante vazia')`),
@@ -285,9 +285,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('');
   console.log('atalho no Início:');
   await ev("TAB = 'inicio'; popToRoot();"); await sleep(600);
-  ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).some(function (b) { return b.textContent === 'Jogos'; })`),
+  ck(await ev(`Array.from(${tela()}.querySelectorAll('.tab-item')).some(function (b) { return b.textContent.trim() === 'Jogos'; })`),
     'o módulo aparece na grade de atalhos');
-  ck(await ev(`!Array.from(${tela()}.querySelectorAll('.hub-card b')).some(function (b) { return b.textContent === 'Passos'; })`),
+  ck(await ev(`!Array.from(${tela()}.querySelectorAll('.tab-item')).some(function (b) { return b.textContent.trim() === 'Passos'; })`),
     'e a tela de passos saiu de vez');
 
   console.log('\nproblemas:', bad.length);

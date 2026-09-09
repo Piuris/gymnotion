@@ -322,7 +322,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   console.log('\ncor da agua:');
   await irPara('agua'); await sleep(700);
-  const AZUL = (await ev('AZUL_AGUA')).toUpperCase();
+  const AZUL = (await ev('corMarca()')).toUpperCase();
   const azul = (await ev(`getComputedStyle(${tela()}.querySelector('.bloco')).getPropertyValue('--accent').trim()`)).toUpperCase();
   ck(azul === AZUL, 'a agua tem cor propria, azul (' + azul + '), por nao ser treino');
   ck(azul !== corPull.toUpperCase() && azul !== corPush.toUpperCase(),
@@ -333,7 +333,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     var u = b[b.length - 1];
     return [getComputedStyle(u).backgroundColor, u.style.height].join('|');
   })()`);
-  ck(barra.indexOf('46, 155, 240') >= 0, 'a barra do dia enche em azul (' + barra + ')');
+  ck(barra.indexOf(await ev(`(function () {
+    var c = corMarca().replace('#', '');
+    return parseInt(c.slice(0,2),16) + ', ' + parseInt(c.slice(2,4),16) + ', ' + parseInt(c.slice(4,6),16);
+  })()`)) >= 0, 'a barra do dia enche na cor do app (' + barra + ')');
   ck(parseFloat(barra.split('|')[1]) > 0, 'e cresce conforme o consumido');
   await shot('d7-agua-azul');
   await irPara('academia'); await sleep(400);

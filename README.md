@@ -101,6 +101,69 @@ O que continua colorido: o cartão-herói do treino (um por tela, que é a regra
 referência para o elemento cromático), a barra de progresso, a faixa da tarefa,
 o ladrilho de cada módulo, o bloco na grade da semana e a curva de cada gráfico.
 
+## Dois eixos de cor: o tema e o esquema
+
+Até aqui só existia um. O **tema** diz de que cor é o fundo; o **esquema** diz de
+que cor é o app em cima dele.
+
+Antes cada módulo trazia o próprio hexadecimal — indigo na agenda, azul na água,
+amarelo nos estudos, roxo nos jogos, verde nas metas. A soma não era um sistema,
+era um mostruário: seis cores fortes disputando a mesma tela, nenhuma delas
+dizendo nada que o rótulo já não dissesse. Agora existe **uma** cor de marca e
+ela vale para tudo: `corMarca()`, escolhida entre cinco tons pastel — rosa,
+azul, amarelo, verde e vermelho. Pastel de propósito: sobre um fundo quase preto
+eles têm contraste de sobra e não berram como um saturado berra.
+
+`contextAccent()`, que devolvia o branco do tema, passou a devolver a marca. A
+regra "cor identifica a coisa" continua de pé, só mudou o contraste que a
+sustenta: o que identifica um treino é ele ter uma cor **própria**, diferente da
+do app — antes era branco contra colorido, agora é marca contra a cor do treino.
+
+**Duas exceções, e só duas.** A cor de cada treino, que identifica um treino
+específico e continua vindo da paleta de doze. E o verde e o vermelho do
+dinheiro, onde a cor é o dado — entrou, saiu — e não decoração.
+
+Item novo (tarefa, meta, matéria, caderno) nasce na cor do app. Antes nascia na
+primeira cor livre da paleta, o que dava variedade de graça mas também dava uma
+tela de metas em cinco cores que não queriam dizer nada. Quem quiser diferenciar
+continua tendo o seletor no editor, e lá a cor do app abre a lista com o próprio
+nome — deixá-la no fim como "Cor própria" faria o padrão parecer exceção.
+
+### O pastel no tema claro
+
+Um pastel sobre fundo branco some: ele foi escolhido para ter contraste contra
+quase preto. `corDoTema()` escurece a mesma cor em 52% quando o tema é o claro —
+o matiz se mantém e a legibilidade volta. É a cor do app continuar sendo a cor do
+app nos dois temas, em vez de existirem duas paletas para manter em pé.
+
+### Onde se troca
+
+Na bolinha do pé da coluna lateral, e em Configurações → Cor do app. A folha
+troca **na hora**, com ela aberta: escolher cor às cegas e só ver o resultado
+depois de fechar é escolher duas vezes. "Desfazer" devolve a de antes.
+
+## Cadernos e anotações
+
+Estudos mede tempo e conta tópicos vencidos; caderno não mede nada. É onde texto
+que não é tarefa nem meta vai morar — a explicação que você não quer procurar de
+novo, o resumo de uma aula, o passo a passo de um comando.
+
+Por isso a anotação não tem prazo, não tem estado e não entra em contagem
+nenhuma: ela tem título, texto e a data em que foi mexida pela última vez, que é
+o que serve para achá-la depois. A lista de um caderno é ordenada por essa data,
+e a estante inteira também — é assim que se acha o que se estava escrevendo
+ontem.
+
+**O editor é uma tela e não uma folha.** Anotação é texto longo, e folha com
+teclado aberto deixa três linhas visíveis. E ele **guarda sozinho** enquanto se
+escreve, com meio segundo de espera entre a última tecla e a gravação: sair sem
+salvar não pode existir numa tela cujo único trabalho é guardar texto.
+
+O bloco no Início mostra os cadernos mexidos por último. Ali ficava a grade de
+atalhos para os módulos — a mesma lista que a coluna lateral mostra inteira no
+computador e que a cápsula abre no celular. Três caminhos para a mesma coisa, e
+o terceiro ocupava metade da tela inicial.
+
 ## A regra da cor
 
 Cada treino tem uma cor. Essa cor vira a variável CSS `--accent` do bloco em que

@@ -27,6 +27,7 @@ const COLORS = [
 ];
 
 const nomeDaCor = (hex) => {
+  if (hex === corMarca()) return 'Cor do app';
   const c = COLORS.find((x) => x.hex === hex);
   return c ? c.nome : 'Cor própria';
 };
@@ -73,6 +74,39 @@ const TEMAS = [
   { id: 'claro', nome: 'Claro', desc: 'Fundo claro, para academia iluminada', amostra: ['#F2F2F7', '#FFFFFF'], neutro: '#1C1C1E' },
 ];
 
+/* ---------- esquema de cor ----------
+
+   São dois eixos, e até agora só existia um. O **tema** diz de que cor é o
+   fundo; o **esquema** diz de que cor é o app em cima dele. Antes cada módulo
+   trazia um hexadecimal escolhido à parte — indigo na agenda, azul na água,
+   amarelo nos estudos, roxo nos jogos — e a soma não era um sistema, era um
+   mostruário: seis cores fortes disputando a mesma tela, nenhuma delas dizendo
+   nada que o rótulo já não dissesse.
+
+   Agora existe uma cor de marca, e ela vale para tudo. Tons pastel de
+   propósito: sobre um fundo quase preto eles têm contraste de sobra e não
+   berram como um saturado berra.
+
+   Duas exceções declaradas, e só duas:
+   - **a cor de cada treino**, que identifica um treino específico e continua
+     vindo da paleta;
+   - **verde e vermelho do dinheiro**, onde a cor é o dado (entrou, saiu) e não
+     decoração. */
+const ESQUEMAS = [
+  { id: 'rosa', nome: 'Rosa', cor: '#F0B7C5', desc: 'Rosado claro, o padrão' },
+  { id: 'azul', nome: 'Azul', cor: '#93ABD1', desc: 'Azul escuro pastel' },
+  { id: 'amarelo', nome: 'Amarelo', cor: '#E8D08A', desc: 'Amarelo pastel' },
+  { id: 'verde', nome: 'Verde', cor: '#9CD1A6', desc: 'Verde pastel' },
+  { id: 'vermelho', nome: 'Vermelho', cor: '#E8A2A2', desc: 'Vermelho pastel' },
+];
+
+const esquemaAtual = () => ESQUEMAS.find((e) => e.id === S.settings.esquema) || ESQUEMAS[0];
+/* `corDoTema` mora em js/ui.js, que carrega depois deste arquivo — na hora da
+   chamada ela já existe. Sem tema claro configurado, devolve a cor como está. */
+const corMarca = () => (typeof corDoTema === 'function'
+  ? corDoTema(esquemaAtual().cor)
+  : esquemaAtual().cor);
+
 const DEFAULT_STATE = {
   version: 3,
   workouts: [],
@@ -84,6 +118,7 @@ const DEFAULT_STATE = {
   tarefas: [],            // cronograma: tarefas e compromissos
   metas: [],              // cofrinho: dinheiro separado por objetivo
   materias: [],           // estudos: tópicos e horas por matéria
+  cadernos: [],           // cadernos e anotações: texto solto, sem meta e sem prazo
   agua: {},               // ml bebidos por dia, em chave AAAA-MM-DD
   aguaLog: {},            // cada gole do dia, na ordem, para o desfazer
   settings: {
@@ -96,7 +131,8 @@ const DEFAULT_STATE = {
     metaAgua: 0,
     nome: '',              // usado na saudação do Início; vazio some sem estorvar
     cronoModo: '',         // 'semana' | 'dia'; vazio deixa a largura da tela decidir
-    nuvemAuto: true,       // sobe e baixa sozinho quando há conta configurada          // ml por dia; 0 = calcula a partir do peso
+    nuvemAuto: true,       // sobe e baixa sozinho quando há conta configurada
+    esquema: 'rosa',       // a cor do app; o tema cuida só do fundo          // ml por dia; 0 = calcula a partir do peso
   },
   active: null,
 };
@@ -169,7 +205,7 @@ function migrarParaV2(estado) {
    O app deixou de ser só academia. Os módulos novos entram vazios: nada do que
    já estava salvo muda de forma, só ganha companhia. */
 
-const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'lancamentos'];
+const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'lancamentos', 'cadernos'];
 
 /* Os gastos viraram lançamentos com tipo: o que existia era tudo saída. */
 function migrarGastos(estado) {
@@ -654,7 +690,7 @@ function desfazerAgua(padrao, ts) {
    coisa. Categoria desconhecida cai em "Outros" em vez de sumir do resumo.
    ========================================================= */
 
-const COR_FINANCEIRO = '#3B82F6';
+/* entrada e saída continuam sendo verde e vermelho: aqui a cor é o dado */
 const COR_ENTRADA = '#25E36B';
 const COR_SAIDA = '#FF3B30';
 
@@ -797,7 +833,6 @@ function saidaPorDia(ts) {
    cima dela.
    ========================================================= */
 
-const COR_JOGOS = '#A020F0';
 
 /* A ordem aqui é a ordem em que a estante é lida: o que está rolando primeiro,
    o que ainda espera depois, o que acabou por último. */
@@ -1030,15 +1065,86 @@ function marcarBackupFeito() {
    várias coisas disputando a mesma tela.
    ========================================================= */
 
-const COR_AGENDA = '#3F4FE0';
-const COR_METAS = '#25E36B';
-const COR_ESTUDOS = '#FFD60A';
 
-/* Primeira cor da paleta ainda não usada na lista, para dois itens novos não
-   saírem iguais. */
-function corLivre(lista) {
-  const usadas = (lista || []).map((x) => x.cor || x.color);
-  return (COLORS.find((c) => !usadas.includes(c.hex)) || COLORS[0]).hex;
+/* Item novo nasce na cor do app. Antes nascia na primeira cor livre da
+   paleta, para dois itens não saírem iguais — o que dava variedade de graça,
+   mas também dava uma tela de metas em cinco cores que não queriam dizer nada.
+   Quem quiser diferenciar continua tendo o seletor de cor no editor. */
+const corLivre = () => corMarca();
+
+/* =========================================================
+   CADERNOS E ANOTAÇÕES
+
+   Estudos mede tempo e conta tópicos vencidos; caderno não mede nada. É onde
+   texto que não é tarefa nem meta vai morar — a explicação que você não quer
+   procurar de novo, o resumo de uma aula, o passo a passo de um comando.
+
+   Por isso a anotação não tem prazo, não tem estado e não entra em contagem
+   nenhuma: ela tem título, texto e a data em que foi mexida pela última vez,
+   que é o que serve para achá-la depois.
+   ========================================================= */
+
+function novoCaderno(nome, cor) {
+  const c = {
+    id: uid('cd_'),
+    nome: String(nome || 'Novo caderno').trim(),
+    cor: cor || corMarca(),
+    criado: Date.now(),
+    notas: [],
+  };
+  S.cadernos.unshift(c);
+  save();
+  return c;
+}
+
+const getCaderno = (id) => S.cadernos.find((c) => c.id === id);
+
+function removerCaderno(id) {
+  S.cadernos = S.cadernos.filter((c) => c.id !== id);
+  saveNow();
+}
+
+function novaNota(cadernoId, titulo, texto) {
+  const c = getCaderno(cadernoId);
+  if (!c) return null;
+  const n = {
+    id: uid('n_'),
+    titulo: String(titulo || 'Sem título').trim(),
+    texto: String(texto || ''),
+    criada: Date.now(),
+    editada: Date.now(),
+  };
+  c.notas.unshift(n);
+  save();
+  return n;
+}
+
+function salvarNota(cadernoId, notaId, dados) {
+  const c = getCaderno(cadernoId);
+  const n = c && c.notas.find((x) => x.id === notaId);
+  if (!n) return null;
+  Object.assign(n, dados, { editada: Date.now() });
+  /* a mais recente sobe: uma lista de anotações é ordenada por quando você
+     mexeu nela, não por quando ela nasceu */
+  c.notas = [n].concat(c.notas.filter((x) => x.id !== notaId));
+  saveNow();
+  return n;
+}
+
+function removerNota(cadernoId, notaId) {
+  const c = getCaderno(cadernoId);
+  if (!c) return;
+  c.notas = c.notas.filter((n) => n.id !== notaId);
+  saveNow();
+}
+
+const contaNotas = () => S.cadernos.reduce((a, c) => a + c.notas.length, 0);
+
+/* Cadernos mexidos por último primeiro — é assim que se acha o que se estava
+   escrevendo ontem. */
+function cadernosRecentes(n) {
+  const quando = (c) => c.notas.reduce((a, x) => Math.max(a, x.editada || 0), c.criado || 0);
+  return S.cadernos.slice().sort((a, b) => quando(b) - quando(a)).slice(0, n || S.cadernos.length);
 }
 
 /* =========================================================
@@ -1060,7 +1166,7 @@ function novaTarefa(dados) {
     hora: '',                   // 'HH:MM' quando tem hora marcada
     fim: '',                    // 'HH:MM' de término; vazio vale uma hora na grade
     tipo: 'tarefa',             // 'tarefa' | 'compromisso'
-    cor: COR_AGENDA,
+    cor: corMarca(),
     feito: false,
     feitoEm: 0,
     criada: Date.now(),
@@ -1368,7 +1474,7 @@ function estudoPorDia(n, ate) {
     const k = dayKey(d.getTime());
     let min = 0;
     let melhor = 0;
-    let cor = COR_ESTUDOS;
+    let cor = corMarca();
     S.materias.forEach((m) => {
       const soma = m.sessoes.reduce((a, s) => a + (dayKey(s.data) === k ? s.min : 0), 0);
       min += soma;

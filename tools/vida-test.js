@@ -98,28 +98,36 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("currentScreen().name === 'inicio'"), 'e a raiz se chama pela aba aberta');
   ck(await ev(`${tela()}.querySelectorAll('.tab').length === ABAS.length + 1`),
     'a cápsula traz as ' + await ev('ABAS.length') + ' abas mais o botão do menu');
-  const nAtalhos = await ev(`${tela()}.querySelectorAll('.hub-card').length`);
-  ck(nAtalhos === await ev('MODULOS.length'),
-    'há um atalho para cada módulo (' + nAtalhos + ')');
-  ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).map(function (b) { return b.textContent; }).join(',')`)
-    === 'Academia,Cronograma,Hidratação,Jogos,Financeiro,Metas,Estudos,Configurações',
-    'na ordem esperada');
+  /* A grade de atalhos saiu do Início: era a terceira cópia da mesma lista, e
+     ocupava metade da tela. No lugar dela ficaram os cadernos. */
+  ck(await ev(`!${tela()}.querySelector('.caderno') && ${tela()}.textContent.includes('Cadernos')`),
+    'o painel traz o bloco de cadernos, vazio enquanto não houver nenhum');
+  ck(await ev(`${tela()}.querySelectorAll('.pcard').length >= 4`),
+    'com os cartões do painel: hoje, próximos, estudo e cronômetro');
+  await shot('v1-inicio');
 
-  /* cada atalho leva a cor do seu módulo */
-  const coresAtalhos = await ev(`(function () {
+  console.log('');
+  console.log('a cor do app:');
+  /* Antes cada módulo trazia o próprio hexadecimal e a soma era um mostruário.
+     Agora existe uma cor de marca e ela vale para tudo. */
+  const marca = (await ev('corMarca()')).toUpperCase();
+  ck(await ev("ESQUEMAS.length === 5"), 'há cinco esquemas para escolher');
+  ck(await ev("contextAccent() === corMarca()"),
+    'fora do treino, o acento é a cor do app (' + marca + ')');
+  ck((await ev(`(function () {
     var v = [];
-    ${tela()}.querySelectorAll('.hub-card').forEach(function (c) {
+    currentScreen().el.querySelectorAll('.tab-item').forEach(function (c) {
       v.push(getComputedStyle(c).getPropertyValue('--accent').trim().toUpperCase());
     });
-    return v.join(',');
-  })()`);
-  /* le as constantes em vez de repetir o hexadecimal: a paleta pode ser
-     reafinada sem que o teste passe a cobrar uma cor que nao existe mais */
-  for (const [cor, quem] of [['COR_AGENDA', 'cronograma'], ['AZUL_AGUA', 'hidratação'], ['COR_METAS', 'metas'], ['COR_ESTUDOS', 'estudos']]) {
-    const hex = (await ev(cor)).toUpperCase();
-    ck(coresAtalhos.indexOf(hex) >= 0, 'o atalho de ' + quem + ' sai na cor do módulo (' + hex + ')');
-  }
-  await shot('v1-inicio');
+    return Array.from(new Set(v)).join(',');
+  })()`)) === marca, 'e todos os módulos da grade usam ela, sem exceção');
+
+  await ev("S.settings.esquema = 'verde'; saveNow(); aplicarEsquema(); popToRoot();"); await sleep(600);
+  const verde = (await ev('corMarca()')).toUpperCase();
+  ck(verde !== marca, 'trocar de esquema muda a cor de marca (' + verde + ')');
+  ck((await ev(`getComputedStyle(currentScreen().el.querySelector('.tab-item')).getPropertyValue('--accent').trim()`)).toUpperCase() === verde,
+    'e a troca chega às telas já montadas depois dela');
+  await ev("S.settings.esquema = 'rosa'; saveNow(); aplicarEsquema(); popToRoot();"); await sleep(600);
 
   console.log('');
   console.log('a cápsula que cresce:');
@@ -157,8 +165,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     return '';
   })()`);
-  ck(corJogos === (await ev('COR_JOGOS')).toUpperCase(),
-    'cada ladrilho leva a cor do seu módulo (' + corJogos + ')');
+  ck(corJogos === (await ev('corMarca()')).toUpperCase(),
+    'cada ladrilho leva a cor do app (' + corJogos + ')');
 
   /* "Configurações" não cabe em 72px de ladrilho e vira "Ajustes" */
   ck(await ev(`${tela()}.querySelector('.tab-grade').textContent.includes('Ajustes')`),
@@ -278,7 +286,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(!!t, 'salvar cria a tarefa');
   ck(t && t.hora === '16:30', 'com a hora escolhida (' + (t && t.hora) + ')');
   ck(t && t.tipo === 'compromisso', 'e com o tipo deduzido da hora preenchida');
-  ck(t && t.cor === await ev('COLORS[4].hex'), 'e com a cor escolhida no menu (' + (t && t.cor) + ')');
+  /* a lista abre com a cor do app, então o quinto item é o quarto da paleta */
+  ck(t && t.cor === await ev('COLORS[3].hex'), 'e com a cor escolhida no menu (' + (t && t.cor) + ')');
   ck(await ev("!document.querySelector('.sheet')"), 'o editor fecha depois de salvar');
   ck(await ev(`${tela()}.querySelectorAll('.tarefa')[1].querySelector('.tarefa-txt b').textContent === 'Consulta'`),
     'e ela entra na lista já na posição do horário, entre as 14h e a feita');
@@ -503,8 +512,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(`${tela()}.querySelector('.saudar h1 i').textContent === 'Vitor!'`),
     'com nome, é o nome que sai em destaque');
   const corNome = await ev(`getComputedStyle(${tela()}.querySelector('.saudar')).getPropertyValue('--accent').trim()`);
-  ck(corNome === await ev('COR_AGENDA'),
-    'na cor do dia, e não no branco de fora do treino (' + corNome + ')');
+  ck(corNome === await ev('corMarca()'),
+    'na cor do app (' + corNome + ')');
 
   const rots = await ev(`Array.from(${tela()}.querySelectorAll('.painel .pcard-rot')).slice(0, 3).map(function (r) { return r.textContent; }).join(' | ')`);
   ck(rots === 'Hoje | Próximos dias | Tempo de estudo',
@@ -665,6 +674,63 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const horaVazio = await ev(`document.querySelector('.sheet [data-c="hora"]') ? document.querySelector('.sheet [data-c="hora"]').value : ''`);
   ck(horaVazio === '08:00', 'e tocar no vazio abre o editor já naquela hora (' + horaVazio + ')');
   await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
+
+  console.log('\ncadernos e anotações:');
+  await ev("popToRoot(); abrirModulo('cadernos');"); await sleep(700);
+  ck(await ev("currentScreen().name === 'cadernos'"), 'o módulo abre');
+  ck(await ev(`${tela()}.textContent.includes('Nada anotado ainda')`), 'e começa vazio');
+
+  await ev(`(function () {
+    var el = currentScreen().el;
+    el.querySelector('[data-c="nome"]').value = 'Claude Code';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
+    return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev('S.cadernos.length === 1'), 'criar um caderno pelo cadastro rápido');
+  ck(await ev('S.cadernos[0].cor === corMarca()'),
+    'que nasce na cor do app, e não numa cor sorteada da paleta');
+  ck(await ev(`${tela()}.querySelector('.caderno .caderno-txt i').textContent === '0 anotações'`),
+    'a capa mostra a contagem, que começa em zero');
+
+  await ev(`${tela()}.querySelector('.caderno').click()`); await sleep(700);
+  ck(await ev("currentScreen().name === 'caderno'"), 'tocar na capa abre o caderno');
+  await ev(`(function () {
+    var el = currentScreen().el;
+    el.querySelector('[data-c="titulo"]').value = 'Comandos do dia a dia';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
+    return 'ok';
+  })()`);
+  await sleep(900);
+  ck(await ev('S.cadernos[0].notas.length === 1'), 'anotar cria a anotação');
+  ck(await ev("currentScreen().name === 'nota'"),
+    'e já abre o editor: criar uma anotação e não poder escrever nela seria meio caminho');
+
+  await ev(`(function () {
+    var t = currentScreen().el.querySelector('[data-c="texto"]');
+    t.value = 'git status e git commit';
+    t.dispatchEvent(new Event('input', { bubbles: true }));
+    return 'ok';
+  })()`);
+  /* a gravação é adiada em 600ms para não gravar a cada tecla, e o Chrome sem
+     janela ainda estica timer curto: 1,6s cobre os dois */
+  await sleep(1600);
+  ck(await ev("S.cadernos[0].notas[0].texto.indexOf('git status') === 0"),
+    'o texto é guardado sozinho enquanto se escreve, sem botão de salvar');
+  await shot('v12-nota');
+
+  await ev(`currentScreen().el.querySelector('.nav [data-act="back"]').click()`); await sleep(800);
+  ck(await ev("currentScreen().name === 'caderno'"), 'voltar sai do editor');
+  ck(await ev(`${tela()}.textContent.includes('Comandos do dia a dia')`),
+    'e a anotação aparece na lista do caderno');
+
+  /* o Início mostra os cadernos no lugar onde ficava a grade de atalhos */
+  await ev("popToRoot(); irParaAba('inicio');"); await sleep(700);
+  ck(await ev(`${tela()}.textContent.includes('Cadernos')`), 'o Início traz o bloco de cadernos');
+  ck(await ev(`${tela()}.querySelector('.caderno .caderno-txt b').textContent === 'Claude Code'`),
+    'com o caderno mexido por último na frente');
+  ck(await ev(`${tela()}.querySelector('.caderno .caderno-txt i').textContent === '1 anotação'`),
+    'e a contagem no singular quando é uma só');
 
   console.log('\npersistência:');
   const antes = await ev("JSON.stringify([S.tarefas.length, S.metas.length, S.materias.length])");

@@ -117,8 +117,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'e a cápsula de baixo some');
   ck(await ev(`Math.round(${tela()}.getBoundingClientRect().left) === ${232}`),
     'as telas começam depois dela');
-  ck(await ev("document.querySelectorAll('.lateral .lat-item').length === MODULOS.length + 2"),
-    'a coluna lista o Painel, os módulos e o Sair');
+  ck(await ev("document.querySelectorAll('.lateral .lat-item').length === MODULOS.length + 1"),
+    'a coluna lista o Painel e os módulos');
+  ck(await ev("!!document.querySelector('.lateral .lat-pe')"),
+    'e tem pé: quem você é de um lado, a aparência do outro');
+  ck(await ev("!!document.querySelector('.lat-bolha') && !!document.querySelector('.lat-icone')"),
+    'com a bolinha da cor do app e o botão do tema');
+  ck(await ev(`getComputedStyle(document.querySelector('.lat-bolha')).backgroundColor
+    === getComputedStyle(document.querySelector('.lat-topo b')).color`),
+    'a bolinha mostra a cor que está valendo, a mesma da marca');
   ck(await ev("document.querySelectorAll('.lateral .lat-item.on').length === 1"),
     'com exatamente um item aceso');
   ck(await ev("document.querySelector('.lateral .lat-item.on').textContent.trim() === 'Painel'"),

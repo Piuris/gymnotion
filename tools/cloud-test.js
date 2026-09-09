@@ -334,7 +334,7 @@ window.fetch = async (url, opts) => {
   await ev(`(function () {
     var fora = JSON.parse(S ? exportJSON() : '{}');
     fora.tarefas.unshift({ id: 't_fora', titulo: 'Feita no aparelho B', data: dayKey(Date.now()),
-      hora: '', fim: '', tipo: 'tarefa', cor: COR_AGENDA, feito: false, feitoEm: 0, criada: Date.now() });
+      hora: '', fim: '', tipo: 'tarefa', cor: corMarca(), feito: false, feitoEm: 0, criada: Date.now() });
     window.__forcado = JSON.stringify(fora);
     return 'ok';
   })()`);

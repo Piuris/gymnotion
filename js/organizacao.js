@@ -44,7 +44,7 @@ const diaCurto = (ts) => new Date(ts)
   .replace(/\.$/, '.');
 
 function renderCronograma(el, screen) {
-  setAccent(COR_AGENDA, el);
+  setAccent(corMarca(), el);
   const modo = modoCronograma();
   const scroll = h('<div class="scroll"></div>');
 
@@ -160,7 +160,7 @@ function gradeCronograma(screen, modo) {
       const cel = h('<div class="gc-avulsos"></div>');
       d.semHora.forEach((t) => {
         const chip = h(`<button class="gc-chip${t.feito ? ' feito' : ''}">${esc(t.titulo)}</button>`);
-        setAccent(t.cor || COR_AGENDA, chip);
+        setAccent(t.cor || corMarca(), chip);
         chip.addEventListener('click', () => editorTarefa(t, t.data, screen));
         cel.appendChild(chip);
       });
@@ -188,7 +188,7 @@ function gradeCronograma(screen, modo) {
         <b>${esc(t.titulo)}</b>
         <span>${esc(horaDeMinutos(f.ini) + ' – ' + horaDeMinutos(f.fim))}</span>
       </button>`);
-      setAccent(t.cor || COR_AGENDA, bl);
+      setAccent(t.cor || corMarca(), bl);
       bl.addEventListener('click', (e) => { e.stopPropagation(); editorTarefa(t, t.data, screen); });
       col.appendChild(bl);
     });
@@ -346,7 +346,7 @@ function linhaTarefa(t, screen, mostrarData) {
 function editorTarefa(tarefa, dataPadrao, screen, padroes) {
   const t = tarefa || Object.assign({
     titulo: '', nota: '', data: dataPadrao || dayKey(Date.now()),
-    hora: '', fim: '', tipo: 'tarefa', cor: COR_AGENDA,
+    hora: '', fim: '', tipo: 'tarefa', cor: corMarca(),
   }, padroes || {});
   let cor = t.cor;
   let tipo = t.tipo;
@@ -416,6 +416,177 @@ function editorTarefa(tarefa, dataPadrao, screen, padroes) {
 }
 
 /* =========================================================
+   CADERNOS E ANOTAÇÕES
+   ========================================================= */
+
+function telaCadernos() {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    el.appendChild(navBar('Cadernos'));
+
+    const scroll = h('<div class="scroll"></div>');
+    const n = contaNotas();
+    scroll.appendChild(h(secaoSub('Cadernos', 'Anotações',
+      n ? n + (n > 1 ? ' anotações guardadas' : ' anotação guardada') : 'Nada anotado ainda')));
+
+    scroll.appendChild(formBloco('Novo caderno', [
+      { id: 'nome', label: 'Nome', placeholder: 'Claude Code, AWS, receitas...', cresce: true },
+    ], 'Criar', (v) => {
+      const nome = String(v.nome).trim();
+      if (!nome) { toast('Dê um nome ao caderno'); return false; }
+      novoCaderno(nome);
+      haptic();
+      setTimeout(() => screen.refresh(), 60);
+      return true;
+    }));
+
+    const bloco = h('<div class="bloco"><div class="bloco-rot">Seus cadernos</div></div>');
+    if (!S.cadernos.length) {
+      bloco.appendChild(h('<div class="vazio-tracejado">Um caderno guarda texto que não é tarefa nem meta: o resumo de uma aula, o passo a passo de um comando.</div>'));
+    } else {
+      bloco.appendChild(estanteDeCadernos(cadernosRecentes(), screen));
+    }
+    scroll.appendChild(bloco);
+
+    el.appendChild(scroll);
+  }, { name: 'cadernos' });
+}
+
+/* A mesma grade serve à tela do módulo e ao painel do Início: capa com o ícone
+   no alto à direita, nome embaixo e a contagem de anotações. */
+function estanteDeCadernos(lista, screen, aoAbrir) {
+  const g = h('<div class="cadernos"></div>');
+  lista.forEach((c) => {
+    const b = h(`<button class="caderno">
+      <span class="caderno-ico">${iconO('caderno')}</span>
+      <span class="caderno-txt">
+        <b>${esc(c.nome)}</b>
+        <i>${c.notas.length} ${c.notas.length === 1 ? 'anotação' : 'anotações'}</i>
+      </span>
+    </button>`);
+    setAccent(c.cor || contextAccent(), b);
+    b.addEventListener('click', () => { haptic(); (aoAbrir || telaCaderno)(c.id); });
+    g.appendChild(b);
+  });
+  return g;
+}
+
+function telaCaderno(id) {
+  pushScreen((el, screen) => {
+    const c = getCaderno(id);
+    if (!c) { popScreen(); return; }
+    setAccent(c.cor || contextAccent(), el);
+
+    el.appendChild(navBar(c.nome, {
+      icone: 'dots',
+      aoTocar: () => actionSheet(c.nome, [
+        { label: 'Renomear', icon: 'pencil', onClick: () => promptSheet('Nome do caderno', c.nome, '', (v) => {
+          const nome = String(v).trim();
+          if (nome) { c.nome = nome; saveNow(); screen.refresh(); }
+        }) },
+        { label: 'Trocar a cor', icon: 'text', onClick: () => corDoCaderno(c, screen) },
+        { label: 'Apagar caderno', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar caderno?',
+          c.notas.length + ' anotação(ões) somem junto.', 'Apagar',
+          () => { removerCaderno(id); popScreen(); }) },
+      ]),
+    }));
+
+    const scroll = h('<div class="scroll"></div>');
+    scroll.appendChild(formBloco('Nova anotação', [
+      { id: 'titulo', label: 'Título', placeholder: 'Do que se trata', cresce: true },
+    ], 'Anotar', (v) => {
+      const titulo = String(v.titulo).trim();
+      if (!titulo) { toast('Dê um título'); return false; }
+      const n = novaNota(id, titulo, '');
+      haptic();
+      setTimeout(() => { screen.refresh(); editorNota(id, n.id, screen); }, 80);
+      return true;
+    }));
+
+    const bloco = h('<div class="bloco"><div class="bloco-rot">Anotações</div></div>');
+    if (!c.notas.length) {
+      bloco.appendChild(h('<div class="vazio-tracejado">Caderno vazio.</div>'));
+    } else {
+      c.notas.forEach((n) => {
+        const primeira = String(n.texto || '').split('\n').find((x) => x.trim()) || 'sem texto ainda';
+        const row = h(`<div class="tarefa">
+          <div class="tarefa-txt">
+            <b>${esc(n.titulo)}</b>
+            <span>${esc(fmtDate(n.editada) + ' · ' + primeira)}</span>
+          </div>
+          <button class="kebab" data-act="menu">${icon('dots')}</button>
+        </div>`);
+        setAccent(c.cor || contextAccent(), row);
+        acts(row, {
+          menu: () => actionSheet(n.titulo, [
+            { label: 'Apagar anotação', icon: 'trash', danger: true,
+              onClick: () => { removerNota(id, n.id); screen.refresh(); } },
+          ]),
+        });
+        row.addEventListener('click', (e) => {
+          if (!e.target.closest('[data-act]')) editorNota(id, n.id, screen);
+        });
+        bloco.appendChild(row);
+      });
+    }
+    scroll.appendChild(bloco);
+    el.appendChild(scroll);
+  }, { name: 'caderno' });
+}
+
+function corDoCaderno(c, screen) {
+  const box = h('<div><h3>Cor do caderno</h3><div class="lugar-cor"></div>'
+    + '<div class="sheet-actions"><button class="pill-btn" data-x="ok">Pronto</button></div></div>');
+  const r = openSheet(box, { center: true });
+  setAccent(c.cor || contextAccent(), box);
+  box.querySelector('.lugar-cor').replaceWith(campoCor(c.cor || contextAccent(), (nova) => {
+    c.cor = nova; saveNow(); setAccent(nova, box);
+  }));
+  box.querySelector('[data-x="ok"]').addEventListener('click', () => { r.close(); screen.refresh(); });
+}
+
+/* O editor é uma tela e não uma folha: anotação é texto longo, e folha com
+   teclado aberto deixa três linhas visíveis. */
+function editorNota(cadernoId, notaId, pai) {
+  pushScreen((el, screen) => {
+    const c = getCaderno(cadernoId);
+    const n = c && c.notas.find((x) => x.id === notaId);
+    if (!n) { popScreen(); return; }
+    setAccent(c.cor || contextAccent(), el);
+
+    const nav = h(`<div class="nav">
+      <button class="icon-btn stroke" data-act="back">${icon('back')}</button>
+      <div class="title">${esc(c.nome)}</div>
+      <div style="width:44px"></div>
+    </div>`);
+    acts(nav, { back: () => { guardar(); popScreen(); setTimeout(() => pai && pai.refresh(), 120); } });
+    el.appendChild(nav);
+
+    const scroll = h(`<div class="scroll">
+      <div class="nota">
+        <input class="nota-titulo" data-c="titulo" value="${esc(n.titulo)}" placeholder="Título"/>
+        <textarea class="nota-texto" data-c="texto" placeholder="Escreva aqui.">${esc(n.texto)}</textarea>
+      </div>
+    </div>`);
+    el.appendChild(scroll);
+
+    const campo = (k) => scroll.querySelector(`[data-c="${k}"]`);
+    const guardar = () => {
+      const titulo = campo('titulo').value.trim();
+      salvarNota(cadernoId, notaId, { titulo: titulo || 'Sem título', texto: campo('texto').value });
+    };
+    /* guarda sozinho enquanto se escreve: sair sem salvar não pode existir
+       numa tela cujo único trabalho é guardar texto */
+    let espera = null;
+    scroll.addEventListener('input', () => {
+      clearTimeout(espera);
+      espera = setTimeout(guardar, 600);
+    });
+    setTimeout(() => campo('texto').focus(), 250);
+  }, { name: 'nota' });
+}
+
+/* =========================================================
    METAS — o cofrinho
    ========================================================= */
 
@@ -423,7 +594,7 @@ const VALORES_RAPIDOS = [50, 100, 200];
 
 function telaMetas() {
   pushScreen((el, screen) => {
-    setAccent(COR_METAS, el);
+    setAccent(corMarca(), el);
     el.appendChild(navBar('Metas'));
 
     const scroll = h('<div class="scroll"></div>');
@@ -606,7 +777,7 @@ const MINUTOS_RAPIDOS = [25, 50, 90];
 
 function telaEstudos() {
   pushScreen((el, screen) => {
-    setAccent(COR_ESTUDOS, el);
+    setAccent(corMarca(), el);
     el.appendChild(navBar('Estudos'));
 
     const scroll = h('<div class="scroll"></div>');
@@ -843,7 +1014,7 @@ let FILTRO_JOGOS = '';   // '' = a estante inteira
 
 function telaJogos() {
   pushScreen((el, screen) => {
-    setAccent(COR_JOGOS, el);
+    setAccent(corMarca(), el);
     el.appendChild(navBar('Jogos'));
 
     const scroll = h('<div class="scroll"></div>');
@@ -999,7 +1170,7 @@ function editorJogo(jogo, screen) {
 
   const r = openSheet(box, { center: true });
   r.sheet.classList.add('com-form');
-  setAccent(COR_JOGOS, box);
+  setAccent(corMarca(), box);
   const campo = (n) => box.querySelector(`[data-c="${n}"]`);
   const previa = box.querySelector('.capa-previa');
 
@@ -1078,7 +1249,7 @@ function telaFinanceiro() {
   MES_FIN = Date.now();
   RASCUNHO_FIN = { tipo: 'saida', categoria: 'outros' };
   pushScreen((el, screen) => {
-    setAccent(COR_FINANCEIRO, el);
+    setAccent(corMarca(), el);
     el.appendChild(navBar('Financeiro', {
       icone: 'dots',
       aoTocar: () => actionSheet('Financeiro', [
@@ -1118,7 +1289,7 @@ function telaFinanceiro() {
          `sinal` é a exceção declarada à regra de número branco. */
       ['Entradas', fmtBRL(entradas), COR_ENTRADA, '', true],
       ['Saídas', fmtBRL(saidas), COR_SAIDA, orcamento() ? 'de ' + fmtBRL(orcamento()) + ' de teto' : '', false],
-      ['Saldo', fmtBRL(saldo), saldo < 0 ? COR_SAIDA : COR_FINANCEIRO, '', true],
+      ['Saldo', fmtBRL(saldo), saldo < 0 ? COR_SAIDA : corMarca(), '', true],
     ].forEach(([rot, val, cor, sub, sinal]) => {
       const c = h(`<div class="stat${sinal ? ' sinal' : ''}">
         <div class="stat-rot">${esc(rot)}</div>

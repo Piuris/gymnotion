@@ -1,5 +1,5 @@
 /* Testa o catálogo consolidado (movimento + variação de equipamento), a foto
-   que acompanha o aparelho, a migração dos dados antigos e a cor neutra fora do
+   que acompanha o aparelho, a migração dos dados antigos e a cor do app fora do
    treino.  Uso: node tools/catalog-test.js [saida]   (GYM_URL opcional) */
 
 const { spawn } = require('child_process');
@@ -154,7 +154,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(String(troca).includes('supino_reto.webp -> img/supino_reto__halteres.webp'),
     'trocar o aparelho troca a foto na hora (' + troca + ')');
   const chipLib = await ev("getComputedStyle(currentScreen().el.querySelector('.chip.on')).color");
-  ck(chipLib === 'rgb(255, 255, 255)', 'a biblioteca e catalogo, fica neutra (veio ' + chipLib + ')');
+  const emRGB = "(function () { var c = corMarca().replace('#', ''); return 'rgb(' + parseInt(c.slice(0,2),16) + ', ' + parseInt(c.slice(2,4),16) + ', ' + parseInt(c.slice(4,6),16) + ')'; })()";
+  ck(chipLib === await ev(emRGB),
+    'a biblioteca e catalogo: leva a cor do app, nao a de treino nenhum (veio ' + chipLib + ')');
   await shot('cat2-troca-foto');
   await ev('popScreen();'); await sleep(400);
 
@@ -185,12 +187,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("S.workouts[0].exercises[2].equip === 'Peso corporal'"), '"Sem equipamento" foi renomeado');
   ck(await ev("!!findExercise(S.workouts[0].exercises[0].exId)"), 'todo exId migrado existe no catálogo');
 
-  console.log('\ncor neutra fora do treino:');
+  console.log('\ncor do app fora do treino:');
   await ev("popToRoot(); abrirModulo('academia');"); await sleep(400);
   /* a ofensiva saiu da academia; o acento neutro aparece na sobrancelha */
   const fab = await ev("getComputedStyle(currentScreen().el.querySelector('.sec .eyebrow')).color");
-  ck(fab === 'rgb(255, 255, 255)', 'a sobrancelha da academia é branca (veio ' + fab + ')');
-  ck(await ev("contextAccent() === '#FFFFFF'"), 'o acento padrão é branco');
+  const marcaRGB = await ev(`(function () {
+    var c = corMarca().replace('#', '');
+    return 'rgb(' + parseInt(c.slice(0,2),16) + ', ' + parseInt(c.slice(2,4),16) + ', ' + parseInt(c.slice(4,6),16) + ')';
+  })()`);
+  ck(fab === marcaRGB, 'a sobrancelha da academia sai na cor do app (veio ' + fab + ')');
+  ck(await ev("contextAccent() === corMarca()"), 'o acento padrão é a cor do app');
   await shot('cat3-treinos-neutro');
 
   await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(600);

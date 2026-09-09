@@ -76,6 +76,8 @@ const O = {
   lista: `<path d="M4.4 6.4h15.2M4.4 12h15.2M4.4 17.6h9.4"/>`,
   lapis: `<path d="M4 20l.9-3.9L15.6 5.4a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L8.9 20.1z"/>`,
   check: `<path d="M4.8 12.4l4.6 4.6L19.2 7"/>`,
+  sol: `<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.6 12h2.4M19 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7"/>`,
+  caderno: `<path d="M7.4 3.6h10.2a1.8 1.8 0 0 1 1.8 1.8v13.2a1.8 1.8 0 0 1-1.8 1.8H7.4"/><path d="M7.4 3.6a2.6 2.6 0 0 0-2.6 2.6v11.6a2.6 2.6 0 0 0 2.6 2.6"/><path d="M10.4 8.4h5.6M10.4 12h5.6M10.4 15.6h3.4"/>`,
 };
 const iconO = (k) => (O[k] ? `<svg viewBox="0 0 24 24" ${TRACO}>${O[k]}</svg>` : '');
 
@@ -122,6 +124,19 @@ function luminance(hex) {
 }
 
 /* aplica a cor do treino em toda a interface */
+/* Um pastel sobre fundo claro some: ele foi escolhido para ter contraste
+   contra quase preto. A mesma cor escurecida guarda o matiz e volta a ser
+   legível — é a cor do app continuar sendo a cor do app nos dois temas, em vez
+   de existirem duas paletas para manter em pé. */
+function escurecer(hex, quanto) {
+  const [r, g, b] = hexToRgb(hex);
+  const f = 1 - Math.min(1, Math.max(0, quanto));
+  const p = (v) => Math.round(v * f).toString(16).padStart(2, '0');
+  return '#' + p(r) + p(g) + p(b);
+}
+
+const corDoTema = (hex) => (temaAtual().id === 'claro' ? escurecer(hex, 0.52) : hex);
+
 function setAccent(hex, target) {
   const el = target || document.documentElement;
   const [r, g, b] = hexToRgb(hex || '#FF5A1E');
@@ -148,10 +163,20 @@ function aplicarTema(id) {
 
 const temaAtual = () => TEMAS.find((x) => x.id === S.settings.tema) || TEMAS[0];
 
-/* Cor dos detalhes fora do treino: neutra, para a cor colorida significar
-   sempre "isto pertence a um treino". */
+/* O acento do documento é a cor de marca. Cada tela ainda chama `setAccent` no
+   próprio elemento — com a cor do treino, quando é o caso —, mas o que não
+   pertence a treino nenhum herda daqui. */
+function aplicarEsquema() {
+  setAccent(corMarca());
+}
+
+/* Cor dos detalhes fora do treino. Era o branco do tema, para a cor colorida
+   significar sempre "isto pertence a um treino". Agora é a cor de marca: o app
+   tem uma cor, e o que identifica um treino é ele ter uma **própria**, diferente
+   dela — o contraste continua existindo, só deixou de ser branco contra colorido
+   para ser marca contra a cor do treino. */
 function contextAccent() {
-  return temaAtual().neutro || '#FFFFFF';
+  return corMarca();
 }
 
 /* Cor de um painel: a do treino que gerou aqueles números. Recebendo um dia,
@@ -169,7 +194,6 @@ function accentPainel(quando) {
 }
 
 /* Azul da água: não é treino, então não segue a cor de nenhum. */
-const AZUL_AGUA = '#2E9BF0';
 
 /* ---------- helpers DOM ---------- */
 
@@ -632,6 +656,9 @@ function menuSuspenso(itens, opts) {
 
 /* Campo de cor: mostra a escolhida e abre o menu suspenso. Substitui a grade
    de doze bolinhas, que ocupava duas fileiras e ainda deixava a folha rolando. */
+/* A cor de um item novo é a cor do app, que não está na paleta das doze. Ela
+   entra na lista com o próprio nome em vez de aparecer como "Cor própria" — o
+   que faria o padrão parecer uma exceção. */
 function campoCor(cor, aoEscolher) {
   const campo = h(`<button class="campo-cor">
     <i class="dot" style="background:${cor}"></i>
@@ -639,7 +666,10 @@ function campoCor(cor, aoEscolher) {
     ${icon('caret')}
   </button>`);
   campo.addEventListener('click', () => {
-    const cores = COLORS.slice();
+    /* A cor do app abre a lista: é a que todo item novo já veste, e deixá-la
+       no fim como "Cor própria" faria o padrão parecer exceção. */
+    const cores = [{ hex: corMarca(), nome: 'Cor do app' }]
+      .concat(COLORS.filter((c) => c.hex !== corMarca()));
     /* uma cor que saiu da paleta continua na lista, senão o item pareceria sem
        cor escolhida e trocaria de cor no primeiro toque */
     if (!cores.some((c) => c.hex === cor)) cores.push({ hex: cor, nome: 'Cor própria' });

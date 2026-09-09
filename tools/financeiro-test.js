@@ -187,7 +187,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const cores = await ev(`Array.from(${tela()}.querySelectorAll('.stats .stat')).map(function (c) {
     return getComputedStyle(c).getPropertyValue('--accent').trim();
   }).join(',')`);
-  ck(cores === await ev("[COR_ENTRADA, COR_SAIDA, COR_FINANCEIRO].join(',')"),
+  ck(cores === await ev("[COR_ENTRADA, COR_SAIDA, corMarca()].join(',')"),
     'cada um na sua cor: verde entra, vermelho sai, azul de saldo (' + cores + ')');
   ck(await ev(`${tela()}.querySelectorAll('.cat-linha').length === 2`), 'duas categorias na divisão');
   ck(await ev(`${tela()}.querySelectorAll('.gasto').length === 4`), 'os quatro lançamentos na lista');
@@ -326,7 +326,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'lançamentos e teto sobrevivem ao recarregar (' + guardado + ')');
 
   await ev("TAB = 'inicio'; popToRoot();"); await sleep(600);
-  ck(await ev(`Array.from(${tela()}.querySelectorAll('.hub-card b')).some(function (b) { return b.textContent === 'Financeiro'; })`),
+  ck(await ev(`Array.from(${tela()}.querySelectorAll('.tab-item')).some(function (b) { return b.textContent.trim() === 'Financeiro'; })`),
     'o módulo aparece na grade de atalhos');
   const saldoCard = await ev(`(function () {
     var s = ${tela()}.querySelectorAll('.stats .stat');

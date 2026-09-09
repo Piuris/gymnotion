@@ -37,7 +37,7 @@ function itensDoMenu() {
   const itens = MODULOS.map((m) => ({
     label: m.curto || m.nome, icone: m.iconeO, cor: m.cor(), onClick: () => m.abrir(),
   }));
-  itens.push({ label: 'Plano', icone: 'calendario', cor: COR_AGENDA, onClick: () => telaPlanoSemana() });
+  itens.push({ label: 'Plano', icone: 'calendario', cor: corMarca(), onClick: () => telaPlanoSemana() });
   itens.push({ label: 'Resumo', icone: 'grafico', cor: corAcademia(), onClick: () => telaResumo() });
   if (S.sessions.length) {
     itens.push({ label: 'Registros', icone: 'lista', cor: corAcademia(), onClick: () => openHistorico() });
@@ -146,11 +146,10 @@ function montarLateral() {
   }
   lat.innerHTML = '';
 
-  lat.appendChild(h(`<div class="lat-topo">
-    <div class="eyebrow">Sua</div>
-    <b>Rotina</b>
-  </div>`));
+  /* A marca em cima, na cor do app: é ela que diz de que cor o resto vai ser. */
+  lat.appendChild(h(`<div class="lat-topo"><b>Rotina</b></div>`));
 
+  lat.appendChild(h('<div class="lat-rotulo">Módulos</div>'));
   const lista = h('<div class="lat-lista"></div>');
   const itens = [{ id: 'inicio', nome: 'Painel', iconeO: 'grade' }].concat(MODULOS);
   /* Com uma tela empilhada por cima, quem manda é ela. Marcando a aba junto,
@@ -171,17 +170,101 @@ function montarLateral() {
   });
   lat.appendChild(lista);
 
-  const sair = h(`<button class="lat-item lat-fim">${iconO('sair')}<span>Sair</span></button>`);
-  sair.addEventListener('click', () => {
-    if (cloudConfigurado() && cloudLogado()) {
-      confirmSheet('Sair da conta?', 'Os dados continuam neste aparelho.', 'Sair',
-        () => { cloudEsquecer(); atualizarLateral(); toast('Você saiu da conta'); });
-    } else {
-      abrirModulo('config');
-    }
+  /* O pé da coluna, como no desenho: quem você é à esquerda, e à direita os
+     dois botões que mudam a aparência — a cor do app e o tema do fundo. */
+  const nome = String(S.settings.nome || '').trim();
+  const email = (cloudConfigurado() && cloudLogado()) ? CLOUD.email : '';
+  const pe = h(`<div class="lat-pe">
+    <button class="lat-conta" data-act="conta">
+      <span class="lat-avatar">${esc((nome || email || 'G').charAt(0).toUpperCase())}</span>
+      <span class="lat-quem">
+        <b>${esc(nome || 'Você')}</b>
+        <i>${esc(email || 'só neste aparelho')}</i>
+      </span>
+    </button>
+    <button class="lat-bolha" data-act="cor" title="Cor do app"></button>
+    <button class="lat-icone" data-act="tema" title="Tema do fundo">${iconO('sol')}</button>
+  </div>`);
+  pe.querySelector('.lat-bolha').style.background = corMarca();
+  acts(pe, {
+    conta: () => {
+      haptic();
+      if (cloudConfigurado() && cloudLogado()) {
+        confirmSheet('Sair da conta?', 'Os dados continuam neste aparelho.', 'Sair',
+          () => { cloudEsquecer(); atualizarLateral(); toast('Você saiu da conta'); });
+      } else {
+        abrirModulo('config');
+      }
+    },
+    cor: () => { haptic(); escolherEsquema(); },
+    tema: () => { haptic(); abrirModulo('config'); setTimeout(() => telaTemas(currentScreen()), 260); },
   });
-  lat.appendChild(sair);
+  lat.appendChild(pe);
   return lat;
+}
+
+/* ---------- a cor do app ----------
+
+   Troca na hora, com a folha aberta: escolher cor às cegas e só ver o
+   resultado depois de fechar é escolher duas vezes. */
+function escolherEsquema(screen) {
+  const antes = S.settings.esquema;
+
+  const box = h(`<div>
+    <h3>Cor do app</h3>
+    <p class="desc">Vale para todas as telas. A cor de cada treino continua sendo
+      dele, e o verde e o vermelho do dinheiro continuam querendo dizer entrou e saiu.</p>
+    <div class="esquemas"></div>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="no">Desfazer</button>
+      <button class="pill-btn" data-x="yes">Pronto</button>
+    </div>
+  </div>`);
+
+  const grade = box.querySelector('.esquemas');
+  const pintar = () => {
+    grade.querySelectorAll('.esquema').forEach((b) => {
+      b.classList.toggle('on', b.dataset.e === S.settings.esquema);
+    });
+    setAccent(corMarca(), box);
+  };
+
+  ESQUEMAS.forEach((e) => {
+    const b = h(`<button class="esquema" data-e="${e.id}">
+      <span class="esquema-cor" style="background:${e.cor}"></span>
+      <span class="esquema-txt"><b>${esc(e.nome)}</b><i>${esc(e.desc)}</i></span>
+    </button>`);
+    b.addEventListener('click', () => {
+      S.settings.esquema = e.id;
+      saveNow();
+      haptic();
+      aplicarEsquema();
+      pintar();
+      repintarTelas();
+    });
+    grade.appendChild(b);
+  });
+
+  const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
+  pintar();
+
+  box.querySelector('[data-x="no"]').addEventListener('click', () => {
+    S.settings.esquema = antes;
+    saveNow();
+    aplicarEsquema();
+    repintarTelas();
+    r.close();
+  });
+  box.querySelector('[data-x="yes"]').addEventListener('click', r.close);
+}
+
+/* Redesenha o que já está montado: as telas pintam o acento na hora em que são
+   construídas, então trocar a cor só aparece depois de reconstruir. */
+function repintarTelas() {
+  const sc = currentScreen();
+  if (sc) sc.refresh();
+  atualizarLateral();
 }
 
 /* Redesenhar a lateral é barato e mantém o item aceso coerente com a tela. */
@@ -232,7 +315,7 @@ const MODULOS = [
   },
   {
     id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario', sub: 'Compromissos do dia',
-    cor: () => COR_AGENDA,
+    cor: () => corMarca(),
     resumo: () => {
       const abertas = pendentesDoDia();
       const atras = tarefasAtrasadas().length;
@@ -245,13 +328,24 @@ const MODULOS = [
   },
   {
     id: 'agua', nome: 'Hidratação', icone: 'gota', iconeO: 'gota', sub: 'Água ao longo do dia',
-    cor: () => AZUL_AGUA,
+    cor: () => corMarca(),
     resumo: () => fmtLitros(aguaDoDia()) + ' de ' + fmtLitros(metaAgua()) + ' L',
     abrir: () => irParaAba('agua'),
   },
   {
+    id: 'cadernos', nome: 'Cadernos', icone: 'livro', iconeO: 'caderno', sub: 'Anotações e resumos',
+    cor: () => corMarca(),
+    resumo: () => {
+      if (!S.cadernos.length) return 'Nenhum caderno ainda';
+      const n = contaNotas();
+      return S.cadernos.length + (S.cadernos.length > 1 ? ' cadernos' : ' caderno')
+        + ' · ' + n + (n === 1 ? ' anotação' : ' anotações');
+    },
+    abrir: () => telaCadernos(),
+  },
+  {
     id: 'jogos', nome: 'Jogos', icone: 'jogos', iconeO: 'jogos', sub: 'Sua estante de jogos',
-    cor: () => COR_JOGOS,
+    cor: () => corMarca(),
     resumo: () => {
       if (!S.jogos.length) return 'Estante vazia';
       const j = contaJogos('jogando');
@@ -262,19 +356,19 @@ const MODULOS = [
   },
   {
     id: 'financeiro', nome: 'Financeiro', icone: 'cofre', iconeO: 'cofre', sub: 'Entradas e saídas',
-    cor: () => COR_FINANCEIRO,
+    cor: () => corMarca(),
     resumo: () => 'Entradas e saídas',
     abrir: () => telaFinanceiro(),
   },
   {
     id: 'metas', nome: 'Metas', icone: 'porquinho', iconeO: 'porquinho', sub: 'Cofrinhos e objetivos',
-    cor: () => COR_METAS,
+    cor: () => corMarca(),
     resumo: () => (S.metas.length ? fmtBRL(totalGuardado()) + ' guardados' : 'Nenhum cofrinho ainda'),
     abrir: () => telaMetas(),
   },
   {
     id: 'estudos', nome: 'Estudos', icone: 'livro', iconeO: 'livro', sub: 'Matérias e progresso',
-    cor: () => COR_ESTUDOS,
+    cor: () => corMarca(),
     resumo: () => (S.materias.length ? fmtMin(estudoDaSemana()) + ' nesta semana' : 'Nenhuma matéria ainda'),
     abrir: () => telaEstudos(),
   },
@@ -333,7 +427,7 @@ function cartoesDoDia() {
   const bebido = aguaDoDia();
   const metaA = metaAgua();
   stats.appendChild(cartaoStat('Hidratação', fmtLitros(bebido) + ' L', 'de ' + fmtLitros(metaA) + ' L',
-    AZUL_AGUA, bebido / metaA, () => irParaAba('agua')));
+    corMarca(), bebido / metaA, () => irParaAba('agua')));
 
   const feitos = treinosNaSemana(inicioDaSemana());
   const metaT = metaSemanal();
@@ -386,7 +480,7 @@ function cabecalhoInicio() {
   </div>`);
   /* A cor do dia, a mesma dos cartões logo abaixo: `contextAccent()` é branco
      fora do treino, e um destaque branco sobre título branco não destaca. */
-  setAccent(COR_AGENDA, box);
+  setAccent(corMarca(), box);
   acts(box, { conf: () => { haptic(); telaConfig(); } });
   return box;
 }
@@ -410,7 +504,7 @@ function cartaoHoje(screen) {
   const atrasadas = tarefasAtrasadas();
   const c = pcard('Hoje',
     abertas.length ? abertas.length + (abertas.length > 1 ? ' pendentes' : ' pendente') : 'tudo em dia',
-    COR_AGENDA);
+    corMarca());
 
   if (!abertas.length && !atrasadas.length) {
     c.appendChild(h('<div class="vazio-tracejado">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
@@ -437,7 +531,7 @@ function cartaoProximos() {
     .sort(ordemNoTempo)
     .slice(0, 3);
 
-  const c = pcard('Próximos dias', '', COR_AGENDA);
+  const c = pcard('Próximos dias', '', corMarca());
   if (!proximos.length) {
     c.appendChild(h('<div class="vazio-tracejado">Nada marcado daqui para a frente.</div>'));
   } else {
@@ -452,7 +546,7 @@ function cartaoProximos() {
           <span>${esc([t.hora, t.nota].filter(Boolean).join(' · ') || fmtDataLonga(ts))}</span>
         </div>
       </button>`);
-      setAccent(t.cor || COR_AGENDA, linha);
+      setAccent(t.cor || corMarca(), linha);
       linha.addEventListener('click', () => { haptic(); DIA_AGENDA = ts; irParaAba('cronograma'); });
       c.appendChild(linha);
     });
@@ -490,7 +584,7 @@ function cartaoEstudo() {
       <div><i>${meta ? 'Falta' : 'Semana'}</i><b>${esc(meta ? fmtMin(falta) : fmtMin(estudoDaSemana()))}</b></div>
     </div>
   </div>`);
-  setAccent(COR_ESTUDOS, c);
+  setAccent(corMarca(), c);
   c.addEventListener('click', () => { haptic(); abrirModulo('estudos'); });
   return c;
 }
@@ -527,7 +621,7 @@ function cartaoCronometro(screen, opts) {
       <button class="icon-btn stroke" data-act="zerar" title="Encerrar">${icon('stop')}</button>
     </div>
   </div>`);
-  setAccent(mat ? mat.cor : COR_ESTUDOS, c);
+  setAccent(mat ? mat.cor : corMarca(), c);
   acts(c, {
     abrir: () => abrirModulo('estudos'),
     tocar: () => {
@@ -578,11 +672,11 @@ function encerrarCronoEstudo(screen) {
     </div>
   </div>`);
   const r = openSheet(box, { center: true });
-  setAccent(COR_ESTUDOS, box);
+  setAccent(corMarca(), box);
   on(box, '[data-m]', 'click', (e) => {
     alvo = e.currentTarget.dataset.m;
     box.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x.dataset.m === alvo));
-    setAccent((getMateria(alvo) || {}).cor || COR_ESTUDOS, box);
+    setAccent((getMateria(alvo) || {}).cor || corMarca(), box);
   });
   box.querySelector('[data-x="no"]').addEventListener('click', () => { r.close(); zera(); });
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
@@ -594,26 +688,26 @@ function encerrarCronoEstudo(screen) {
   });
 }
 
-/* ---------- ATALHOS ---------- */
-function blocoAtalhos() {
+/* ---------- CADERNOS & ANOTAÇÕES ----------
+
+   Aqui morava a grade de atalhos para os módulos — a mesma lista que a coluna
+   lateral mostra inteira no computador e que a cápsula abre no celular. Três
+   caminhos para a mesma coisa, e o terceiro ocupava metade da tela inicial.
+   No lugar dela vai o que só existe aqui: os cadernos mexidos por último. */
+function blocoCadernos() {
   const box = h(`<div class="atalhos">
     <div class="atalhos-topo">
-      <div class="pcard-rot">Módulos</div>
-      <span class="pcard-nota">${MODULOS.length} no total</span>
+      <div class="pcard-rot">Cadernos &amp; anotações</div>
+      <button class="pcard-link" data-act="todos">Ver todos</button>
     </div>
-    <div class="hub-grid"></div>
   </div>`);
+  acts(box, { todos: () => { haptic(); telaCadernos(); } });
 
-  const grade = box.querySelector('.hub-grid');
-  MODULOS.forEach((m) => {
-    const card = h(`<button class="hub-card">
-      <div class="hub-ico">${iconO(m.iconeO)}</div>
-      <div class="hub-txt"><b>${esc(m.nome)}</b><span>${esc(m.sub || m.resumo())}</span></div>
-    </button>`);
-    setAccent(m.cor(), card);
-    card.addEventListener('click', () => { haptic(); m.abrir(); });
-    grade.appendChild(card);
-  });
+  if (!S.cadernos.length) {
+    box.appendChild(h('<div class="vazio-tracejado">Nenhum caderno ainda. Um caderno guarda o que não é tarefa nem meta.</div>'));
+    return box;
+  }
+  box.appendChild(estanteDeCadernos(cadernosRecentes(6)));
   return box;
 }
 
@@ -632,7 +726,7 @@ function renderInicio(el, screen) {
 
   const baixo = h('<div class="painel dois"></div>');
   baixo.appendChild(cartaoCronometro(screen));
-  baixo.appendChild(blocoAtalhos());
+  baixo.appendChild(blocoCadernos());
   scroll.appendChild(baixo);
 
   el.appendChild(scroll);
@@ -1204,6 +1298,8 @@ function renderConfig(el, screen) {
   };
 
   scroll.appendChild(h('<div class="section-title">Aparência</div>'));
+  scroll.appendChild(row('Cor do app', esquemaAtual().nome, () => escolherEsquema(screen),
+    'Vale para todas as telas; a cor de cada treino continua sendo dele'));
   scroll.appendChild(row('Tema', temaAtual().nome, () => telaTemas(screen), temaAtual().desc));
 
   scroll.appendChild(h('<div class="section-title">Ajustes</div>'));
@@ -1335,7 +1431,7 @@ const COPOS = [300, 500, 800];
 const COPO_PADRAO = 800;
 
 function renderAgua(el, screen) {
-  setAccent(AZUL_AGUA, el);
+  setAccent(corMarca(), el);
   const scroll = h('<div class="scroll"></div>');
   scroll.appendChild(h(secaoSub('Hidratação', 'Água de hoje', 'Um gole de cada vez')));
 
@@ -2961,6 +3057,7 @@ function openSessionDetail(id) {
 
 function boot() {
   aplicarTema(S.settings.tema);
+  aplicarEsquema();
   ajustarTravaTela();   /* treino retomado depois de fechar o app */
   replaceRoot(buildRoot, 'root');
   montarLateral();

@@ -125,8 +125,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(400);
   /* o botao flutuante saiu da academia; a chama da ofensiva usa o mesmo acento */
   const acento = await ev("getComputedStyle(currentScreen().el.querySelector('.sec .eyebrow')).color");
-  ck(acento === 'rgb(28, 28, 30)',
-    'fora do treino o detalhe e neutro, e no tema claro ele escurece (veio ' + acento + ')');
+  const marcaRGB = await ev(`(function () {
+    var c = corMarca().replace('#', '');
+    return 'rgb(' + parseInt(c.slice(0,2),16) + ', ' + parseInt(c.slice(2,4),16) + ', ' + parseInt(c.slice(4,6),16) + ')';
+  })()`);
+  ck(acento === marcaRGB,
+    'fora do treino o detalhe leva a cor do app (veio ' + acento + ')');
+  /* um pastel sobre fundo branco sumiria: no tema claro a mesma cor escurece */
+  ck(await ev("corMarca() !== esquemaAtual().cor"),
+    'e no tema claro ela escurece, senão o pastel sumiria no branco');
+  ck(await ev("(function () { S.settings.tema = 'ardosia'; return corMarca() === esquemaAtual().cor; })()"),
+    'no escuro ela volta a ser o pastel escolhido');
   await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(500);
   const dentro = await ev("getComputedStyle(currentScreen().el.querySelector('.pill-btn')).backgroundColor");
   ck(dentro === 'rgb(160, 32, 240)',
