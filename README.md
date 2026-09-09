@@ -111,8 +111,9 @@ amarelo nos estudos, roxo nos jogos, verde nas metas. A soma não era um sistema
 era um mostruário: seis cores fortes disputando a mesma tela, nenhuma delas
 dizendo nada que o rótulo já não dissesse. Agora existe **uma** cor de marca e
 ela vale para tudo: `corMarca()`, escolhida entre cinco opções — rosa, royal,
-amarelo, verde e vinho. Pastel de propósito: sobre um fundo quase preto
-eles têm contraste de sobra e não berram como um saturado berra.
+amarelo, verde e vinho. Quatro delas são pastel de propósito: sobre um fundo
+quase preto têm contraste de sobra e não berram como um saturado berra. O royal
+é a exceção que puxou a regra de legibilidade descrita adiante.
 
 `contextAccent()`, que devolvia o branco do tema, passou a devolver a marca. A
 regra "cor identifica a coisa" continua de pé, só mudou o contraste que a
