@@ -126,18 +126,46 @@ function luminance(hex) {
 }
 
 /* aplica a cor do treino em toda a interface */
-/* Um pastel sobre fundo claro some: ele foi escolhido para ter contraste
-   contra quase preto. A mesma cor escurecida guarda o matiz e volta a ser
-   legível — é a cor do app continuar sendo a cor do app nos dois temas, em vez
-   de existirem duas paletas para manter em pé. */
-function escurecer(hex, quanto) {
-  const [r, g, b] = hexToRgb(hex);
-  const f = 1 - Math.min(1, Math.max(0, quanto));
-  const p = (v) => Math.round(v * f).toString(16).padStart(2, '0');
-  return '#' + p(r) + p(g) + p(b);
+/* ---------- a cor do app precisa ser legível em qualquer fundo ----------
+
+   Um pastel sobre fundo claro some; um azul royal sobre quase preto fica
+   abaixo do contraste mínimo para texto (3,5 contra os 4,5 que a leitura
+   pede). São o mesmo problema em sentidos opostos, e antes só um deles era
+   tratado — com um "escurece 52%" chutado, que salvava o pastel no branco e
+   afundava qualquer cor que já fosse escura.
+
+   Agora o ajuste é **medido**: a cor é puxada para o branco (fundo escuro) ou
+   para o preto (fundo claro) de 4% em 4% até passar de 4,5:1 contra o fundo do
+   tema. Cor que já passa não é tocada — e é por isso que os pastéis continuam
+   exatamente como foram escolhidos. */
+
+function contraste(a, b) {
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
 }
 
-const corDoTema = (hex) => (temaAtual().id === 'claro' ? escurecer(hex, 0.52) : hex);
+function misturar(hex, alvo, f) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(alvo);
+  const p = (i) => Math.round(a[i] + (b[i] - a[i]) * f).toString(16).padStart(2, '0');
+  return '#' + p(0) + p(1) + p(2);
+}
+
+const CONTRASTE_MIN = 4.5;
+
+function corLegivel(hex, fundo) {
+  const base = fundo || temaAtual().amostra[0];
+  const puxa = luminance(base) < 0.2 ? '#FFFFFF' : '#000000';
+  let f = 0;
+  let saida = hex;
+  while (contraste(saida, base) < CONTRASTE_MIN && f < 0.9) {
+    f += 0.04;
+    saida = misturar(hex, puxa, f);
+  }
+  return saida;
+}
+
+const corDoTema = (hex) => corLegivel(hex);
 
 function setAccent(hex, target) {
   const el = target || document.documentElement;

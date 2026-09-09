@@ -239,7 +239,7 @@ function escolherEsquema(screen) {
 
   ESQUEMAS.forEach((e) => {
     const b = h(`<button class="esquema" data-e="${e.id}">
-      <span class="esquema-cor" style="background:${e.cor}"></span>
+      <span class="esquema-cor" style="background:${corLegivel(e.cor)}"></span>
       <span class="esquema-txt"><b>${esc(e.nome)}</b><i>${esc(e.desc)}</i></span>
     </button>`);
     b.addEventListener('click', () => {

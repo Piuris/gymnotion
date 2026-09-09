@@ -98,7 +98,7 @@ const ESQUEMAS = [
   { id: 'rosa', nome: 'Rosa', cor: '#F0B7C5', desc: 'Rosado claro, o padrão' },
   /* os id não mudam quando o tom muda: quem já tinha escolhido continua com a
      escolha de pé, só que no tom novo */
-  { id: 'azul', nome: 'Marinho', cor: '#8D9CC9', desc: 'Azul-marinho pastel' },
+  { id: 'azul', nome: 'Royal', cor: '#305CDE', desc: 'Azul royal' },
   { id: 'amarelo', nome: 'Amarelo', cor: '#E8D08A', desc: 'Amarelo pastel' },
   { id: 'verde', nome: 'Verde', cor: '#9CD1A6', desc: 'Verde pastel' },
   /* mais escuro e um pouco mais roxo que o rosa: com dois tons no mesmo matiz,

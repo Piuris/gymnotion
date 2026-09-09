@@ -136,6 +136,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'e no tema claro ela escurece, senão o pastel sumiria no branco');
   ck(await ev("(function () { S.settings.tema = 'ardosia'; return corMarca() === esquemaAtual().cor; })()"),
     'no escuro ela volta a ser o pastel escolhido');
+
+  /* O ajuste não é um "escurece tanto por cento": ele mede. Cor que já passa do
+     mínimo não é tocada, e cor escura demais para o fundo escuro é clareada —
+     o mesmo problema em sentidos opostos. */
+  ck(await ev("corLegivel('#F0B7C5', '#0A0C10') === '#F0B7C5'"),
+    'cor que já tem contraste de sobra atravessa o ajuste intocada');
+  const royal = await ev("corLegivel('#305CDE', '#0A0C10')");
+  ck(royal !== '#305CDE', 'um azul escuro demais para o fundo escuro é clareado (' + royal + ')');
+  ck(await ev(`contraste(corLegivel('#305CDE', '#0A0C10'), '#0A0C10') >= 4.5`),
+    'até passar do mínimo que a leitura pede');
+  ck(await ev("contraste(corLegivel('#F0B7C5', '#F2F2F7'), '#F2F2F7') >= 4.5"),
+    'e o mesmo vale para um pastel sobre fundo claro, no sentido contrário');
+  ck(await ev(`(function () {
+    return ESQUEMAS.every(function (e) {
+      return contraste(corLegivel(e.cor, '#0A0C10'), '#0A0C10') >= 4.5;
+    });
+  })()`), 'nenhum dos cinco esquemas fica ilegível no escuro');
   await ev("openWorkout(S.workouts[0].id, 'view')"); await sleep(500);
   const dentro = await ev("getComputedStyle(currentScreen().el.querySelector('.pill-btn')).backgroundColor");
   ck(dentro === 'rgb(160, 32, 240)',

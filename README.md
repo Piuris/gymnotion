@@ -110,8 +110,8 @@ Antes cada módulo trazia o próprio hexadecimal — indigo na agenda, azul na �
 amarelo nos estudos, roxo nos jogos, verde nas metas. A soma não era um sistema,
 era um mostruário: seis cores fortes disputando a mesma tela, nenhuma delas
 dizendo nada que o rótulo já não dissesse. Agora existe **uma** cor de marca e
-ela vale para tudo: `corMarca()`, escolhida entre cinco tons pastel — rosa,
-azul, amarelo, verde e vermelho. Pastel de propósito: sobre um fundo quase preto
+ela vale para tudo: `corMarca()`, escolhida entre cinco opções — rosa, royal,
+amarelo, verde e vinho. Pastel de propósito: sobre um fundo quase preto
 eles têm contraste de sobra e não berram como um saturado berra.
 
 `contextAccent()`, que devolvia o branco do tema, passou a devolver a marca. A
@@ -138,12 +138,22 @@ lista com o próprio nome — deixá-la no fim como "Cor própria" faria o padr�
 parecer exceção. Escolher qualquer outra grava o hexadecimal e aí sim a cor vira
 dado do item.
 
-### O pastel no tema claro
+### O ajuste de legibilidade é medido, não chutado
 
-Um pastel sobre fundo branco some: ele foi escolhido para ter contraste contra
-quase preto. `corDoTema()` escurece a mesma cor em 52% quando o tema é o claro —
-o matiz se mantém e a legibilidade volta. É a cor do app continuar sendo a cor do
-app nos dois temas, em vez de existirem duas paletas para manter em pé.
+Um pastel sobre fundo branco some. Um azul royal sobre quase preto fica em 3,5
+de contraste, abaixo dos 4,5 que a leitura pede — e a cor de marca é usada em
+texto de 12px. São o mesmo problema em sentidos opostos, e por um tempo só um
+deles era tratado, com um "escurece 52%" chutado que salvava o pastel no branco
+e afundava qualquer cor que já fosse escura.
+
+`corLegivel()` mede: puxa a cor para o branco (fundo escuro) ou para o preto
+(fundo claro), de 4% em 4%, até passar de 4,5:1 contra o fundo do tema. **Cor
+que já passa não é tocada** — é por isso que os pastéis continuam exatamente
+como foram escolhidos, e é por isso que o royal aparece como `#5176E3` no escuro
+e como o `#305CDE` declarado no claro.
+
+A bolinha da lista mostra a cor **como ela vai aparecer**, e não o hexadecimal
+guardado: escolher por uma amostra que não é o resultado é escolher no escuro.
 
 ### Recolher a coluna
 
