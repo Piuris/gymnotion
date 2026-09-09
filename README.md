@@ -1116,6 +1116,46 @@ dispara o evento de `resize`, que é exatamente o que o Safari faz, e verifica
 que a folha inteira, os botões e a última cor da paleta continuam alcançáveis.
 Rodado contra o código anterior, ele acusa 11 falhas.
 
+## A preparação segue a carga de trabalho
+
+Aquecimento, feeder e PAP são função da série válida: subiu a carga, eles sobem
+junto. Isso era trabalho de abrir a calculadora e apertar Aplicar — e quem
+esquecia aquecia para o peso da semana passada. Agora acontece sozinho, no
+momento em que a carga de trabalho muda.
+
+**A escala é por razão, não por porcentagem.** Cada série de preparo é
+multiplicada pela mesma razão em que a carga mudou, em vez de recalculada pela
+porcentagem da receita. É o que faz um ajuste à mão sobreviver: quem baixou o
+aquecimento para 35% continua em 35% depois de subir a série de trabalho. Só
+quando não há razão de onde partir — a carga era zero, ou a série de preparo
+está vazia — é que vale a porcentagem padrão. Isso dá de brinde o caso de
+estreia: anotar a carga num exercício com preparo vazio preenche o preparo.
+
+**Três coisas que ela não faz:**
+
+- **Não cria série.** Ela ajusta o preparo que existe. Criar aquecimento do nada
+  porque alguém digitou um peso seria a calculadora se abrindo sozinha.
+- **Não toca em série marcada como feita.** Reescrever o peso dela seria mentir
+  sobre o que foi levantado.
+- **Não vale na correção de um registro.** Corrigir o que ficou anotado errado
+  tem de mudar exatamente o que se digita; recalcular ali inventaria um peso que
+  ninguém fez.
+
+Vale nos dois sentidos. O pedido foi para quando a carga sobe, que é o caso de
+todo dia, mas descer e deixar o aquecimento pesado demais é o erro mais caro dos
+dois.
+
+Os campos são reescritos **no lugar**, sem redesenhar a tela: isso acontece no
+meio da digitação, e reconstruir fecharia o teclado. O campo em foco fica de
+fora — ninguém tem o peso trocado embaixo do cursor. As linhas mexidas piscam
+uma vez e um aviso curto diz o que aconteceu: número que muda sozinho sem
+explicação é o tipo de coisa que faz perder a confiança no app.
+
+Um detalhe que virou bug e voltou: o repintar acerta o campo pela posição na
+lista de séries **daquele exercício**, e não pela posição na tela. Procurando
+`.set-row` na tela inteira, funcionava na tela do exercício e escreveria na
+linha errada em qualquer tela que juntasse exercícios.
+
 ## Calculadora de aquecimento e feeder
 
 Na tela do exercício. Pega a carga de trabalho — a maior série válida, ou a do

@@ -1593,6 +1593,94 @@ function escalonar(peso, faixa, n) {
     arredondaCarga(peso * (a + ((b - a) * i) / (n - 1))));
 }
 
+/* Faixa de cada tipo de preparo, para quando não existe razão anterior de onde
+   partir e é preciso cair na porcentagem da receita. */
+const FAIXA_POR_TIPO = { a: FAIXA_AQUECIMENTO, f: FAIXA_FEEDER, p: [1, 1] };
+
+/* Carga de trabalho anotada **na tela**: a maior série válida, e nada de
+   histórico. `pesoDeTrabalho` cai no último treino quando não há nada anotado,
+   o que serve para sugerir; aqui o que interessa é o que está escrito agora,
+   para comparar o antes com o depois de uma edição. */
+const cargaNaTela = (e) => Math.max(0, ...e.sets.filter(ehValida).map((x) => Number(x.peso) || 0));
+
+/* ---------- a preparação segue a carga de trabalho ----------
+
+   Aquecimento, feeder e PAP são função da série válida: subiu a carga, eles
+   sobem junto. Antes isso era trabalho de abrir a calculadora e apertar
+   Aplicar — e quem esquecia aquecia para o peso da semana passada.
+
+   Cada série de preparo é **escalada pela mesma razão** em que a carga mudou,
+   e não recalculada pela porcentagem padrão. É o que faz um ajuste à mão
+   sobreviver: quem baixou o aquecimento para 35% continua em 35% depois de
+   subir a série de trabalho. Sem razão de onde partir — a carga era zero, ou a
+   série de preparo está vazia —, aí sim vale a porcentagem da receita.
+
+   Série já marcada como feita não é tocada: reescrever o peso dela seria
+   mentir sobre o que foi levantado.
+
+   Vale nos dois sentidos. Foi pedido para quando a carga sobe, que é o caso de
+   todo dia, mas descer e deixar o aquecimento pesado demais é o erro mais caro
+   dos dois. */
+function reajustarPreparacao(e, antes) {
+  const depois = cargaNaTela(e);
+  if (depois <= 0 || depois === antes) return [];
+
+  const porTipo = {};
+  e.sets.forEach((st) => {
+    const t = tipoSet(st);
+    if (!FAIXA_POR_TIPO[t]) return;
+    (porTipo[t] = porTipo[t] || []).push(st);
+  });
+
+  const mudou = [];
+  Object.keys(porTipo).forEach((t) => {
+    const lista = porTipo[t];
+    const padrao = escalonar(depois, FAIXA_POR_TIPO[t], lista.length);
+    lista.forEach((st, i) => {
+      if (st.done) return;
+      const atual = Number(st.peso) || 0;
+      const novo = (antes > 0 && atual > 0)
+        ? arredondaCarga(atual * (depois / antes))
+        : padrao[i];
+      if (novo === atual || novo <= 0) return;
+      st.peso = novo;
+      mudou.push({ indice: e.sets.indexOf(st), de: atual, para: novo });
+    });
+  });
+  return mudou;
+}
+
+/* Escreve as cargas novas nos campos que já estão na tela, em vez de mandar a
+   tela se redesenhar: isto acontece no meio da digitação, e reconstruir fecharia
+   o teclado. O campo em foco fica de fora — ninguém tem o peso trocado embaixo
+   do cursor.
+
+   `campos` é a lista de campos de peso **deste exercício**, indexada como
+   `e.sets`. Procurar `.set-row` na tela inteira daria certo na tela do
+   exercício e errado na de montar o treino, onde as linhas de todos os
+   exercícios moram no mesmo contêiner — o segundo exercício repintaria as
+   linhas do primeiro. */
+function pintarPreparacao(campos, mudou) {
+  mudou.forEach((m) => {
+    const campo = campos[m.indice];
+    if (!campo || campo === document.activeElement) return;
+    campo.value = m.para || '';
+    const linha = campo.closest('.set-row');
+    if (!linha) return;
+    linha.classList.add('recalculada');
+    setTimeout(() => linha.classList.remove('recalculada'), 1000);
+  });
+}
+
+/* Uma frase só, e só quando algo mudou de verdade. Número mexendo sozinho sem
+   aviso é o tipo de coisa que faz perder a confiança no app. */
+function avisarPreparacao(mudou) {
+  if (!mudou.length) return;
+  toast(mudou.length === 1
+    ? 'Preparação ajustada para a carga nova'
+    : mudou.length + ' séries de preparação ajustadas');
+}
+
 /* Carga de trabalho de referência: a maior série válida deste exercício, ou a
    do último treino, se ainda não houver nada anotado hoje. */
 function pesoDeTrabalho(e) {
@@ -2640,6 +2728,7 @@ function openExercise(workoutId, uid, inSession) {
 
     /* séries */
     let nValida = 0;
+    const camposPeso = [];
     e.sets.forEach((st, i) => {
       const tipo = tipoSet(st);
       const valida = tipo === 'v';
@@ -2661,15 +2750,25 @@ function openExercise(workoutId, uid, inSession) {
          para o molde do treino em vez da série da sessão. Resolver o alvo na
          hora da escrita evita reconstruir a tela — o que no iPhone fecharia e
          reabriria o teclado no meio da digitação. */
-      const alvoSet = () => {
+      camposPeso[i] = row.querySelector('[data-f="peso"]');
+
+      const alvoEx = () => {
         const lista = (S.active && S.active.workoutId === workoutId) ? S.active.exercises : src;
-        const ex = lista.find((x) => x.uid === e.uid);
-        return (ex && ex.sets[i]) || st;
+        return lista.find((x) => x.uid === e.uid) || e;
       };
+      const alvoSet = () => alvoEx().sets[i] || st;
 
       on(row, 'input[data-f]', 'change', (ev) => {
         const f = ev.target.dataset.f;
+        const ex = alvoEx();
+        const antes = f === 'peso' ? cargaNaTela(ex) : 0;
         alvoSet()[f] = Number(String(ev.target.value).replace(',', '.')) || 0;
+        /* mexeu na carga de trabalho: a preparação acompanha */
+        if (f === 'peso' && ehValida(alvoSet())) {
+          const mudou = reajustarPreparacao(ex, antes);
+          pintarPreparacao(camposPeso, mudou);
+          avisarPreparacao(mudou);
+        }
         save();
       });
       on(row, 'input[data-f]', 'focus', (ev) => {
@@ -3054,6 +3153,10 @@ function openSessionDetail(id) {
           <div class="field campo-reps"><input type="number" inputmode="numeric" value="${st.reps || ''}" placeholder="0" data-f="reps"/></div>
           <button class="kebab" data-act="remover">${icon('trash')}</button>
         </div>`);
+        /* Aqui é a correção de um registro já feito, e o ajuste automático da
+           preparação **não** entra: corrigir o que ficou anotado errado tem de
+           mudar exatamente o que se digita. Reescrever o aquecimento de um
+           treino que já aconteceu seria inventar um peso que ninguém levantou. */
         on(row, 'input[data-f]', 'change', (ev) => {
           st[ev.target.dataset.f] = Number(String(ev.target.value).replace(',', '.')) || 0;
         });

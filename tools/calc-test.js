@@ -286,6 +286,122 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'mostrando travessão no lugar dos valores');
   await ev(naFolha('[data-x=fechar]') + '.click()'); await sleep(400);
 
+  console.log('\na preparação segue a carga de trabalho:');
+  /* Um exercício com aquecimento, feeder, PAP e duas séries de trabalho a 100.
+     Subir a carga tem de subir o preparo junto, sem abrir calculadora nenhuma. */
+  await ev(`(function () {
+    var w = S.workouts[0];
+    var e = w.exercises[0];
+    e.sets = [
+      { peso: 42.5, reps: 12, tipo: 'a', done: false },
+      { peso: 67.5, reps: 5, tipo: 'f', done: false },
+      { peso: 100, reps: 1, tipo: 'p', done: false },
+      { peso: 100, reps: 8, tipo: 'v', done: false },
+      { peso: 100, reps: 8, tipo: 'v', done: false },
+    ];
+    saveNow(); popToRoot();
+    openExercise(w.id, e.uid, false);
+    return 'ok';
+  })()`);
+  await sleep(900);
+
+  const pesos = () => ev("S.workouts[0].exercises[0].sets.map(function (s) { return s.peso; }).join(',')");
+  ck(await pesos() === '42.5,67.5,100,100,100', 'ponto de partida: 42,5 / 67,5 / 100 sobre 100');
+
+  const digitar = (n, v) => ev(`(function () {
+    var c = currentScreen().el.querySelectorAll('.set-row')[${n}].querySelector('[data-f=peso]');
+    c.value = '${v}';
+    c.dispatchEvent(new Event('change', { bubbles: true }));
+    return 'ok';
+  })()`);
+
+  await digitar(3, 110); await sleep(500);
+  ck(await pesos() === '47.5,75,110,110,100',
+    'subir a série de trabalho para 110 sobe o preparo na mesma proporção (' + await pesos() + ')');
+  ck(await ev(`currentScreen().el.querySelectorAll('.set-row')[0].querySelector('[data-f=peso]').value === '47.5'`),
+    'e o campo na tela acompanha, sem a tela ser reconstruída');
+  await shot('k6-preparacao-segue');
+
+  await digitar(3, 100); await sleep(500);
+  ck(await pesos() === '42.5,67.5,100,100,100',
+    'e desce de volta: aquecimento pesado demais é o erro mais caro dos dois (' + await pesos() + ')');
+
+  /* proporção escolhida à mão tem de sobreviver */
+  await ev("S.workouts[0].exercises[0].sets[0].peso = 35; saveNow(); currentScreen().refresh();");
+  await sleep(500);
+  await digitar(3, 200); await sleep(500);
+  ck(await ev("S.workouts[0].exercises[0].sets[0].peso === 70"),
+    'a razão é a de cada série, não a da receita: 35 sobre 100 vira 70 sobre 200');
+  await digitar(3, 100); await sleep(500);
+
+  /* série já feita não é reescrita */
+  await ev("S.workouts[0].exercises[0].sets[0].done = true; saveNow(); currentScreen().refresh();");
+  await sleep(500);
+  const feitoAntes = await ev('S.workouts[0].exercises[0].sets[0].peso');
+  await digitar(3, 120); await sleep(500);
+  ck(await ev('S.workouts[0].exercises[0].sets[0].peso') === feitoAntes,
+    'série marcada como feita fica como está: o peso dela é o que foi levantado');
+  ck(await ev('S.workouts[0].exercises[0].sets[1].peso') !== 67.5,
+    'as que ainda não foram feitas acompanham normalmente');
+
+  /* mexer nas repetições não mexe em carga nenhuma */
+  await ev("S.workouts[0].exercises[0].sets[0].done = false; saveNow(); currentScreen().refresh();");
+  await sleep(500);
+  const antesReps = await pesos();
+  await ev(`(function () {
+    var c = currentScreen().el.querySelectorAll('.set-row')[3].querySelector('[data-f=reps]');
+    c.value = '5'; c.dispatchEvent(new Event('change', { bubbles: true })); return 'ok';
+  })()`);
+  await sleep(500);
+  ck(await pesos() === antesReps, 'mexer nas repetições não mexe em carga nenhuma');
+
+  /* série de preparo vazia cai na porcentagem da receita */
+  await ev(`(function () {
+    var e = S.workouts[0].exercises[0];
+    e.sets[0].peso = 0; e.sets[1].peso = 0;
+    e.sets[3].peso = 0; e.sets[4].peso = 0;
+    saveNow(); currentScreen().refresh(); return 'ok';
+  })()`);
+  await sleep(500);
+  await digitar(3, 100); await sleep(500);
+  ck(await ev("S.workouts[0].exercises[0].sets[0].peso === 42.5 && S.workouts[0].exercises[0].sets[1].peso === 67.5"),
+    'sem razão de onde partir, vale a porcentagem da receita (42,5 e 67,5)');
+
+  console.log('\ndois exercícios no mesmo treino:');
+  /* O repintar acerta o campo pela posição na lista de séries **daquele**
+     exercício, e não pela posição na tela: procurar `.set-row` na tela inteira
+     daria certo aqui e errado em qualquer tela que junte exercícios. */
+  await ev(`(function () {
+    var w = newWorkout(); w.name = 'Pull';
+    addExerciseToWorkout(w.id, findExercise('ex_supino_reto'), 2);
+    addExerciseToWorkout(w.id, findExercise('ex_agachamento_livre'), 2);
+    w.exercises[0].sets = [
+      { peso: 42.5, reps: 12, tipo: 'a', done: false },
+      { peso: 100, reps: 8, tipo: 'v', done: false },
+    ];
+    w.exercises[1].sets = [
+      { peso: 30, reps: 12, tipo: 'a', done: false },
+      { peso: 60, reps: 8, tipo: 'v', done: false },
+    ];
+    saveNow(); popToRoot();
+    openExercise(w.id, w.exercises[1].uid, false);
+    return 'ok';
+  })()`);
+  await sleep(900);
+
+  const oTreino = () => 'S.workouts[S.workouts.length - 1]';
+  await ev(`(function () {
+    var c = currentScreen().el.querySelectorAll('.set-row')[1].querySelector('[data-f=peso]');
+    c.value = '120'; c.dispatchEvent(new Event('change', { bubbles: true }));
+    return 'ok';
+  })()`);
+  await sleep(600);
+
+  ck(await ev(`${oTreino()}.exercises[1].sets[0].peso === 60`),
+    'o aquecimento do exercício aberto dobra junto com a carga dele');
+  ck(await ev(`${oTreino()}.exercises[0].sets[0].peso === 42.5`),
+    'e o do outro exercício do mesmo treino fica intocado');
+
   console.log('\nproblemas:', bad.length);
   bad.forEach((b) => console.log('  !', b));
   ws.close(); chrome.kill();

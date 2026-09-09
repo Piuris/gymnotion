@@ -2866,3 +2866,11 @@ body.arrastando-algo .scroll { overflow: hidden; }
   color: var(--txt-corpo);
 }
 .nota-titulo::placeholder, .nota-texto::placeholder { color: var(--txt-3); }
+
+/* A série de preparo que acabou de ser recalculada pisca uma vez: o número
+   mudou sozinho, e o olho precisa saber onde olhar. */
+@keyframes recalculada {
+  from { background: var(--a22); }
+  to { background: transparent; }
+}
+.set-row.recalculada { animation: recalculada 1s ease-out; }
