@@ -121,10 +121,11 @@ const DEFAULT_STATE = {
   lancamentos: [],        // financeiro: entradas e saídas, um por movimento
   jogos: [],              // biblioteca: o que jogar, o que está jogando, o que zerou
   planoDias: {},          // troca avulsa de treino, por dia (AAAA-MM-DD)
-  tarefas: [],            // cronograma: tarefas e compromissos
+  tarefas: [],            // o que acontece uma vez: tarefas e compromissos
   metas: [],              // cofrinho: dinheiro separado por objetivo
   materias: [],           // estudos: tópicos e horas por matéria
   cadernos: [],           // cadernos e anotações: texto solto, sem meta e sem prazo
+  rotina: [],             // o que se repete: checklist por dia da semana
   agua: {},               // ml bebidos por dia, em chave AAAA-MM-DD
   aguaLog: {},            // cada gole do dia, na ordem, para o desfazer
   settings: {
@@ -212,7 +213,7 @@ function migrarParaV2(estado) {
    O app deixou de ser só academia. Os módulos novos entram vazios: nada do que
    já estava salvo muda de forma, só ganha companhia. */
 
-const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'lancamentos', 'cadernos'];
+const LISTAS_V3 = ['tarefas', 'metas', 'materias', 'jogos', 'lancamentos', 'cadernos', 'rotina'];
 
 /* Os gastos viraram lançamentos com tipo: o que existia era tudo saída. */
 function migrarGastos(estado) {
@@ -689,7 +690,7 @@ function desfazerAgua(padrao, ts) {
    FINANCEIRO
 
    Um lançamento por movimento, de entrada ou de saída. A data é chave de dia
-   ('AAAA-MM-DD'), a mesma escolha do cronograma e pelo mesmo motivo — e de
+   ('AAAA-MM-DD'), a mesma escolha das tarefas e pelo mesmo motivo — e de
    quebra agrupar por mês vira um `slice(0, 7)`.
 
    As categorias são listas fechadas com cor própria, uma para cada lado: a
@@ -1067,7 +1068,7 @@ function marcarBackupFeito() {
    CORES DOS MÓDULOS
 
    A regra da cor continua a mesma: cor identifica a coisa, não decora a tela.
-   A academia herda a cor do treino; água, cronograma, metas e estudos têm cor
+   A academia herda a cor do treino; os outros módulos levam a cor do app
    própria. Em metas e matérias a cor é por item, como nos treinos, porque são
    várias coisas disputando a mesma tela.
    ========================================================= */
@@ -1085,6 +1086,86 @@ const corLivre = () => '';
 
 /* A cor com que um item deve ser desenhado: a dele, se escolheu uma. */
 const corDe = (item) => (item && item.cor) || corMarca();
+
+/* =========================================================
+   ROTINA
+
+   Tarefa é o que acontece uma vez e some da lista; rotina é o que volta. São
+   coisas diferentes o bastante para não caberem na mesma lista: uma tarefa
+   marcada como feita desce e fica, um item de rotina marcado hoje precisa
+   estar em branco amanhã.
+
+   Cada item vale nos dias da semana que você escolher, e `dias` vazio quer
+   dizer todo dia — é o caso mais comum e não deveria custar sete toques para
+   dizer.
+
+   O que foi cumprido é guardado como lista de dias ('AAAA-MM-DD'), e não como
+   um "feito: true" que alguém precisaria zerar à meia-noite: com a data, hoje
+   se responde comparando texto, e a semana passada continua lá para contar.
+   ========================================================= */
+
+const DIAS_ROTINA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const MEMORIA_ROTINA = 120;   // dias guardados por item; o resto é poeira
+
+function novoItemRotina(titulo, dias, cor) {
+  const i = {
+    id: uid('r_'),
+    titulo: String(titulo || 'Novo item').trim(),
+    dias: Array.isArray(dias) ? dias.slice().sort() : [],   // vazio = todo dia
+    cor: cor || '',
+    criado: Date.now(),
+    feitos: [],
+  };
+  S.rotina.push(i);
+  save();
+  return i;
+}
+
+const getItemRotina = (id) => S.rotina.find((i) => i.id === id);
+
+function removerItemRotina(id) {
+  S.rotina = S.rotina.filter((i) => i.id !== id);
+  saveNow();
+}
+
+/* Vale neste dia? Sem dias escolhidos, vale em todos. */
+const valeNoDia = (i, ts) => !i.dias.length
+  || i.dias.indexOf(new Date(ts == null ? Date.now() : ts).getDay()) >= 0;
+
+const feitoNoDia = (i, ts) => i.feitos.indexOf(dayKey(ts == null ? Date.now() : ts)) >= 0;
+
+const rotinaDoDia = (ts) => S.rotina.filter((i) => valeNoDia(i, ts));
+
+const rotinaFeitos = (ts) => rotinaDoDia(ts).filter((i) => feitoNoDia(i, ts)).length;
+
+function alternarItemRotina(id, ts) {
+  const i = getItemRotina(id);
+  if (!i) return;
+  const k = dayKey(ts == null ? Date.now() : ts);
+  if (feitoNoDia(i, ts)) i.feitos = i.feitos.filter((d) => d !== k);
+  else {
+    i.feitos.push(k);
+    i.feitos.sort();
+    if (i.feitos.length > MEMORIA_ROTINA) i.feitos = i.feitos.slice(-MEMORIA_ROTINA);
+  }
+  saveNow();
+}
+
+/* Quantos dos dias em que o item valia nesta semana ele foi cumprido. É o único
+   número que a rotina mostra: não é meta, é espelho. */
+function rotinaNaSemana(i, ini) {
+  const comeco = ini == null ? inicioDaSemana() : ini;
+  let valia = 0;
+  let feitos = 0;
+  for (let d = 0; d < 7; d++) {
+    const ts = comeco + d * 86400000;
+    if (ts > Date.now()) break;
+    if (!valeNoDia(i, ts)) continue;
+    valia += 1;
+    if (feitoNoDia(i, ts)) feitos += 1;
+  }
+  return { valia, feitos };
+}
 
 /* =========================================================
    CADERNOS E ANOTAÇÕES
@@ -1192,75 +1273,10 @@ function novaTarefa(dados) {
 
 const getTarefa = (id) => S.tarefas.find((t) => t.id === id);
 
-/* ---------- a semana desenhada como grade ----------
-
-   A lista responde "o que tem hoje"; a grade responde "como o dia está
-   distribuído", que é outra pergunta. Para desenhar um retângulo é preciso
-   começo e fim, e a maioria das tarefas só tem começo — sem fim marcado o
-   bloco vale uma hora, que é o palpite que menos erra e evita bloco de altura
-   zero na grade. */
-
-const BLOCO_PADRAO_MIN = 60;
-
-/* 'HH:MM' em minutos desde a meia-noite, ou null quando não há hora. */
-function minutosDaHora(hhmm) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
-  if (!m) return null;
-  const min = Number(m[1]) * 60 + Number(m[2]);
-  return min >= 0 && min <= 1440 ? min : null;
-}
-
-const horaDeMinutos = (min) => pad2(Math.floor(min / 60) % 24) + ':' + pad2(Math.round(min) % 60);
-
-/* Começo e fim de uma tarefa, em minutos. null quando ela não tem hora: essa
-   vira etiqueta de dia inteiro em vez de sumir da grade. */
-function faixaDaTarefa(t) {
-  const ini = minutosDaHora(t.hora);
-  if (ini == null) return null;
-  let fim = minutosDaHora(t.fim);
-  if (fim == null || fim <= ini) fim = ini + BLOCO_PADRAO_MIN;
-  return { ini, fim: Math.min(1440, fim) };
-}
-
-/* Segunda-feira da semana de `ts`. A academia conta a semana do domingo, porque
-   é assim que a meta semanal fecha; a grade abre na segunda, como o calendário
-   de parede que ela imita. */
-function inicioSemanaSeg(ts) {
-  const d = new Date(ts == null ? Date.now() : ts);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return d.getTime();
-}
-
-const DIAS_SEMANA_SEG = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
-
-/* As tarefas de um dia separadas em quem tem hora e quem não tem. */
-function blocosDoDia(ts) {
-  const todas = tarefasDoDia(ts);
-  const comHora = [];
-  const semHora = [];
-  todas.forEach((t) => (minutosDaHora(t.hora) == null ? semHora : comHora).push(t));
-  comHora.sort((a, b) => minutosDaHora(a.hora) - minutosDaHora(b.hora));
-  return { comHora, semHora };
-}
-
-/* Faixa de horas que a grade precisa mostrar. Sem nada marcado ela abre das 7
-   às 21 — mostrar as 24 horas faria o dia inteiro caber na tela e nenhum bloco
-   ficar legível. Com algo fora dessa janela, ela cresce só o necessário. */
-function faixaDeHoras(tarefas) {
-  let min = 7 * 60;
-  let max = 21 * 60;
-  (tarefas || []).forEach((t) => {
-    const f = faixaDaTarefa(t);
-    if (!f) return;
-    min = Math.min(min, f.ini);
-    max = Math.max(max, f.fim);
-  });
-  return {
-    ini: Math.max(0, Math.floor(min / 60) - 1),
-    fim: Math.min(24, Math.ceil(max / 60) + 1),
-  };
-}
+/* A grade da semana saiu do app, e com ela `faixaDeHoras`, `blocosDoDia`,
+   `inicioSemanaSeg` e a conversão de hora para minutos — tudo isso existia só
+   para desenhar retângulo. A hora de término continua, porque a lista mostra
+   "06:30 – 08:00", mas ela é texto e não precisa virar número. */
 
 /* Quem tem hora vem primeiro, na ordem do relógio; depois o que é só tarefa;
    o que já foi feito desce para o fim em vez de sumir. */
@@ -1294,22 +1310,6 @@ function tarefasAtrasadas(ts) {
   return S.tarefas
     .filter((t) => !t.feito && t.data && t.data < hoje)
     .sort(ordemNoTempo);
-}
-
-/* Marcas do mês para o calendário: as cores das tarefas de cada dia e quantas
-   continuam abertas. Uma passada só na lista, em vez de varrê-la 31 vezes. */
-function marcasDoMes(ts) {
-  const d = new Date(ts == null ? Date.now() : ts);
-  const prefixo = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  const marcas = {};
-  S.tarefas.forEach((t) => {
-    if (!t.data || t.data.slice(0, 7) !== prefixo) return;
-    const m = marcas[t.data] || (marcas[t.data] = { cores: [], abertas: 0, total: 0 });
-    if (m.cores.indexOf(t.cor) < 0 && m.cores.length < 3) m.cores.push(t.cor);
-    m.total += 1;
-    if (!t.feito) m.abertas += 1;
-  });
-  return marcas;
 }
 
 function alternarTarefa(id) {

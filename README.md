@@ -933,23 +933,63 @@ função, senão ele apareceria verde enquanto o herói mostrava amarelo.
 O botão flutuante saiu: *Meus treinos*, no topo, abre a mesma folha, e a tela
 vazia traz o próprio botão de montar o primeiro treino.
 
-## Cronograma
+## Rotina e tarefas: duas listas, dois comportamentos
 
-Grade do mês, com até três pontinhos por dia nas cores das tarefas dele — é o que
-permite reconhecer um mês cheio sem abrir dia por dia. Tocar num dia abre a lista
-embaixo; as setas trocam de mês sem mudar o dia aberto.
+Tarefa é o que acontece uma vez e some da lista. **Rotina é o que volta.** São
+coisas diferentes o bastante para não caberem na mesma lista: uma tarefa marcada
+como feita desce e fica lá; um item de rotina marcado hoje precisa estar em
+branco amanhã.
 
-A data de uma tarefa é guardada como **chave de dia** (`'2026-09-03'`), não como
-instante: "dia 3" precisa continuar sendo dia 3 depois de exportar, importar e
-abrir noutro fuso. De quebra, comparar e ordenar viram comparação de texto.
+A rotina ficou com o lugar de prestígio — o cartão de cima do Início, que antes
+era das tarefas do dia. É o que se abre o app para conferir. As tarefas
+continuam no painel (o cartão dos próximos dias) e na aba delas.
 
-Na lista, quem tem hora vem primeiro na ordem do relógio, depois as tarefas
-soltas; o que foi feito **desce para o fim em vez de sumir**. Tarefa aberta num
-dia que já passou aparece numa seção *Atrasadas*, tanto no cronograma quanto no
-Início — é onde tarefa esquecida costuma morrer sem aviso.
+### Por dia da semana, e o feito guardado como data
 
-O editor usa os seletores nativos de data e hora do iOS (`input type="date"` e
-`type="time"`): é o único jeito de ter roda de data sem escrever uma do zero.
+Cada item vale nos dias que você escolher, e **`dias` vazio quer dizer todo
+dia** — é o caso mais comum e não deveria custar sete toques para dizer.
+
+O que foi cumprido é guardado como lista de datas (`'AAAA-MM-DD'`), e não como um
+`feito: true` que alguém precisaria zerar à meia-noite. Com a data, "foi feito
+hoje?" se responde comparando texto, amanhã já nasce em branco sem ninguém
+fazer nada, e a semana passada continua lá para contar. A lista é cortada nos
+últimos 120 dias por item: o resto é poeira.
+
+O que **não** vale hoje continua à vista, num bloco à parte e apagado. Sumir do
+app no dia de folga faria parecer que sumiu de vez.
+
+## A grade e o calendário saíram
+
+O Cronograma virou **Tarefas**, e a grade de horários e o calendário do mês
+saíram com a troca. Eram duas maneiras de olhar o mesmo dado, e nenhuma das duas
+era a que se usa para trabalhar: a grade mostrava o buraco entre compromissos e
+o calendário mostrava o mês inteiro, mas quem abre essa tela quer ver o que tem
+para fazer e riscar.
+
+Ficou a lista — dia aberto, próximos, anteriores, sem data — com a navegação
+entre dias no topo, que é o que de fato andava no tempo. O campo de data do
+cadastro rápido continua alcançando qualquer dia de uma vez.
+
+Foi uma boa faxina: `faixaDeHoras`, `blocosDoDia`, `inicioSemanaSeg`,
+`marcasDoMes` e a conversão de hora para minutos existiam só para desenhar
+retângulo, e foram junto. A hora de término sobreviveu, porque a lista mostra
+"06:30 – 08:00" — mas ali ela é texto e não precisa virar número.
+
+O nome mudou até o fim: o id do módulo, a aba, a tela e o `screen.name` são
+`tarefas`. Deixar `cronograma` por dentro e "Tarefas" por fora seria plantar uma
+confusão para daqui a três meses.
+
+## O campo de data centralizado
+
+Os controles nativos de data e hora desenham um bloco de largura fixa
+("10/09/2026", "--:--" mais o relógio) que nunca preenche a caixa. Encostado à
+esquerda, ele deixava um vão morto à direita e a data parecia desalinhada em
+relação ao rótulo. Num campo de texto centralizar seria errado — quem digita
+espera o cursor à esquerda —, mas aqui não se digita.
+
+E os campos curtos passaram a **crescer**: `flex: 0 1 130px` deixava 86px de
+sobra à direita numa linha de 358, e a linha ficava torta. Com `flex: 1 1`, eles
+dividem a linha e o conteúdo centralizado cai no meio de cada um.
 
 ## Metas: o cofrinho
 

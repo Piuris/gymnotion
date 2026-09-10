@@ -1,4 +1,4 @@
-/* GymNotion — cronograma, metas e estudos
+/* GymNotion — rotina, tarefas, metas e estudos
 
    Estes três módulos seguem a mesma regra de cor da academia: a cor identifica
    a coisa, não a tela. Cada tarefa, cada meta e cada matéria carrega a sua, e
@@ -8,213 +8,33 @@
    CRONOGRAMA
    ========================================================= */
 
-let DIA_AGENDA = Date.now();      // dia aberto na lista e na coluna
-let MES_AGENDA = Date.now();      // mês desenhado na grade do calendário
-let SEMANA_AGENDA = inicioSemanaSeg();   // segunda-feira da semana desenhada
+let DIA_AGENDA = Date.now();      // dia aberto na lista
 
-const DOW_CURTO = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+/* A grade de horários e o calendário do mês saíram daqui.
 
-/* Altura de uma hora na grade. Menos que isso e um compromisso de meia hora
-   não tem onde escrever o próprio nome. */
-const ALTURA_HORA = 54;
+   Eram duas maneiras de olhar o mesmo dado, e nenhuma das duas era a que se usa
+   para trabalhar: a grade mostrava buraco entre compromissos e o calendário
+   mostrava o mês inteiro, mas quem abre esta tela quer ver o que tem para
+   fazer e riscar. O que ficou é a lista — e o que era o lugar de prestígio do
+   calendário virou a Rotina, na tela inicial.
 
-/* ---------- semana ou dia ----------
-
-   A grade de sete colunas é o desenho certo numa janela larga e ilegível em
-   390px, onde cada coluna sobraria com 47 pixels. Por isso o computador abre
-   na semana e o celular no dia; a escolha feita à mão fica guardada e passa a
-   valer nos dois. */
-let CRONO_MODO = '';
-
-function modoCronograma() {
-  if (!CRONO_MODO) {
-    CRONO_MODO = S.settings.cronoModo || (window.innerWidth >= 900 ? 'semana' : 'dia');
-  }
-  return CRONO_MODO;
-}
-
-function definirModoCronograma(m) {
-  CRONO_MODO = m;
-  S.settings.cronoModo = m;
-  saveNow();
-}
+   O que sobrevive da grade é o que a lista usa: a hora de término, que a linha
+   mostra como "06:30 – 08:00". */
 
 const diaCurto = (ts) => new Date(ts)
   .toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
   .replace(/\.$/, '.');
 
-function renderCronograma(el, screen) {
-  setAccent(corMarca(), el);
-  const modo = modoCronograma();
+function renderTarefas(el, screen) {
+  setAccent(contextAccent(), el);
+
   const scroll = h('<div class="scroll"></div>');
-
-  scroll.appendChild(h(secaoSub(modo === 'semana' ? 'Visão semanal' : 'Visão do dia', 'Cronograma')));
-  scroll.appendChild(barraCronograma(screen, modo));
-  scroll.appendChild(gradeCronograma(screen, modo));
-
-  /* Na semana a grade é a tela inteira, como no desenho. No dia ela é só o
-     começo: embaixo continuam o cadastro rápido, o calendário do mês e as
-     listas — é onde o cronograma vira trabalho, não vista. */
-  if (modo === 'dia') scroll.appendChild(miolodoDia(screen));
-
-  el.appendChild(scroll);
-}
-
-/* ---------- a barra de controle ---------- */
-function barraCronograma(screen, modo) {
-  const semana = modo === 'semana';
-  const faixa = semana
-    ? diaCurto(SEMANA_AGENDA) + ' – ' + diaCurto(SEMANA_AGENDA + 6 * 86400000)
-    : fmtDataLonga(DIA_AGENDA);
-
-  const b = h(`<div class="crono-barra">
-    <div class="crono-nav">
-      <button class="icon-btn stroke" data-act="ant">${icon('back')}</button>
-      <b>${esc(faixa)}</b>
-      <button class="icon-btn stroke" data-act="prox">${icon('chev')}</button>
-    </div>
-    <button class="crono-hoje" data-act="hoje">Hoje</button>
-    <button class="pill-btn sm" data-act="novo">${icon('plus')}<span>Novo bloco</span></button>
-    <div class="seg">
-      <button data-m="semana"${semana ? ' class="on"' : ''}>Semana</button>
-      <button data-m="dia"${semana ? '' : ' class="on"'}>Dia</button>
-    </div>
-  </div>`);
-
-  const andar = (passo) => {
-    if (semana) {
-      SEMANA_AGENDA += passo * 7 * 86400000;
-      DIA_AGENDA = SEMANA_AGENDA;
-    } else {
-      DIA_AGENDA += passo * 86400000;
-      SEMANA_AGENDA = inicioSemanaSeg(DIA_AGENDA);
-    }
-    MES_AGENDA = DIA_AGENDA;
-    haptic();
-    screen.refresh();
-  };
-
-  acts(b, {
-    ant: () => andar(-1),
-    prox: () => andar(1),
-    hoje: () => {
-      DIA_AGENDA = Date.now();
-      SEMANA_AGENDA = inicioSemanaSeg();
-      MES_AGENDA = Date.now();
-      haptic();
-      screen.refresh();
-    },
-    novo: () => { haptic(); editorTarefa(null, dayKey(DIA_AGENDA), screen, { hora: '09:00' }); },
-  });
-  on(b, '[data-m]', 'click', (e) => {
-    definirModoCronograma(e.currentTarget.dataset.m);
-    haptic();
-    screen.refresh();
-  });
-  return b;
-}
-
-/* ---------- a grade ----------
-
-   Cada compromisso vira um retângulo entre o começo e o fim, na cor da própria
-   tarefa — a mesma regra da lista, só que agora dá para ver o buraco entre um
-   e outro. Quem não tem hora não some: vai para a faixa de dia inteiro em
-   cima, onde continua clicável. */
-function gradeCronograma(screen, modo) {
-  const semana = modo === 'semana';
-  const base = semana ? SEMANA_AGENDA : new Date(DIA_AGENDA).setHours(0, 0, 0, 0);
-  const n = semana ? 7 : 1;
-  const hojeK = dayKey(Date.now());
-
-  const dias = [];
-  for (let i = 0; i < n; i++) {
-    const ts = base + i * 86400000;
-    dias.push(Object.assign({ ts }, blocosDoDia(ts)));
-  }
-  const faixa = faixaDeHoras(dias.reduce((a, d) => a.concat(d.comHora), []));
-  const horas = faixa.fim - faixa.ini;
-
-  const box = h(`<div class="grade-crono"><div class="gc-rolo">
-    <div class="gc-tabela" style="--cols:${n};--alt:${ALTURA_HORA}px"></div>
-  </div></div>`);
-  const tab = box.querySelector('.gc-tabela');
-
-  /* cabeçalho: dia da semana e número, com hoje aceso */
-  const cab = h('<div class="gc-cab"><div class="gc-canto"></div></div>');
-  dias.forEach((d) => {
-    const dt = new Date(d.ts);
-    const cel = h(`<div class="gc-dia${dayKey(d.ts) === hojeK ? ' hoje' : ''}${dayKey(d.ts) === dayKey(DIA_AGENDA) ? ' sel' : ''}">
-      <i>${esc(DIAS_SEMANA_SEG[(dt.getDay() + 6) % 7])}</i><b>${dt.getDate()}</b>
-    </div>`);
-    cel.addEventListener('click', () => {
-      DIA_AGENDA = d.ts; MES_AGENDA = d.ts; haptic(); screen.refresh();
-    });
-    cab.appendChild(cel);
-  });
-  tab.appendChild(cab);
-
-  /* faixa de dia inteiro: só existe quando há tarefa sem hora */
-  if (dias.some((d) => d.semHora.length)) {
-    const linha = h('<div class="gc-todo-dia"><div class="gc-canto"><span>dia inteiro</span></div></div>');
-    dias.forEach((d) => {
-      const cel = h('<div class="gc-avulsos"></div>');
-      d.semHora.forEach((t) => {
-        const chip = h(`<button class="gc-chip${t.feito ? ' feito' : ''}">${esc(t.titulo)}</button>`);
-        setAccent(corDe(t), chip);
-        chip.addEventListener('click', () => editorTarefa(t, t.data, screen));
-        cel.appendChild(chip);
-      });
-      linha.appendChild(cel);
-    });
-    tab.appendChild(linha);
-  }
-
-  /* corpo: régua de horas à esquerda e uma coluna por dia */
-  const corpo = h('<div class="gc-corpo"></div>');
-  const regua = h('<div class="gc-horas"></div>');
-  for (let hh = faixa.ini; hh < faixa.fim; hh++) {
-    regua.appendChild(h(`<div class="gc-hora"><span>${pad2(hh)}:00</span></div>`));
-  }
-  corpo.appendChild(regua);
-
-  dias.forEach((d) => {
-    const col = h(`<div class="gc-col${dayKey(d.ts) === hojeK ? ' hoje' : ''}" style="height:${horas * ALTURA_HORA}px"></div>`);
-    d.comHora.forEach((t) => {
-      const f = faixaDaTarefa(t);
-      const topo = ((f.ini - faixa.ini * 60) / 60) * ALTURA_HORA;
-      const alto = Math.max(24, ((f.fim - f.ini) / 60) * ALTURA_HORA);
-      const bl = h(`<button class="gc-bloco${t.feito ? ' feito' : ''}${alto < 40 ? ' baixo' : ''}"
-        style="top:${topo.toFixed(1)}px;height:${alto.toFixed(1)}px">
-        <b>${esc(t.titulo)}</b>
-        <span>${esc(horaDeMinutos(f.ini) + ' – ' + horaDeMinutos(f.fim))}</span>
-      </button>`);
-      setAccent(corDe(t), bl);
-      bl.addEventListener('click', (e) => { e.stopPropagation(); editorTarefa(t, t.data, screen); });
-      col.appendChild(bl);
-    });
-
-    /* tocar no vazio marca alguma coisa naquela hora: é o gesto que a grade
-       promete só por existir */
-    col.addEventListener('click', (e) => {
-      if (e.target.closest('.gc-bloco')) return;
-      const y = e.clientY - col.getBoundingClientRect().top;
-      const meia = Math.round((faixa.ini * 60 + (y / ALTURA_HORA) * 60) / 30) * 30;
-      DIA_AGENDA = d.ts;
-      editorTarefa(null, dayKey(d.ts), screen, { hora: horaDeMinutos(Math.max(0, Math.min(1410, meia))) });
-    });
-    corpo.appendChild(col);
-  });
-  tab.appendChild(corpo);
-  return box;
-}
-
-/* ---------- o miolo do modo Dia ---------- */
-function miolodoDia(screen) {
-  const caixa = h('<div></div>');
+  scroll.appendChild(h(secaoSub('Tarefas', 'O que tem para fazer', '')));
+  scroll.appendChild(barraDoDia(screen));
 
   /* Cadastro rápido: o que é, quando e entre que horas. Cor, observação e tipo
      ficam no editor completo, que abre no toque sobre a tarefa. */
-  caixa.appendChild(formBloco('Novo compromisso', [
+  scroll.appendChild(formBloco('Nova tarefa', [
     { id: 'titulo', label: 'O que é', placeholder: 'Consulta, prova, reunião...', cresce: true },
     { id: 'data', label: 'Data', tipo: 'date', valor: dayKey(DIA_AGENDA), mantem: true, curto: true },
     { id: 'hora', label: 'Início', tipo: 'time', curto: true },
@@ -226,13 +46,11 @@ function miolodoDia(screen) {
       titulo, data: v.data || dayKey(Date.now()), hora: v.hora || '', fim: v.fim || '',
       tipo: v.hora ? 'compromisso' : 'tarefa',
     });
-    if (v.data) { DIA_AGENDA = tsDaData(v.data); SEMANA_AGENDA = inicioSemanaSeg(DIA_AGENDA); }
+    if (v.data) DIA_AGENDA = tsDaData(v.data);
     haptic();
     setTimeout(() => screen.refresh(), 60);
     return true;
   }));
-
-  caixa.appendChild(calendarioMes(screen));
 
   /* Cada faixa de tempo em seu bloco: o dia aberto, o que vem depois, o que
      ficou para trás e o que não tem data. */
@@ -240,7 +58,7 @@ function miolodoDia(screen) {
     const b = h(`<div class="bloco"><div class="bloco-rot">${esc(rotulo)}</div></div>`);
     if (!itens.length) b.appendChild(h(`<div class="vazio-tracejado">${esc(vazio)}</div>`));
     else itens.forEach((t) => b.appendChild(linhaTarefa(t, screen, mostrarData)));
-    caixa.appendChild(b);
+    scroll.appendChild(b);
   };
 
   const ehHoje = dayKey(DIA_AGENDA) === dayKey(Date.now());
@@ -257,53 +75,29 @@ function miolodoDia(screen) {
   const soltas = tarefasSemData();
   if (soltas.length) bloco('Sem data', soltas, 'Nada por aqui.');
 
-  return caixa;
+  el.appendChild(scroll);
 }
 
-/* Grade do mês. Cada dia mostra até três pontinhos com a cor das tarefas dele,
-   que é o que permite reconhecer um mês cheio sem abrir dia por dia. */
-function calendarioMes(screen) {
-  const box = h('<div class="cal"></div>');
-  const base = new Date(MES_AGENDA);
-  const ano = base.getFullYear();
-  const mes = base.getMonth();
-  const marcas = marcasDoMes(MES_AGENDA);
-
-  const topo = h(`<div class="cal-topo">
-    <button class="icon-btn stroke" data-act="ant">${icon('back')}</button>
-    <b>${esc(fmtMesAno(MES_AGENDA))}</b>
-    <button class="icon-btn stroke" data-act="prox">${icon('chev')}</button>
+/* Navegação entre dias. Sem o calendário do mês, é ela que anda no tempo — e o
+   campo de data do cadastro rápido continua alcançando qualquer dia de uma vez. */
+function barraDoDia(screen) {
+  const b = h(`<div class="crono-barra">
+    <div class="crono-nav">
+      <button class="icon-btn stroke" data-act="ant">${icon('back')}</button>
+      <b>${esc(fmtDataLonga(DIA_AGENDA))}</b>
+      <button class="icon-btn stroke" data-act="prox">${icon('chev')}</button>
+    </div>
+    <button class="crono-hoje" data-act="hoje">Hoje</button>
   </div>`);
-  acts(topo, {
-    ant: () => { MES_AGENDA = new Date(ano, mes - 1, 1).getTime(); haptic(); screen.refresh(); },
-    prox: () => { MES_AGENDA = new Date(ano, mes + 1, 1).getTime(); haptic(); screen.refresh(); },
+
+  /* Sem botão de "nova tarefa" aqui: o formulário fica logo abaixo, e dois
+     caminhos para a mesma coisa a uma tela de distância é um a mais. */
+  acts(b, {
+    ant: () => { DIA_AGENDA -= 86400000; haptic(); screen.refresh(); },
+    prox: () => { DIA_AGENDA += 86400000; haptic(); screen.refresh(); },
+    hoje: () => { DIA_AGENDA = Date.now(); haptic(); screen.refresh(); },
   });
-  box.appendChild(topo);
-
-  const grade = h('<div class="cal-grade"></div>');
-  DOW_CURTO.forEach((d) => grade.appendChild(h(`<div class="cal-dow">${d}</div>`)));
-
-  const primeiro = new Date(ano, mes, 1);
-  const dias = new Date(ano, mes + 1, 0).getDate();
-  for (let i = 0; i < primeiro.getDay(); i++) grade.appendChild(h('<div class="cal-vazio"></div>'));
-
-  for (let d = 1; d <= dias; d++) {
-    const ts = new Date(ano, mes, d).getTime();
-    const k = dayKey(ts);
-    const m = marcas[k];
-    const classes = ['cal-dia',
-      k === dayKey(DIA_AGENDA) ? 'sel' : '',
-      k === dayKey(Date.now()) ? 'hoje' : '',
-    ].filter(Boolean).join(' ');
-    const cel = h(`<button class="${classes}">
-      <span class="n">${d}</span>
-      <span class="pontos">${m ? m.cores.map((c) => `<i style="background:${c}"></i>`).join('') : ''}</span>
-    </button>`);
-    cel.addEventListener('click', () => { DIA_AGENDA = ts; haptic(); screen.refresh(); });
-    grade.appendChild(cel);
-  }
-  box.appendChild(grade);
-  return box;
+  return b;
 }
 
 /* Uma tarefa na lista. A faixa da esquerda é a cor dela; o horário à direita só
@@ -406,13 +200,142 @@ function editorTarefa(tarefa, dataPadrao, screen, padroes) {
     else novaTarefa(dados);
     saveNow();
     r.close();
-    if (dados.data) {
-      DIA_AGENDA = tsDaData(dados.data);
-      SEMANA_AGENDA = inicioSemanaSeg(DIA_AGENDA);
-    }
+    if (dados.data) DIA_AGENDA = tsDaData(dados.data);
     setTimeout(() => screen.refresh(), 120);
   });
   setTimeout(() => { if (!tarefa) campo('titulo').focus(); }, 250);
+}
+
+/* =========================================================
+   ROTINA
+   ========================================================= */
+
+function telaRotina() {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    el.appendChild(navBar('Rotina'));
+
+    const scroll = h('<div class="scroll"></div>');
+    const doDia = rotinaDoDia();
+    const feitos = rotinaFeitos();
+    scroll.appendChild(h(secaoSub('Rotina', 'O que se repete',
+      doDia.length ? feitos + ' de ' + doDia.length + ' cumpridos hoje' : 'Nada marcado para hoje')));
+
+    scroll.appendChild(formBloco('Novo item', [
+      { id: 'titulo', label: 'O que é', placeholder: 'Tomar creatina, alongar...', cresce: true },
+    ], 'Adicionar', (v) => {
+      const titulo = String(v.titulo).trim();
+      if (!titulo) { toast('Diga o que é'); return false; }
+      novoItemRotina(titulo);
+      haptic();
+      setTimeout(() => screen.refresh(), 60);
+      return true;
+    }));
+
+    const bloco = h('<div class="bloco"><div class="bloco-rot">Hoje</div></div>');
+    if (!doDia.length) {
+      bloco.appendChild(h('<div class="vazio-tracejado">Nada marcado para hoje. Um item de rotina vale nos dias da semana que você escolher.</div>'));
+    } else {
+      doDia.forEach((i) => bloco.appendChild(linhaRotina(i, screen)));
+    }
+    scroll.appendChild(bloco);
+
+    /* Os que não valem hoje continuam à vista, apagados: sumir do app no dia
+       de folga faria parecer que sumiram de vez. */
+    const fora = S.rotina.filter((i) => !valeNoDia(i));
+    if (fora.length) {
+      const b = h('<div class="bloco"><div class="bloco-rot">Outros dias</div></div>');
+      fora.forEach((i) => b.appendChild(linhaRotina(i, screen, true)));
+      scroll.appendChild(b);
+    }
+
+    /* Espelho da semana: quantos dos dias em que cada item valia ele cumpriu. */
+    if (S.rotina.length) {
+      const b = h('<div class="bloco"><div class="bloco-rot">Nesta semana</div></div>');
+      S.rotina.forEach((i) => {
+        const { valia, feitos: f } = rotinaNaSemana(i);
+        const pct = valia ? f / valia : 0;
+        const linha = h(`<div class="meta-card" style="cursor:default">
+          <div class="meta-head">
+            <div class="meta-txt"><b>${esc(i.titulo)}</b><span>${esc(diasDoItem(i))}</span></div>
+            <div class="meta-pct">${valia ? f + '/' + valia : '—'}</div>
+          </div>
+          <div class="progress alto"><i style="width:${pct * 100}%"></i></div>
+        </div>`);
+        setAccent(corDe(i), linha);
+        b.appendChild(linha);
+      });
+      scroll.appendChild(b);
+    }
+
+    el.appendChild(scroll);
+  }, { name: 'rotina' });
+}
+
+/* "todo dia", ou os dias em que ele vale, na ordem da semana. */
+function diasDoItem(i) {
+  if (!i.dias.length) return 'todo dia';
+  return i.dias.slice().sort().map((d) => DIAS_ROTINA[d]).join(' · ');
+}
+
+/* Uma linha da rotina. É a mesma peça da tarefa — círculo, texto, kebab — para
+   marcar coisa feita ser sempre o mesmo gesto no app inteiro. */
+function linhaRotina(i, screen, apagada) {
+  const feito = feitoNoDia(i);
+  const row = h(`<div class="tarefa${feito ? ' feito' : ''}${apagada ? ' fora' : ''}">
+    <button class="check sm${feito ? ' on' : ''}" data-act="ok"${apagada ? ' disabled' : ''}>${icon('check')}</button>
+    <div class="tarefa-txt">
+      <b>${esc(i.titulo)}</b>
+      <span>${esc(diasDoItem(i))}</span>
+    </div>
+    <button class="kebab" data-act="menu">${icon('dots')}</button>
+  </div>`);
+  setAccent(corDe(i), row);
+  acts(row, {
+    ok: () => { alternarItemRotina(i.id); haptic(); screen.refresh(); },
+    menu: () => actionSheet(i.titulo, [
+      { label: 'Renomear', icon: 'pencil', onClick: () => promptSheet('Nome do item', i.titulo, '', (v) => {
+        const nome = String(v).trim();
+        if (nome) { i.titulo = nome; saveNow(); screen.refresh(); }
+      }) },
+      { label: 'Dias da semana', icon: 'calendario', onClick: () => diasDaRotina(i, screen) },
+      { label: 'Apagar', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar da rotina?',
+        esc(i.titulo) + ' sai da lista, e o que já foi cumprido sai com ele.', 'Apagar',
+        () => { removerItemRotina(i.id); screen.refresh(); }) },
+    ]),
+  });
+  if (!apagada) {
+    row.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act]')) { alternarItemRotina(i.id); haptic(); screen.refresh(); }
+    });
+  }
+  return row;
+}
+
+/* Os sete dias como chips. Nenhum marcado quer dizer todo dia — e a folha diz
+   isso, em vez de deixar a lista vazia parecer um item quebrado. */
+function diasDaRotina(i, screen) {
+  const box = h(`<div>
+    <h3>Dias da semana</h3>
+    <p class="desc">Sem nenhum dia marcado, ele vale todo dia.</p>
+    <div class="chips dias-chips">
+      ${DIAS_ROTINA.map((d, n) => `<button class="chip${i.dias.indexOf(n) >= 0 ? ' on' : ''}" data-d="${n}">${esc(d)}</button>`).join('')}
+    </div>
+    <div class="sheet-actions"><button class="pill-btn" data-x="ok">Pronto</button></div>
+  </div>`);
+  const r = openSheet(box, { center: true });
+  setAccent(corDe(i), box);
+  on(box, '[data-d]', 'click', (ev) => {
+    const n = Number(ev.currentTarget.dataset.d);
+    const pos = i.dias.indexOf(n);
+    if (pos >= 0) i.dias.splice(pos, 1);
+    else i.dias.push(n);
+    i.dias.sort();
+    saveNow();
+    haptic();
+    ev.currentTarget.classList.toggle('on', i.dias.indexOf(n) >= 0);
+  });
+  box.querySelector('[data-x="ok"]').addEventListener('click', () => { r.close(); screen.refresh(); });
 }
 
 /* =========================================================

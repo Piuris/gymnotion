@@ -1422,10 +1422,16 @@ body.arrastando-algo .scroll { overflow: hidden; }
   -webkit-appearance: none; appearance: none;
 }
 /* Campo nativo de data/hora: o iOS alinha o texto no topo da caixa se não
-   houver alinhamento explícito. */
+   houver alinhamento explícito.
+
+   E o conteúdo vai centralizado. Num campo de texto isso seria errado — quem
+   digita espera o cursor à esquerda —, mas aqui não se digita: o controle
+   nativo desenha um bloco de largura fixa ("10/09/2026", "--:--" mais o
+   relógio) que nunca preenche a caixa. Encostado à esquerda, ele deixava um
+   vão morto à direita e a data parecia desalinhada em relação ao rótulo. */
 .text-input[type="date"], .text-input[type="time"] {
-  display: flex; align-items: center;
-  text-align: left;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
 }
 .text-input:focus { border-color: var(--accent); }
 
@@ -2208,6 +2214,15 @@ body.arrastando-algo .scroll { overflow: hidden; }
 .bloco > .tarefa:last-child, .bloco > .gasto:last-child { border-bottom: 0; }
 .bloco > .pill-btn { margin: 4px 16px 12px; }
 
+/* Item de rotina que não vale hoje: fica à vista, apagado. Sumir no dia de
+   folga faria parecer que sumiu de vez. */
+.tarefa.fora { opacity: .45; }
+.tarefa.fora .check { pointer-events: none; }
+
+/* Os sete dias cabem numa linha só quando podem quebrar; a régua de chips rola
+   de lado por padrão, e aqui rolar esconderia sábado. */
+.dias-chips { flex-wrap: wrap; overflow: visible; }
+
 .vazio-tracejado {
   margin: 0 16px 12px;
   padding: 26px 18px;
@@ -2253,7 +2268,11 @@ body.arrastando-algo .scroll { overflow: hidden; }
 /* O botão desce até a base da linha para ficar alinhado com os campos, que
    têm etiqueta em cima. */
 .form-acao { align-self: flex-end; flex: 0 0 auto; height: 44px; }
-.campo.curto { flex: 0 1 130px; }
+/* Curto é a largura **mínima**, não a final: com `flex: 0 1`, dois campos de
+   130px numa linha de 358 deixavam 86px de sobra à direita e a linha ficava
+   torta. Crescendo, eles dividem a linha e o conteúdo centralizado cai no meio
+   de cada um. */
+.campo.curto { flex: 1 1 130px; }
 
 .mes-troca { padding: 0 22px 12px; }
 .mes-troca b { text-transform: none; }

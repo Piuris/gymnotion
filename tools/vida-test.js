@@ -211,16 +211,76 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ============================================================
      CRONOGRAMA
      ============================================================ */
-  console.log('\ncronograma:');
-  await ev("popToRoot(); abrirModulo('cronograma');"); await sleep(600);
-  ck(await ev("currentScreen().name === 'cronograma'"), 'o menu abre o cronograma');
-  ck(await ev(`!!${tela()}.querySelector('.cal-grade')`), 'com a grade do mês');
-  const nDias = await ev(`${tela()}.querySelectorAll('.cal-dia').length`);
-  const noMes = await ev('new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()');
-  ck(nDias === noMes, 'a grade traz os ' + noMes + ' dias do mês');
-  ck(await ev(`${tela()}.querySelectorAll('.cal-dia.hoje').length === 1`), 'hoje aparece marcado');
-  ck(await ev(`${tela()}.textContent.includes('Nada por aqui')`),
-    'e o dia começa vazio');
+  console.log('\nrotina:');
+  await ev("popToRoot(); abrirModulo('rotina');"); await sleep(700);
+  ck(await ev("currentScreen().name === 'rotina'"), 'o menu abre a rotina');
+  ck(await ev(`${tela()}.textContent.includes('Nada marcado para hoje')`), 'e ela começa vazia');
+
+  await ev(`(function () {
+    var el = currentScreen().el;
+    el.querySelector('[data-c="nome"], [data-c="titulo"]').value = 'Tomar creatina';
+    el.querySelector('.form-linhas [data-act="ok"]').click();
+    return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev('S.rotina.length === 1'), 'o cadastro rápido cria o item');
+  ck(await ev('S.rotina[0].dias.length === 0'),
+    'sem dia escolhido, ele vale todo dia: é o caso comum e não custa sete toques');
+  ck(await ev(`${tela()}.querySelector('.tarefa-txt span').textContent === 'todo dia'`),
+    'e a linha diz isso com todas as letras');
+
+  /* marcar e desmarcar é por dia, e o dia é guardado como data */
+  await ev(`${tela()}.querySelector('.tarefa .check').click()`); await sleep(500);
+  ck(await ev('feitoNoDia(S.rotina[0]) === true'), 'marcar guarda o dia de hoje');
+  ck(await ev("S.rotina[0].feitos[0] === dayKey(Date.now())"),
+    'como data, e não como um "feito" que alguém precisaria zerar à meia-noite');
+  ck(await ev("feitoNoDia(S.rotina[0], Date.now() + 86400000) === false"),
+    'e por isso amanhã ele já nasce em branco');
+  await ev(`${tela()}.querySelector('.tarefa .check').click()`); await sleep(500);
+  ck(await ev('S.rotina[0].feitos.length === 0'), 'desmarcar tira o dia de volta');
+
+  /* item que vale só em alguns dias */
+  await ev(`(function () {
+    var hoje = new Date().getDay();
+    var outro = (hoje + 1) % 7;
+    novoItemRotina('Só hoje', [hoje]);
+    novoItemRotina('Só amanhã', [outro]);
+    saveNow(); currentScreen().refresh(); return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev('S.rotina.length === 3 && rotinaDoDia().length === 2'),
+    'dos três itens, dois valem hoje');
+  ck(await ev(`${tela()}.textContent.includes('Outros dias')`),
+    'o que não vale hoje fica à vista num bloco à parte, em vez de sumir');
+  ck(await ev(`(function () {
+    var fora = currentScreen().el.querySelector('.tarefa.fora');
+    return !!fora && fora.textContent.indexOf('Só amanhã') >= 0;
+  })()`), 'apagado, e é o item do outro dia');
+  await shot('v3-rotina');
+
+  /* a folha dos dias da semana */
+  await ev("diasDaRotina(S.rotina[0], currentScreen());"); await sleep(700);
+  ck(await ev("document.querySelectorAll('.sheet [data-d]').length === 7"),
+    'a folha traz os sete dias');
+  await ev("document.querySelector('.sheet [data-d=\"1\"]').click()"); await sleep(400);
+  ck(await ev('S.rotina[0].dias.join(",") === "1"'), 'tocar num dia marca ele');
+  await ev("document.querySelector('.sheet [data-d=\"1\"]').click()"); await sleep(400);
+  ck(await ev('S.rotina[0].dias.length === 0'), 'e tocar de novo desmarca, voltando a valer todo dia');
+  await ev("document.querySelector('.sheet [data-x=ok]').click()"); await sleep(500);
+
+  await ev("S.rotina = []; saveNow();");
+
+  console.log('\ntarefas:');
+  await ev("popToRoot(); abrirModulo('tarefas');"); await sleep(700);
+  ck(await ev("currentScreen().name === 'tarefas'"), 'o módulo se chama tarefas');
+  ck(await ev(`${tela()}.querySelector('.sec h2').textContent === 'O que tem para fazer'`),
+    'com o título novo');
+  /* a grade de horários e o calendário do mês saíram */
+  ck(await ev(`!${tela()}.querySelector('.cal-grade') && !${tela()}.querySelector('.gc-tabela')`),
+    'sem grade de horários e sem calendário do mês: o que ficou é a lista');
+  ck(await ev(`!!${tela()}.querySelector('.crono-nav')`),
+    'a navegação entre dias fica, que é o que andava no tempo');
+  ck(await ev(`${tela()}.textContent.includes('Nada por aqui')`), 'e o dia começa vazio');
   ck(await ev(`!!${tela()}.querySelector('[data-c="titulo"]')`),
     'com o cadastro rápido na própria tela');
 
@@ -237,9 +297,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'com hora primeiro e na ordem do relógio: ' + ordem);
   const corPrimeira = await ev(`getComputedStyle(${tela()}.querySelector('.tarefa')).getPropertyValue('--accent').trim()`);
   ck(corPrimeira === '#FF3B30', 'cada linha leva a cor da própria tarefa (' + corPrimeira + ')');
-  ck(await ev(`${tela()}.querySelectorAll('.cal-dia.sel .pontos i').length === 3`),
-    'e o dia do calendário ganha um ponto por cor');
-  await shot('v3-cronograma');
+  await shot('v3-tarefas');
 
   await ev(`${tela()}.querySelector('.tarefa .check').click()`); await sleep(450);
   ck(await ev("tarefasDoDia().filter(function (t) { return t.feito; }).length === 1"),
@@ -247,6 +305,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev(`${tela()}.querySelectorAll('.tarefa')[2].querySelector('.tarefa-txt b').textContent === 'Dentista'`),
     'e ela desce para o fim da lista em vez de sumir');
   ck(await ev('pendentesDoDia() === 2'), 'sobram 2 pendentes hoje');
+
+  /* andar no tempo continua possível sem o calendário */
+  const diaAntes = await ev('dayKey(DIA_AGENDA)');
+  await ev(`${tela()}.querySelector('[data-act="prox"]').click()`); await sleep(500);
+  ck(await ev('dayKey(DIA_AGENDA)') !== diaAntes, 'a seta anda um dia');
+  await ev(`${tela()}.querySelector('[data-act="hoje"]').click()`); await sleep(500);
+  ck(await ev('dayKey(DIA_AGENDA)') === diaAntes, 'e Hoje volta');
 
   /* uma tarefa aberta em dia que já passou tem que aparecer como atrasada */
   await ev(`
@@ -297,15 +362,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev(`${tela()}.querySelector('.form-linhas [data-act="ok"]').click()`); await sleep(500);
   ck(await ev('S.tarefas.length') === antesVazio, 'adicionar sem título não cria nada');
 
-  /* navegar de mês não pode arrastar o dia aberto junto */
-  const mesAntes = await ev('new Date(MES_AGENDA).getMonth()');
-  await ev(`${tela()}.querySelector('.cal-topo [data-act="ant"]').click()`); await sleep(500);
-  ck(await ev('new Date(MES_AGENDA).getMonth()') === (mesAntes + 11) % 12,
-    'a seta volta um mês');
-  ck(await ev('dayKey(DIA_AGENDA) === dayKey(Date.now())'),
-    'e o dia aberto continua sendo hoje, não muda sozinho');
-  ck(await ev(`${tela()}.querySelectorAll('.cal-dia.hoje').length === 0`),
-    'no mês anterior não há marca de hoje');
 
   /* ============================================================
      METAS
@@ -518,14 +574,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'na cor do app (' + corNome + ')');
 
   const rots = await ev(`Array.from(${tela()}.querySelectorAll('.painel .pcard-rot')).slice(0, 3).map(function (r) { return r.textContent; }).join(' | ')`);
-  ck(rots === 'Hoje | Próximos dias | Tempo de estudo',
-    'o painel traz os três cartões do desenho (' + rots + ')');
-  ck(await ev(`${tela()}.querySelector('.pcard .pcard-nota').textContent === '2 pendentes'`),
-    'o cartão de hoje conta as pendentes no canto');
+  ck(rots === 'Rotina | Próximos dias | Tempo de estudo',
+    'o painel abre com a rotina no lugar das tarefas do dia (' + rots + ')');
+
+  /* o cartão da rotina só mostra o que vale hoje */
+  await ev(`(function () {
+    var hoje = new Date().getDay();
+    novoItemRotina('Tomar creatina');
+    novoItemRotina('Alongar');
+    novoItemRotina('Só noutro dia', [(hoje + 3) % 7]);
+    alternarItemRotina(S.rotina[0].id);
+    saveNow(); currentScreen().refresh(); return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev(`${tela()}.querySelector('.pcard .pcard-nota').textContent === '1 de 2'`),
+    'o cartão conta quantos dos que valem hoje já foram cumpridos');
   ck(await ev(`${tela()}.querySelectorAll('.pcard .tarefa').length === 2`),
-    'e lista as tarefas do dia');
-  ck(await ev(`!!${tela()}.querySelector('.pcard-add')`),
-    'com Adicionar tarefa no pé, sem abrir tela nenhuma');
+    'e lista só os dois que caem hoje, não os três');
+  ck(await ev(`!${tela()}.textContent.includes('Só noutro dia')`),
+    'o de outro dia não tem nada a dizer aqui');
+  ck(await ev(`${tela()}.querySelector('.pcard-add').textContent.trim() === 'Ver a rotina'`),
+    'e o pé leva para a tela em vez de prometer adicionar');
+  await ev('S.rotina = []; saveNow(); currentScreen().refresh();'); await sleep(500);
 
   const prox = await ev(`Array.from(${tela()}.querySelectorAll('.prox-txt b')).map(function (b) { return b.textContent; }).join(' | ')`);
   ck(prox === 'Dentista | Prova',
@@ -606,76 +676,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev('minutosTotais(S.materias[0])') === antesCarimbo + 40,
     'e os 40 minutos entram nela');
   ck(await ev("CRONO_ESTUDO.materia === ''"), 'o carimbo sai junto com o relógio zerado');
-
-  console.log('\na grade do cronograma:');
-  await ev(`(function () {
-    S.tarefas = [];
-    var hoje = dayKey(Date.now());
-    novaTarefa({ titulo: 'Academia', data: hoje, hora: '06:30', fim: '08:00', cor: '#FF2D96' });
-    novaTarefa({ titulo: 'Reunião', data: hoje, hora: '09:00', cor: '#0A84FF' });
-    novaTarefa({ titulo: 'Mercado', data: hoje, cor: '#22E04A' });
-    saveNow(); popToRoot(); abrirModulo('cronograma'); return 'ok';
-  })()`);
-  await sleep(800);
-
-  ck(await ev("modoCronograma() === 'dia'"),
-    'em 390px o cronograma abre no dia: sete colunas dariam 47px cada');
-  ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 1`), 'com uma coluna só');
-  ck(await ev(`!!${tela()}.querySelector('.form-linhas')`),
-    'e o cadastro rápido e as listas continuam embaixo dela');
-
-  await ev(`${tela()}.querySelector('.seg [data-m=semana]').click()`); await sleep(800);
-  ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 7`),
-    'a chave Semana abre as sete colunas');
-  const dows = await ev(`Array.from(${tela()}.querySelectorAll('.gc-dia i')).map(function (i) { return i.textContent; }).join(',')`);
-  ck(dows === 'SEG,TER,QUA,QUI,SEX,SÁB,DOM',
-    'começando na segunda, como o calendário de parede (' + dows + ')');
-  ck(await ev(`${tela()}.querySelectorAll('.gc-dia.hoje').length === 1`), 'e com hoje aceso');
-  ck(await ev(`!${tela()}.querySelector('.form-linhas')`),
-    'na semana a grade é a tela inteira, sem as listas embaixo');
-  await shot('v11-crono-semana');
-
-  const alturas = JSON.parse(await ev(`(function () {
-    var r = {};
-    currentScreen().el.querySelectorAll('.gc-bloco').forEach(function (x) {
-      r[x.querySelector('b').textContent] = Math.round(x.getBoundingClientRect().height);
-    });
-    return JSON.stringify(r);
-  })()`));
-  ck(alturas['Academia'] === 81,
-    'o bloco tem a altura do que ocupa: 1h30 vira 81px (' + alturas['Academia'] + ')');
-  ck(alturas['Reunião'] === 54,
-    'sem término marcado ele vale uma hora (' + alturas['Reunião'] + ')');
-  ck(await ev(`${tela()}.querySelectorAll('.gc-bloco').length === 2`),
-    'e quem não tem hora não vira bloco');
-  ck(await ev(`${tela()}.querySelector('.gc-chip').textContent === 'Mercado'`),
-    'ela não some: vai para a faixa de dia inteiro, ainda clicável');
-  const corBloco = await ev(`getComputedStyle(${tela()}.querySelector('.gc-bloco')).getPropertyValue('--accent').trim()`);
-  ck(corBloco === '#FF2D96', 'cada bloco leva a cor da própria tarefa (' + corBloco + ')');
-
-  const semana0 = await ev('SEMANA_AGENDA');
-  await ev(`${tela()}.querySelector('[data-act="prox"]').click()`); await sleep(700);
-  ck(await ev('SEMANA_AGENDA') === semana0 + 7 * 86400000, 'a seta anda uma semana inteira');
-  ck(await ev(`${tela()}.querySelectorAll('.gc-dia.hoje').length === 0`), 'e hoje sai da tela');
-  await ev(`${tela()}.querySelector('[data-act="hoje"]').click()`); await sleep(700);
-  ck(await ev('SEMANA_AGENDA') === semana0, 'Hoje traz de volta');
-
-  await ev(`${tela()}.querySelector('.gc-bloco').click()`); await sleep(800);
-  ck(await ev(`document.querySelector('.sheet [data-c="fim"]') ? document.querySelector('.sheet [data-c="fim"]').value : ''`) === '08:00',
-    'tocar no bloco abre o editor com o término já preenchido');
-  await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
-
-  /* tocar no vazio marca alguma coisa naquela hora: é o gesto que a grade
-     promete só por existir */
-  await ev(`(function () {
-    var col = currentScreen().el.querySelectorAll('.gc-col')[0];
-    var r = col.getBoundingClientRect();
-    col.dispatchEvent(new MouseEvent('click', { bubbles: true, clientY: r.top + 54 * 3 }));
-  })()`);
-  await sleep(800);
-  const horaVazio = await ev(`document.querySelector('.sheet [data-c="hora"]') ? document.querySelector('.sheet [data-c="hora"]').value : ''`);
-  ck(horaVazio === '08:00', 'e tocar no vazio abre o editor já naquela hora (' + horaVazio + ')');
-  await ev("document.querySelector('.sheet [data-x=no]').click()"); await sleep(500);
 
   console.log('\ncadernos e anotações:');
   await ev("popToRoot(); abrirModulo('cadernos');"); await sleep(700);

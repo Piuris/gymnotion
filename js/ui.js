@@ -79,6 +79,7 @@ const O = {
   painel: `<rect x="3.4" y="4.6" width="17.2" height="14.8" rx="3"/><path d="M9.6 4.6v14.8"/>`,
   grade: `<rect x="3.6" y="3.6" width="7" height="7" rx="2"/><rect x="13.4" y="3.6" width="7" height="7" rx="2"/><rect x="3.6" y="13.4" width="7" height="7" rx="2"/><rect x="13.4" y="13.4" width="7" height="7" rx="2"/>`,
   sol: `<circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.4M12 19v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.6 12h2.4M19 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7"/>`,
+  repetir: `<path d="M4.6 11.4a7.4 7.4 0 0 1 12.6-5.2l2.2 2.2"/><path d="M19.4 4.4v4.2h-4.2"/><path d="M19.4 12.6a7.4 7.4 0 0 1-12.6 5.2l-2.2-2.2"/><path d="M4.6 19.6v-4.2h4.2"/>`,
   caderno: `<path d="M7.4 3.6h10.2a1.8 1.8 0 0 1 1.8 1.8v13.2a1.8 1.8 0 0 1-1.8 1.8H7.4"/><path d="M7.4 3.6a2.6 2.6 0 0 0-2.6 2.6v11.6a2.6 2.6 0 0 0 2.6 2.6"/><path d="M10.4 8.4h5.6M10.4 12h5.6M10.4 15.6h3.4"/>`,
 };
 const iconO = (k) => (O[k] ? `<svg viewBox="0 0 24 24" ${TRACO}>${O[k]}</svg>` : '');

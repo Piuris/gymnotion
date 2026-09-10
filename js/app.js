@@ -14,7 +14,7 @@ let DIA_SEL = Date.now();   // dia mostrado na aba Treinos; volta para hoje ao a
    entre navegar e escolher: o botão do menu não troca de tela, abre uma lista. */
 const ABAS = [
   { id: 'inicio', icone: 'casa' },
-  { id: 'cronograma', icone: 'tarefas' },
+  { id: 'tarefas', icone: 'tarefas' },
   { id: 'academia', icone: 'haltere' },
   { id: 'agua', icone: 'gota' },
 ];
@@ -305,7 +305,7 @@ function buildRoot(el, screen) {
   /* o nome da raiz acompanha a aba: quem pergunta em que tela está recebe
      'academia', não 'root' */
   screen.name = TAB;
-  if (TAB === 'cronograma') renderCronograma(el, screen, true);
+  if (TAB === 'tarefas') renderTarefas(el, screen, true);
   else if (TAB === 'academia') renderAcademia(el, screen, true);
   else if (TAB === 'agua') renderAgua(el, screen, true);
   else renderInicio(el, screen);
@@ -341,7 +341,17 @@ const MODULOS = [
     abrir: () => irParaAba('academia'),
   },
   {
-    id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario', sub: 'Compromissos do dia',
+    id: 'rotina', nome: 'Rotina', icone: 'repeat', iconeO: 'repetir', sub: 'O que se repete',
+    cor: () => corMarca(),
+    resumo: () => {
+      const doDia = rotinaDoDia();
+      if (!doDia.length) return S.rotina.length ? 'Nada para hoje' : 'Nenhum item ainda';
+      return rotinaFeitos() + ' de ' + doDia.length + ' cumpridos hoje';
+    },
+    abrir: () => telaRotina(),
+  },
+  {
+    id: 'tarefas', nome: 'Tarefas', icone: 'tarefas', iconeO: 'tarefas', sub: 'O que tem para fazer',
     cor: () => corMarca(),
     resumo: () => {
       const abertas = pendentesDoDia();
@@ -351,7 +361,7 @@ const MODULOS = [
       if (atras) partes.push(atras + (atras > 1 ? ' atrasadas' : ' atrasada'));
       return partes.length ? partes.join(' · ') : 'Nada marcado para hoje';
     },
-    abrir: () => irParaAba('cronograma'),
+    abrir: () => irParaAba('tarefas'),
   },
   {
     id: 'agua', nome: 'Hidratação', icone: 'gota', iconeO: 'gota', sub: 'Água ao longo do dia',
@@ -525,27 +535,33 @@ function pcard(rotulo, nota, cor) {
   return c;
 }
 
-/* ---------- HOJE ---------- */
-function cartaoHoje(screen) {
-  const abertas = tarefasDoDia().filter((t) => !t.feito);
-  const atrasadas = tarefasAtrasadas();
-  const c = pcard('Hoje',
-    abertas.length ? abertas.length + (abertas.length > 1 ? ' pendentes' : ' pendente') : 'tudo em dia',
+/* ---------- ROTINA ----------
+
+   Aqui ficava a lista de tarefas do dia. Tarefa some quando é feita; rotina
+   volta amanhã — e é a que se abre o app para conferir. As tarefas continuam
+   no painel, no cartão dos próximos dias e na aba delas.
+
+   O cartão não mostra o que não vale hoje: um item de segunda e quarta não tem
+   nada a dizer numa terça. */
+function cartaoRotina(screen) {
+  const doDia = rotinaDoDia();
+  const feitos = rotinaFeitos();
+  const c = pcard('Rotina',
+    doDia.length ? feitos + ' de ' + doDia.length : 'nada para hoje',
     corMarca());
 
-  if (!abertas.length && !atrasadas.length) {
-    c.appendChild(h('<div class="vazio-tracejado">Nada em aberto. O que for aparecendo entra pelo Cronograma.</div>'));
+  if (!doDia.length) {
+    c.appendChild(h(`<div class="vazio-tracejado">${S.rotina.length
+      ? 'Nenhum item da rotina cai hoje.'
+      : 'A rotina é o que se repete: tomar creatina, alongar, estudar. Cada item vale nos dias que você escolher.'}</div>`));
   } else {
-    abertas.slice(0, 4).forEach((t) => c.appendChild(linhaTarefa(t, screen)));
-    if (atrasadas.length) {
-      const aviso = h(`<div class="descanso-aviso alerta">${icon('info')}<span>${atrasadas.length} de dias anteriores continua${atrasadas.length > 1 ? 'm' : ''} em aberto. Toque para abrir o cronograma.</span></div>`);
-      aviso.addEventListener('click', () => irParaAba('cronograma'));
-      c.appendChild(aviso);
-    }
+    doDia.slice(0, 6).forEach((i) => c.appendChild(linhaRotina(i, screen)));
   }
 
-  const add = h(`<button class="pcard-add" data-act="novo">${icon('plus')}<span>Adicionar tarefa</span></button>`);
-  acts(add, { novo: () => { haptic(); editorTarefa(null, dayKey(Date.now()), screen); } });
+  /* Com itens, o pé leva para a tela e não cria nada: um "+" ali prometeria
+     adicionar. */
+  const add = h(`<button class="pcard-add" data-act="novo">${icon(doDia.length ? 'chev' : 'plus')}<span>${doDia.length ? 'Ver a rotina' : 'Montar a rotina'}</span></button>`);
+  acts(add, { novo: () => { haptic(); telaRotina(); } });
   c.appendChild(add);
   return c;
 }
@@ -574,13 +590,13 @@ function cartaoProximos() {
         </div>
       </button>`);
       setAccent(corDe(t), linha);
-      linha.addEventListener('click', () => { haptic(); DIA_AGENDA = ts; irParaAba('cronograma'); });
+      linha.addEventListener('click', () => { haptic(); DIA_AGENDA = ts; irParaAba('tarefas'); });
       c.appendChild(linha);
     });
   }
 
-  const ver = h(`<button class="pcard-btn" data-act="ver"><span>Ver cronograma da semana</span>${icon('chev')}</button>`);
-  acts(ver, { ver: () => { haptic(); CRONO_MODO = 'semana'; SEMANA_AGENDA = inicioSemanaSeg(); irParaAba('cronograma'); } });
+  const ver = h(`<button class="pcard-btn" data-act="ver"><span>Ver todas as tarefas</span>${icon('chev')}</button>`);
+  acts(ver, { ver: () => { haptic(); irParaAba('tarefas'); } });
   c.appendChild(ver);
   return c;
 }
@@ -746,7 +762,7 @@ function renderInicio(el, screen) {
   /* O painel do desenho: o dia, o que vem depois e o gráfico de estudo lado a
      lado no computador, um embaixo do outro no celular. */
   const painel = h('<div class="painel"></div>');
-  painel.appendChild(cartaoHoje(screen));
+  painel.appendChild(cartaoRotina(screen));
   painel.appendChild(cartaoProximos());
   painel.appendChild(cartaoEstudo());
   scroll.appendChild(painel);

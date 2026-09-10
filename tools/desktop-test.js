@@ -178,9 +178,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'continua um só aceso com uma tela empilhada');
   ck(await ev("document.querySelector('.lateral .lat-item.on').textContent.trim() === 'Financeiro'"),
     'e é o módulo aberto, não a aba que ficou embaixo dele');
-  await ev("document.querySelectorAll('.lateral .lat-item')[2].click()"); await sleep(700);
-  ck(await ev("currentScreen().name === 'cronograma'"), 'clicar na coluna navega');
-  ck(await ev("document.querySelector('.lateral .lat-item.on').textContent.trim() === 'Cronograma'"),
+  /* acha o item pelo nome em vez da posição: a coluna ganha e perde módulo, e
+     um índice fixo passa a apontar para o vizinho sem ninguém notar */
+  await ev(`(function () {
+    var itens = document.querySelectorAll('.lateral .lat-item');
+    for (var i = 0; i < itens.length; i++) {
+      if (itens[i].textContent.trim() === 'Tarefas') { itens[i].click(); return 'ok'; }
+    }
+    return 'nao achou';
+  })()`); await sleep(700);
+  ck(await ev("currentScreen().name === 'tarefas'"), 'clicar na coluna navega');
+  ck(await ev("document.querySelector('.lateral .lat-item.on').textContent.trim() === 'Tarefas'"),
     'e o aceso acompanha');
 
   /* ============================================================
