@@ -226,8 +226,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev('S.rotina.length === 1'), 'o cadastro rápido cria o item');
   ck(await ev('S.rotina[0].dias.length === 0'),
     'sem dia escolhido, ele vale todo dia: é o caso comum e não custa sete toques');
-  ck(await ev(`${tela()}.querySelector('.tarefa-txt span').textContent === 'todo dia'`),
-    'e a linha diz isso com todas as letras');
+  ck(await ev(`${tela()}.querySelectorAll('.tarefa .dia-toque.todo').length === 7`),
+    'e a linha mostra os sete dias acesos de leve, que é como se diz "todo dia" ali');
 
   /* marcar e desmarcar é por dia, e o dia é guardado como data */
   await ev(`${tela()}.querySelector('.tarefa .check').click()`); await sleep(500);
@@ -281,11 +281,44 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(800);
   ck(await ev("S.rotina[0].hora === '06:30' && S.rotina[0].fim === '08:00'"),
     'o item guarda início e fim');
-  const linhas = await ev(`Array.from(currentScreen().el.querySelectorAll('.tarefa-txt span')).map(function (x) { return x.textContent; }).join(' | ')`);
+  const linhas = await ev(`Array.from(currentScreen().el.querySelectorAll('.rot-sub i')).map(function (x) { return x.textContent; }).join(' | ')`);
   ck(linhas.indexOf('06:30 – 08:00') >= 0, 'a linha mostra a faixa quando há fim (' + linhas + ')');
-  ck(linhas.indexOf('19:00 · todo dia') >= 0, 'e só o começo quando não há');
+  ck(linhas.indexOf('19:00') >= 0, 'e só o começo quando não há');
   ck(await ev(`currentScreen().el.querySelector('.tarefa-txt b').textContent === 'Academia'`),
     'com hora primeiro e na ordem do relógio, a mesma ordem das tarefas');
+
+  /* Os dias moram na própria linha: eram três toques até a folha para uma
+     decisão que se muda o tempo todo. */
+  console.log('');
+  console.log('os dias na própria linha:');
+  ck(await ev(`currentScreen().el.querySelectorAll('.tarefa .dia-toque').length === S.rotina.filter(function (i) { return valeNoDia(i); }).length * 7 + S.rotina.filter(function (i) { return !valeNoDia(i); }).length * 7`),
+    'cada item traz os sete dias na linha, sem abrir folha nenhuma');
+  const acesos = await ev(`(function () {
+    var linha = Array.from(currentScreen().el.querySelectorAll('.tarefa')).find(function (x) {
+      return x.textContent.indexOf('Academia') >= 0;
+    });
+    return Array.from(linha.querySelectorAll('.dia-toque.on')).map(function (b) { return b.textContent; }).join('');
+  })()`);
+  ck(acesos === 'STQQS', 'os dias em que ele vale saem acesos, na ordem da semana (' + acesos + ')');
+  ck(await ev(`(function () {
+    var linha = Array.from(currentScreen().el.querySelectorAll('.tarefa')).find(function (x) {
+      return x.textContent.indexOf('Ler 20 páginas') >= 0 || x.textContent.indexOf('Estudar') >= 0;
+    });
+    return linha.querySelectorAll('.dia-toque.todo').length === 7;
+  })()`), 'e quem vale todo dia acende os sete de leve: sete apagados diriam o contrário');
+
+  /* um toque só, sem folha e sem confirmação */
+  await ev(`(function () {
+    var linha = Array.from(currentScreen().el.querySelectorAll('.tarefa')).find(function (x) {
+      return x.textContent.indexOf('Academia') >= 0;
+    });
+    linha.querySelector('[data-d="6"]').click();
+    return 'ok';
+  })()`);
+  await sleep(600);
+  ck(await ev("S.rotina.find(function (i) { return i.titulo === 'Academia'; }).dias.indexOf(6) >= 0"),
+    'um toque na letra marca o dia — sem folha, sem Pronto');
+  ck(await ev("!document.querySelector('.sheet')"), 'e sem abrir nada por cima');
 
   /* a folha do horário, e a saída de volta ao dia inteiro */
   await ev("horaDaRotina(S.rotina.find(function (i) { return i.titulo === 'Beber água'; }), currentScreen());");
@@ -351,6 +384,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ck(await ev("!!document.querySelector('.sheet') && document.querySelector('.sheet').textContent.indexOf('Dias da semana') > 0"),
     'tocar num bloco de rotina abre o menu do item');
   await ev("document.querySelector('.backdrop').click()"); await sleep(500);
+
+  /* a noite inteira à vista: uma grade que para às 21 esconde justamente as
+     horas onde cai a rotina de quem trabalha de dia */
+  const horas = await ev(`Array.from(${tela()}.querySelectorAll('.gc-hora span')).map(function (x) { return x.textContent; })`);
+  ck(horas[horas.length - 1] === '23:00',
+    'a régua vai até as 23:00 (última linha: ' + horas[horas.length - 1] + ')');
 
   await ev(`${tela()}.querySelector('.seg [data-m=semana]').click()`); await sleep(800);
   ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 7`), 'a chave Semana abre as sete colunas');

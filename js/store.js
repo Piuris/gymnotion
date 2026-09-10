@@ -1350,12 +1350,13 @@ function agendaDoDia(ts) {
   return { comHora, semHora };
 }
 
-/* Faixa de horas que a grade precisa mostrar. Sem nada marcado ela abre das 7
-   às 21 — mostrar as 24 horas faria o dia inteiro caber na tela e nenhum bloco
-   ficar legível. Com algo fora dessa janela, ela cresce só o necessário. */
+/* Faixa de horas que a grade precisa mostrar. Sem nada marcado ela vai das 6 às
+   23 — a noite inteira, porque é onde cai boa parte da rotina de quem trabalha
+   de dia, e uma grade que para às 21 esconde justamente essas horas. A
+   madrugada continua de fora até alguém marcar algo nela. */
 function faixaDeHoras(itens) {
   let min = 7 * 60;
-  let max = 21 * 60;
+  let max = 23 * 60;
   (itens || []).forEach((x) => {
     const f = faixaDeHora(x.hora, x.fim);
     if (!f) return;

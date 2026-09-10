@@ -991,6 +991,35 @@ na tela dela e não num toque de passagem.
 altura zero — mas ele escreve só o começo. A altura é necessidade de desenho;
 escrever "08:15 – 09:15" num item que termina quando terminar seria dado falso.
 
+### Os dias da semana ficam na própria linha
+
+Marcar que algo vale às terças custava quatro toques: kebab, "Dias da semana",
+a letra, fechar. Isso para uma decisão que se muda o tempo todo — e que, pior,
+ficava escondida atrás de um menu chamado "configurações do item".
+
+Agora os sete dias são **a própria linha**: sete letras a partir da segunda, que
+ao mesmo tempo mostram em que dias o item vale e mudam isso com um toque. Elas
+não custam altura, porque ocupam a linha que era do texto "seg · qua · sex".
+
+Duas coisas que isso exigiu:
+
+**Sem nenhum dia marcado, os sete acendem de leve.** Vazio quer dizer "todo
+dia", e sete letras apagadas diriam exatamente o contrário.
+
+**A tela só se redesenha quando precisa.** Tocar numa letra pode tirar o item do
+bloco de hoje, e aí a lista tem de se refazer; não mudando isso, só a letra
+acende. Reconstruir a cada toque faria a linha pular embaixo do dedo justamente
+quando se está marcando três dias seguidos.
+
+A folha continua existindo, porque a grade do cronograma abre o menu do item e
+lá não há linha para tocar.
+
+### A grade vai até as 23:00
+
+Sem nada marcado, a régua vai das 6 às 23. Ela parava às 21, o que escondia
+justamente as horas onde cai a rotina de quem trabalha de dia. A madrugada
+continua de fora até alguém marcar algo nela.
+
 ### O horário na rotina é opcional
 
 Item sem hora continua valendo o dia inteiro e some da grade, o que é o certo:

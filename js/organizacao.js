@@ -474,10 +474,47 @@ function diasDoItem(i) {
   return i.dias.slice().sort().map((d) => DIAS_ROTINA[d]).join(' · ');
 }
 
-/* A hora primeiro, porque é o que ordena a linha; os dias depois. */
+/* A hora primeiro, porque é o que ordena a linha; os dias depois. Usado onde a
+   linha é só leitura — na grade e no espelho da semana. */
 function descricaoDoItem(i) {
   const h1 = i.hora ? (i.fim ? i.hora + ' – ' + i.fim : i.hora) : '';
   return [h1, diasDoItem(i)].filter(Boolean).join(' · ');
+}
+
+/* Os sete dias na própria linha, começando na segunda como o calendário de
+   parede. Antes eles moravam numa folha a três toques de distância — kebab,
+   "Dias da semana", marcar, fechar — para uma decisão que se muda o tempo
+   todo. Aqui eles são ao mesmo tempo o que se lê e o que se toca, e não custam
+   altura nenhuma: ocupam a linha que era do texto "seg · qua · sex". */
+const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+
+function toquesDeDia(i, screen) {
+  const box = h('<span class="dias-toque"></span>');
+  ORDEM_SEMANA.forEach((d) => {
+    const on = i.dias.indexOf(d) >= 0;
+    const b = h(`<button class="dia-toque${on ? ' on' : ''}${!i.dias.length ? ' todo' : ''}"
+      data-d="${d}" title="${esc(DIAS_ROTINA[d])}">${esc(DIAS_ROTINA[d].charAt(0).toUpperCase())}</button>`);
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      /* trocar o dia pode tirar o item do bloco de hoje — e aí a tela precisa
+         se redesenhar. Não mudando isso, só a letra acende: reconstruir a lista
+         a cada toque faria a linha pular embaixo do dedo. */
+      const valiaAntes = valeNoDia(i);
+      const pos = i.dias.indexOf(d);
+      if (pos >= 0) i.dias.splice(pos, 1);
+      else i.dias.push(d);
+      i.dias.sort();
+      saveNow();
+      haptic();
+      if (valeNoDia(i) !== valiaAntes) { screen.refresh(); return; }
+      box.querySelectorAll('[data-d]').forEach((x) => {
+        x.classList.toggle('on', i.dias.indexOf(Number(x.dataset.d)) >= 0);
+        x.classList.toggle('todo', !i.dias.length);
+      });
+    });
+    box.appendChild(b);
+  });
+  return box;
 }
 
 /* Uma linha da rotina. É a mesma peça da tarefa — círculo, texto, kebab — para
@@ -488,11 +525,12 @@ function linhaRotina(i, screen, apagada) {
     <button class="check sm${feito ? ' on' : ''}" data-act="ok"${apagada ? ' disabled' : ''}>${icon('check')}</button>
     <div class="tarefa-txt">
       <b>${esc(i.titulo)}</b>
-      <span>${esc(descricaoDoItem(i))}</span>
+      <span class="rot-sub">${i.hora ? `<i>${esc(i.fim ? i.hora + ' – ' + i.fim : i.hora)}</i>` : ''}</span>
     </div>
     <button class="kebab" data-act="menu">${icon('dots')}</button>
   </div>`);
   setAccent(corDe(i), row);
+  row.querySelector('.rot-sub').appendChild(toquesDeDia(i, screen));
   acts(row, {
     ok: () => { alternarItemRotina(i.id); haptic(); screen.refresh(); },
     menu: () => menuItemRotina(i, screen),
@@ -513,6 +551,8 @@ function menuItemRotina(i, screen, ts) {
     { label: feito ? 'Desmarcar' : 'Marcar como feito', icon: 'check',
       onClick: () => { alternarItemRotina(i.id, ts); haptic(); screen.refresh(); } },
     { label: 'Horário', icon: 'clock', onClick: () => horaDaRotina(i, screen) },
+    /* Os dias ficam na própria linha da Rotina; aqui o menu serve à grade do
+       cronograma, onde não há linha para tocar. */
     { label: 'Dias da semana', icon: 'calendario', onClick: () => diasDaRotina(i, screen) },
     { label: 'Renomear', icon: 'pencil', onClick: () => promptSheet('Nome do item', i.titulo, '', (v) => {
       const nome = String(v).trim();
