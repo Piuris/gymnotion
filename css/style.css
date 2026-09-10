@@ -2682,6 +2682,12 @@ body.arrastando-algo .scroll { overflow: hidden; }
 }
 .gc-chip.feito { opacity: .45; text-decoration: line-through; }
 
+/* O que se repete tem a borda tracejada. Rotina e tarefa levam a mesma cor
+   desde que o app passou a ter uma só, e sem isso um bloco de segunda a sexta
+   ficaria indistinguível de um compromisso de uma vez só. */
+.gc-chip.rotina { border: 1px dashed var(--a35); }
+.gc-bloco.rotina { border-left-style: dashed; }
+
 .gc-corpo { padding-top: 8px; }
 .gc-horas { border-right: 1px solid var(--line); }
 .gc-hora {

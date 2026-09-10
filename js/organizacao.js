@@ -207,6 +207,198 @@ function editorTarefa(tarefa, dataPadrao, screen, padroes) {
 }
 
 /* =========================================================
+   CRONOGRAMA — a semana em grade
+
+   Esta grade já tinha saído do app uma vez, e voltou por um bom motivo:
+   mostrando só tarefas avulsas, era um calendário quase sempre vazio. Com a
+   rotina em horários fixos ela mostra a semana de verdade — é a diferença
+   entre "o que marquei" e "como meus dias são".
+
+   Ela não edita: rotina se monta na Rotina, tarefa se monta em Tarefas. Aqui
+   se confere. O toque abre o que já existe, e o toque no vazio cria uma tarefa
+   naquela hora, que é o gesto que uma grade promete só por existir.
+   ========================================================= */
+
+const ALTURA_HORA = 54;
+let SEMANA_AGENDA = inicioSemanaSeg();
+let CRONO_MODO = '';
+
+/* Semana no computador, dia no celular: sete colunas em 390px dariam 47px cada
+   e nenhum nome caberia. A escolha à mão fica guardada e vale nos dois. */
+function modoCronograma() {
+  if (!CRONO_MODO) {
+    CRONO_MODO = S.settings.cronoModo || (window.innerWidth >= 900 ? 'semana' : 'dia');
+  }
+  return CRONO_MODO;
+}
+
+function definirModoCronograma(m) {
+  CRONO_MODO = m;
+  S.settings.cronoModo = m;
+  saveNow();
+}
+
+function telaCronograma() {
+  pushScreen((el, screen) => {
+    setAccent(contextAccent(), el);
+    el.appendChild(navBar('Cronograma'));
+
+    const modo = modoCronograma();
+    const scroll = h('<div class="scroll"></div>');
+    scroll.appendChild(h(secaoSub(modo === 'semana' ? 'Visão semanal' : 'Visão do dia',
+      'Como o dia está', '')));
+    scroll.appendChild(barraCronograma(screen, modo));
+    scroll.appendChild(gradeCronograma(screen, modo));
+    el.appendChild(scroll);
+  }, { name: 'cronograma' });
+}
+
+function barraCronograma(screen, modo) {
+  const semana = modo === 'semana';
+  const faixa = semana
+    ? diaCurto(SEMANA_AGENDA) + ' – ' + diaCurto(SEMANA_AGENDA + 6 * 86400000)
+    : fmtDataLonga(DIA_AGENDA);
+
+  const b = h(`<div class="crono-barra">
+    <div class="crono-nav">
+      <button class="icon-btn stroke" data-act="ant">${icon('back')}</button>
+      <b>${esc(faixa)}</b>
+      <button class="icon-btn stroke" data-act="prox">${icon('chev')}</button>
+    </div>
+    <button class="crono-hoje" data-act="hoje">Hoje</button>
+    <div class="seg">
+      <button data-m="semana"${semana ? ' class="on"' : ''}>Semana</button>
+      <button data-m="dia"${semana ? '' : ' class="on"'}>Dia</button>
+    </div>
+  </div>`);
+
+  const andar = (passo) => {
+    if (semana) {
+      SEMANA_AGENDA += passo * 7 * 86400000;
+      DIA_AGENDA = SEMANA_AGENDA;
+    } else {
+      DIA_AGENDA += passo * 86400000;
+      SEMANA_AGENDA = inicioSemanaSeg(DIA_AGENDA);
+    }
+    haptic();
+    screen.refresh();
+  };
+
+  acts(b, {
+    ant: () => andar(-1),
+    prox: () => andar(1),
+    hoje: () => {
+      DIA_AGENDA = Date.now();
+      SEMANA_AGENDA = inicioSemanaSeg();
+      haptic();
+      screen.refresh();
+    },
+  });
+  on(b, '[data-m]', 'click', (ev) => {
+    definirModoCronograma(ev.currentTarget.dataset.m);
+    haptic();
+    screen.refresh();
+  });
+  return b;
+}
+
+function gradeCronograma(screen, modo) {
+  const semana = modo === 'semana';
+  const base = semana ? SEMANA_AGENDA : new Date(DIA_AGENDA).setHours(0, 0, 0, 0);
+  const n = semana ? 7 : 1;
+  const hojeK = dayKey(Date.now());
+
+  const dias = [];
+  for (let i = 0; i < n; i++) {
+    const ts = base + i * 86400000;
+    dias.push(Object.assign({ ts }, agendaDoDia(ts)));
+  }
+  /* Sem fim marcado o bloco vale uma hora, mas o rótulo mostra só o começo: a
+     altura é necessidade de desenho, e escrever "08:15 – 09:15" num item que
+     termina quando terminar seria inventar dado. */
+  const faixa = faixaDeHoras(dias.reduce((a, d) => a.concat(d.comHora), []));
+  const horas = faixa.fim - faixa.ini;
+
+  const box = h(`<div class="grade-crono"><div class="gc-rolo">
+    <div class="gc-tabela" style="--cols:${n};--alt:${ALTURA_HORA}px"></div>
+  </div></div>`);
+  const tab = box.querySelector('.gc-tabela');
+
+  /* cabeçalho: dia da semana e número, com hoje aceso */
+  const cab = h('<div class="gc-cab"><div class="gc-canto"></div></div>');
+  dias.forEach((d) => {
+    const dt = new Date(d.ts);
+    const cel = h(`<div class="gc-dia${dayKey(d.ts) === hojeK ? ' hoje' : ''}${dayKey(d.ts) === dayKey(DIA_AGENDA) ? ' sel' : ''}">
+      <i>${esc(DIAS_SEMANA_SEG[(dt.getDay() + 6) % 7])}</i><b>${dt.getDate()}</b>
+    </div>`);
+    cel.addEventListener('click', () => { DIA_AGENDA = d.ts; haptic(); screen.refresh(); });
+    cab.appendChild(cel);
+  });
+  tab.appendChild(cab);
+
+  /* faixa de dia inteiro: o que não tem hora não some da grade */
+  if (dias.some((d) => d.semHora.length)) {
+    const linha = h('<div class="gc-todo-dia"><div class="gc-canto"><span>dia inteiro</span></div></div>');
+    dias.forEach((d) => {
+      const cel = h('<div class="gc-avulsos"></div>');
+      d.semHora.forEach((x) => {
+        const chip = h(`<button class="gc-chip${x.feito ? ' feito' : ''}${x.fonte === 'rotina' ? ' rotina' : ''}">${esc(x.titulo)}</button>`);
+        setAccent(x.cor, chip);
+        chip.addEventListener('click', () => abrirDaGrade(x, d.ts, screen));
+        cel.appendChild(chip);
+      });
+      linha.appendChild(cel);
+    });
+    tab.appendChild(linha);
+  }
+
+  /* corpo: régua de horas à esquerda e uma coluna por dia */
+  const corpo = h('<div class="gc-corpo"></div>');
+  const regua = h('<div class="gc-horas"></div>');
+  for (let hh = faixa.ini; hh < faixa.fim; hh++) {
+    regua.appendChild(h(`<div class="gc-hora"><span>${pad2(hh)}:00</span></div>`));
+  }
+  corpo.appendChild(regua);
+
+  dias.forEach((d) => {
+    const col = h(`<div class="gc-col${dayKey(d.ts) === hojeK ? ' hoje' : ''}" style="height:${horas * ALTURA_HORA}px"></div>`);
+    d.comHora.forEach((x) => {
+      const f = faixaDeHora(x.hora, x.fim);
+      const topo = ((f.ini - faixa.ini * 60) / 60) * ALTURA_HORA;
+      const alto = Math.max(24, ((f.fim - f.ini) / 60) * ALTURA_HORA);
+      const bl = h(`<button class="gc-bloco${x.feito ? ' feito' : ''}${alto < 40 ? ' baixo' : ''}${x.fonte === 'rotina' ? ' rotina' : ''}"
+        style="top:${topo.toFixed(1)}px;height:${alto.toFixed(1)}px">
+        <b>${esc(x.titulo)}</b>
+        <span>${esc(x.fim ? x.hora + ' – ' + x.fim : x.hora)}</span>
+      </button>`);
+      setAccent(x.cor, bl);
+      bl.addEventListener('click', (e) => { e.stopPropagation(); abrirDaGrade(x, d.ts, screen); });
+      col.appendChild(bl);
+    });
+
+    /* tocar no vazio cria tarefa, e não item de rotina: rotina é decisão de
+       "isso se repete", que se toma na tela dela e não num toque de passagem */
+    col.addEventListener('click', (e) => {
+      if (e.target.closest('.gc-bloco')) return;
+      const y = e.clientY - col.getBoundingClientRect().top;
+      const meia = Math.round((faixa.ini * 60 + (y / ALTURA_HORA) * 60) / 30) * 30;
+      DIA_AGENDA = d.ts;
+      editorTarefa(null, dayKey(d.ts), screen, { hora: horaDeMinutos(Math.max(0, Math.min(1410, meia))) });
+    });
+    corpo.appendChild(col);
+  });
+  tab.appendChild(corpo);
+  return box;
+}
+
+/* O toque abre o que aquilo é: tarefa vai para o editor de tarefa, item de
+   rotina para o menu dele. */
+function abrirDaGrade(x, ts, screen) {
+  if (x.fonte === 'tarefa') editorTarefa(x.ref, x.ref.data, screen);
+  else menuItemRotina(x.ref, screen, ts);
+}
+
+/* =========================================================
    ROTINA
    ========================================================= */
 
@@ -221,12 +413,16 @@ function telaRotina() {
     scroll.appendChild(h(secaoSub('Rotina', 'O que se repete',
       doDia.length ? feitos + ' de ' + doDia.length + ' cumpridos hoje' : 'Nada marcado para hoje')));
 
+    /* A hora é opcional: item sem hora continua valendo o dia inteiro e some da
+       grade, que é o certo — "beber água" não tem horário. */
     scroll.appendChild(formBloco('Novo item', [
       { id: 'titulo', label: 'O que é', placeholder: 'Tomar creatina, alongar...', cresce: true },
+      { id: 'hora', label: 'Início', tipo: 'time', curto: true },
+      { id: 'fim', label: 'Fim', tipo: 'time', curto: true },
     ], 'Adicionar', (v) => {
       const titulo = String(v.titulo).trim();
       if (!titulo) { toast('Diga o que é'); return false; }
-      novoItemRotina(titulo);
+      novoItemRotina(titulo, [], '', v.hora || '', v.fim || '');
       haptic();
       setTimeout(() => screen.refresh(), 60);
       return true;
@@ -257,7 +453,7 @@ function telaRotina() {
         const pct = valia ? f / valia : 0;
         const linha = h(`<div class="meta-card" style="cursor:default">
           <div class="meta-head">
-            <div class="meta-txt"><b>${esc(i.titulo)}</b><span>${esc(diasDoItem(i))}</span></div>
+            <div class="meta-txt"><b>${esc(i.titulo)}</b><span>${esc(descricaoDoItem(i))}</span></div>
             <div class="meta-pct">${valia ? f + '/' + valia : '—'}</div>
           </div>
           <div class="progress alto"><i style="width:${pct * 100}%"></i></div>
@@ -278,6 +474,12 @@ function diasDoItem(i) {
   return i.dias.slice().sort().map((d) => DIAS_ROTINA[d]).join(' · ');
 }
 
+/* A hora primeiro, porque é o que ordena a linha; os dias depois. */
+function descricaoDoItem(i) {
+  const h1 = i.hora ? (i.fim ? i.hora + ' – ' + i.fim : i.hora) : '';
+  return [h1, diasDoItem(i)].filter(Boolean).join(' · ');
+}
+
 /* Uma linha da rotina. É a mesma peça da tarefa — círculo, texto, kebab — para
    marcar coisa feita ser sempre o mesmo gesto no app inteiro. */
 function linhaRotina(i, screen, apagada) {
@@ -286,23 +488,14 @@ function linhaRotina(i, screen, apagada) {
     <button class="check sm${feito ? ' on' : ''}" data-act="ok"${apagada ? ' disabled' : ''}>${icon('check')}</button>
     <div class="tarefa-txt">
       <b>${esc(i.titulo)}</b>
-      <span>${esc(diasDoItem(i))}</span>
+      <span>${esc(descricaoDoItem(i))}</span>
     </div>
     <button class="kebab" data-act="menu">${icon('dots')}</button>
   </div>`);
   setAccent(corDe(i), row);
   acts(row, {
     ok: () => { alternarItemRotina(i.id); haptic(); screen.refresh(); },
-    menu: () => actionSheet(i.titulo, [
-      { label: 'Renomear', icon: 'pencil', onClick: () => promptSheet('Nome do item', i.titulo, '', (v) => {
-        const nome = String(v).trim();
-        if (nome) { i.titulo = nome; saveNow(); screen.refresh(); }
-      }) },
-      { label: 'Dias da semana', icon: 'calendario', onClick: () => diasDaRotina(i, screen) },
-      { label: 'Apagar', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar da rotina?',
-        esc(i.titulo) + ' sai da lista, e o que já foi cumprido sai com ele.', 'Apagar',
-        () => { removerItemRotina(i.id); screen.refresh(); }) },
-    ]),
+    menu: () => menuItemRotina(i, screen),
   });
   if (!apagada) {
     row.addEventListener('click', (e) => {
@@ -310,6 +503,59 @@ function linhaRotina(i, screen, apagada) {
     });
   }
   return row;
+}
+
+/* O menu do item. Vive fora da linha porque a grade do cronograma abre o mesmo
+   menu: o item é o mesmo, e ter dois jeitos de mexer nele seria ter dois. */
+function menuItemRotina(i, screen, ts) {
+  const feito = feitoNoDia(i, ts);
+  actionSheet(i.titulo, [
+    { label: feito ? 'Desmarcar' : 'Marcar como feito', icon: 'check',
+      onClick: () => { alternarItemRotina(i.id, ts); haptic(); screen.refresh(); } },
+    { label: 'Horário', icon: 'clock', onClick: () => horaDaRotina(i, screen) },
+    { label: 'Dias da semana', icon: 'calendario', onClick: () => diasDaRotina(i, screen) },
+    { label: 'Renomear', icon: 'pencil', onClick: () => promptSheet('Nome do item', i.titulo, '', (v) => {
+      const nome = String(v).trim();
+      if (nome) { i.titulo = nome; saveNow(); screen.refresh(); }
+    }) },
+    { label: 'Apagar', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar da rotina?',
+      esc(i.titulo) + ' sai da lista, e o que já foi cumprido sai com ele.', 'Apagar',
+      () => { removerItemRotina(i.id); screen.refresh(); }) },
+  ]);
+}
+
+/* Início e fim. Limpar os dois devolve o item ao dia inteiro — é a saída de
+   quem marcou hora por engano, e ela precisa existir dentro da mesma folha. */
+function horaDaRotina(i, screen) {
+  const box = h(`<div class="form">
+    <h3>Horário</h3>
+    <p class="desc">Sem horário, o item vale o dia inteiro e não aparece na grade do cronograma.</p>
+    <div class="form-corpo">
+      <div class="form-linha">
+        <label>Início<input class="text-input" type="time" data-c="hora" value="${esc(i.hora || '')}"/></label>
+        <label>Fim<input class="text-input" type="time" data-c="fim" value="${esc(i.fim || '')}"/></label>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="pill-btn grey" data-x="limpar">Sem horário</button>
+      <button class="pill-btn" data-x="ok">Pronto</button>
+    </div>
+  </div>`);
+  const r = openSheet(box, { center: true });
+  r.sheet.classList.add('com-form');
+  setAccent(corDe(i), box);
+
+  const guardar = (hora, fim) => {
+    i.hora = hora;
+    i.fim = fim;
+    saveNow();
+    r.close();
+    setTimeout(() => screen.refresh(), 120);
+  };
+  box.querySelector('[data-x="limpar"]').addEventListener('click', () => guardar('', ''));
+  box.querySelector('[data-x="ok"]').addEventListener('click', () => guardar(
+    box.querySelector('[data-c="hora"]').value || '',
+    box.querySelector('[data-c="fim"]').value || ''));
 }
 
 /* Os sete dias como chips. Nenhum marcado quer dizer todo dia — e a folha diz

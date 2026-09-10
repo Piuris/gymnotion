@@ -351,6 +351,17 @@ const MODULOS = [
     abrir: () => telaRotina(),
   },
   {
+    id: 'cronograma', nome: 'Cronograma', icone: 'calendario', iconeO: 'calendario', sub: 'A semana em grade',
+    cor: () => corMarca(),
+    resumo: () => {
+      const { comHora } = agendaDoDia();
+      if (!comHora.length) return 'Nada com hora marcada hoje';
+      return comHora.length + (comHora.length > 1 ? ' compromissos hoje' : ' compromisso hoje')
+        + ' · a partir das ' + comHora[0].hora;
+    },
+    abrir: () => telaCronograma(),
+  },
+  {
     id: 'tarefas', nome: 'Tarefas', icone: 'tarefas', iconeO: 'tarefas', sub: 'O que tem para fazer',
     cor: () => corMarca(),
     resumo: () => {

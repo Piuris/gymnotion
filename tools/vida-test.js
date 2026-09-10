@@ -270,6 +270,94 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await ev("S.rotina = []; saveNow();");
 
+  console.log('\no horário da rotina:');
+  await ev(`(function () {
+    S.rotina = [];
+    novoItemRotina('Academia', [1,2,3,4,5], '', '06:30', '08:00');
+    novoItemRotina('Beber água');
+    novoItemRotina('Estudar', [], '', '19:00', '');
+    saveNow(); popToRoot(); abrirModulo('rotina'); return 'ok';
+  })()`);
+  await sleep(800);
+  ck(await ev("S.rotina[0].hora === '06:30' && S.rotina[0].fim === '08:00'"),
+    'o item guarda início e fim');
+  const linhas = await ev(`Array.from(currentScreen().el.querySelectorAll('.tarefa-txt span')).map(function (x) { return x.textContent; }).join(' | ')`);
+  ck(linhas.indexOf('06:30 – 08:00') >= 0, 'a linha mostra a faixa quando há fim (' + linhas + ')');
+  ck(linhas.indexOf('19:00 · todo dia') >= 0, 'e só o começo quando não há');
+  ck(await ev(`currentScreen().el.querySelector('.tarefa-txt b').textContent === 'Academia'`),
+    'com hora primeiro e na ordem do relógio, a mesma ordem das tarefas');
+
+  /* a folha do horário, e a saída de volta ao dia inteiro */
+  await ev("horaDaRotina(S.rotina.find(function (i) { return i.titulo === 'Beber água'; }), currentScreen());");
+  await sleep(700);
+  ck(await ev("!!document.querySelector('.sheet [data-c=\"hora\"]')"), 'a folha do horário abre');
+  await ev(`(function () {
+    document.querySelector('.sheet [data-c="hora"]').value = '10:00';
+    document.querySelector('.sheet [data-x=ok]').click();
+  })()`);
+  await sleep(700);
+  ck(await ev("S.rotina.find(function (i) { return i.titulo === 'Beber água'; }).hora === '10:00'"),
+    'marcar hora guarda a hora');
+  await ev("horaDaRotina(S.rotina.find(function (i) { return i.titulo === 'Beber água'; }), currentScreen());");
+  await sleep(700);
+  await ev("document.querySelector('.sheet [data-x=limpar]').click()"); await sleep(700);
+  ck(await ev("S.rotina.find(function (i) { return i.titulo === 'Beber água'; }).hora === ''"),
+    'e "Sem horário" devolve o item ao dia inteiro, sem precisar apagar campo a campo');
+
+  console.log('\no cronograma:');
+  await ev(`(function () {
+    S.tarefas = [];
+    novaTarefa({ titulo: 'Dentista', data: dayKey(Date.now()), hora: '09:00', fim: '10:00' });
+    novaTarefa({ titulo: 'Mercado', data: dayKey(Date.now()) });
+    saveNow(); popToRoot(); definirModoCronograma('dia'); abrirModulo('cronograma');
+    return 'ok';
+  })()`);
+  await sleep(900);
+  ck(await ev("currentScreen().name === 'cronograma'"), 'o módulo abre');
+  ck(await ev(`!!${tela()}.querySelector('.gc-tabela')`), 'com a grade de horas');
+
+  /* a grade não desenha tarefa nem rotina: desenha compromisso, das duas fontes */
+  const titulos = await ev(`Array.from(${tela()}.querySelectorAll('.gc-bloco b')).map(function (b) { return b.textContent; }).join(' | ')`);
+  ck(titulos.indexOf('Academia') >= 0 && titulos.indexOf('Dentista') >= 0,
+    'e as duas fontes no mesmo desenho: rotina e tarefa (' + titulos + ')');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-bloco.rotina').length >= 1`),
+    'o que se repete sai com borda tracejada, senão seria indistinguível');
+  const chips = await ev(`Array.from(${tela()}.querySelectorAll('.gc-chip')).map(function (c) { return c.textContent; }).join(' | ')`);
+  ck(chips.indexOf('Mercado') >= 0 && chips.indexOf('Beber água') >= 0,
+    'o que não tem hora vai para a faixa de dia inteiro em vez de sumir, das duas fontes (' + chips + ')');
+
+  /* rótulo não inventa fim */
+  const rotulos = await ev(`(function () {
+    var r = {};
+    currentScreen().el.querySelectorAll('.gc-bloco').forEach(function (b) {
+      r[b.querySelector('b').textContent] = b.querySelector('span').textContent;
+    });
+    return JSON.stringify(r);
+  })()`);
+  const mapa = JSON.parse(rotulos);
+  ck(mapa['Academia'] === '06:30 – 08:00', 'com fim marcado, o bloco mostra a faixa');
+  ck(mapa['Estudar'] === '19:00',
+    'sem fim marcado, mostra só o começo: a altura de uma hora é desenho, não dado');
+  await shot('v13-cronograma');
+
+  /* tocar num bloco de rotina abre o menu do item, e não o editor de tarefa */
+  await ev(`(function () {
+    var b = Array.from(currentScreen().el.querySelectorAll('.gc-bloco')).find(function (x) {
+      return x.querySelector('b').textContent === 'Academia';
+    });
+    b.click(); return 'ok';
+  })()`);
+  await sleep(700);
+  ck(await ev("!!document.querySelector('.sheet') && document.querySelector('.sheet').textContent.indexOf('Dias da semana') > 0"),
+    'tocar num bloco de rotina abre o menu do item');
+  await ev("document.querySelector('.backdrop').click()"); await sleep(500);
+
+  await ev(`${tela()}.querySelector('.seg [data-m=semana]').click()`); await sleep(800);
+  ck(await ev(`${tela()}.querySelectorAll('.gc-col').length === 7`), 'a chave Semana abre as sete colunas');
+  ck(await ev(`${tela()}.querySelectorAll('.gc-bloco').length >= 5`),
+    'e a rotina se repete pelos dias em que vale, que é o que faz a grade valer a pena');
+  await ev("S.rotina = []; S.tarefas = []; saveNow();");
+
   console.log('\ntarefas:');
   await ev("popToRoot(); abrirModulo('tarefas');"); await sleep(700);
   ck(await ev("currentScreen().name === 'tarefas'"), 'o módulo se chama tarefas');

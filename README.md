@@ -958,26 +958,53 @@ fazer nada, e a semana passada continua lá para contar. A lista é cortada nos
 O que **não** vale hoje continua à vista, num bloco à parte e apagado. Sumir do
 app no dia de folga faria parecer que sumiu de vez.
 
-## A grade e o calendário saíram
+## A grade voltou, e agora ela tem o que mostrar
 
-O Cronograma virou **Tarefas**, e a grade de horários e o calendário do mês
-saíram com a troca. Eram duas maneiras de olhar o mesmo dado, e nenhuma das duas
-era a que se usa para trabalhar: a grade mostrava o buraco entre compromissos e
-o calendário mostrava o mês inteiro, mas quem abre essa tela quer ver o que tem
-para fazer e riscar.
+O calendário do mês saiu de vez, mas a grade de horários voltou — e vale contar
+por quê, porque eu mesmo a tinha removido no passo anterior.
 
-Ficou a lista — dia aberto, próximos, anteriores, sem data — com a navegação
-entre dias no topo, que é o que de fato andava no tempo. O campo de data do
-cadastro rápido continua alcançando qualquer dia de uma vez.
+Ela mostrava só tarefas avulsas, e por isso era um calendário quase sempre
+vazio: quem tem três compromissos na semana não precisa de grade para vê-los.
+O que mudou foi a rotina ganhar horário. Academia às 6:30 de segunda a sexta,
+estudo às 19:00 em dias alternados — **isso** desenha uma semana. É a diferença
+entre "o que marquei" e "como meus dias são".
 
-Foi uma boa faxina: `faixaDeHoras`, `blocosDoDia`, `inicioSemanaSeg`,
-`marcasDoMes` e a conversão de hora para minutos existiam só para desenhar
-retângulo, e foram junto. A hora de término sobreviveu, porque a lista mostra
-"06:30 – 08:00" — mas ali ela é texto e não precisa virar número.
+### A grade não desenha tarefa: desenha compromisso
 
-O nome mudou até o fim: o id do módulo, a aba, a tela e o `screen.name` são
-`tarefas`. Deixar `cronograma` por dentro e "Tarefas" por fora seria plantar uma
-confusão para daqui a três meses.
+Rotina e tarefa são coisas diferentes o bastante para terem telas separadas,
+mas viram a mesma coisa quando têm hora. `agendaDoDia()` devolve as duas fontes
+com o mesmo formato — `{ fonte, ref, titulo, hora, fim, cor, feito }` — e o
+desenho não precisa saber de onde vieram. `ref` é o objeto original, para o
+toque saber o que abrir: tarefa vai para o editor de tarefa, item de rotina
+para o menu dele.
+
+**O que se repete tem a borda tracejada.** Desde que o app passou a ter uma cor
+só, um bloco de segunda a sexta ficaria indistinguível de um compromisso de uma
+vez só — e são coisas que se leem diferente.
+
+**A grade não edita.** Rotina se monta na Rotina, tarefa se monta em Tarefas;
+aqui se confere. A exceção é o toque no vazio, que cria uma **tarefa** naquela
+hora — e não item de rotina, porque "isso se repete" é uma decisão que se toma
+na tela dela e não num toque de passagem.
+
+**O rótulo não inventa fim.** Sem fim marcado o bloco vale uma hora, senão teria
+altura zero — mas ele escreve só o começo. A altura é necessidade de desenho;
+escrever "08:15 – 09:15" num item que termina quando terminar seria dado falso.
+
+### O horário na rotina é opcional
+
+Item sem hora continua valendo o dia inteiro e some da grade, o que é o certo:
+"beber água" não tem horário. Ele aparece na faixa de dia inteiro, no topo,
+junto com as tarefas sem hora.
+
+A folha do horário traz **"Sem horário"** como botão, ao lado de "Pronto": quem
+marcou hora por engano precisa de uma saída que não seja apagar dois campos de
+tempo nativos um por um.
+
+Na lista, a hora vem antes dos dias — "06:30 – 08:00 · seg · ter · qua" — porque
+é ela que ordena a linha. E a ordem é a mesma das tarefas: com hora primeiro, na
+ordem do relógio. Quem lê as duas telas não deveria precisar aprender duas
+ordens.
 
 ## O campo de data centralizado
 

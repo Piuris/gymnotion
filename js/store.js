@@ -1107,11 +1107,13 @@ const corDe = (item) => (item && item.cor) || corMarca();
 const DIAS_ROTINA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const MEMORIA_ROTINA = 120;   // dias guardados por item; o resto é poeira
 
-function novoItemRotina(titulo, dias, cor) {
+function novoItemRotina(titulo, dias, cor, hora, fim) {
   const i = {
     id: uid('r_'),
     titulo: String(titulo || 'Novo item').trim(),
     dias: Array.isArray(dias) ? dias.slice().sort() : [],   // vazio = todo dia
+    hora: hora || '',   // 'HH:MM'; vazio = sem hora marcada, some da grade
+    fim: fim || '',
     cor: cor || '',
     criado: Date.now(),
     feitos: [],
@@ -1134,7 +1136,14 @@ const valeNoDia = (i, ts) => !i.dias.length
 
 const feitoNoDia = (i, ts) => i.feitos.indexOf(dayKey(ts == null ? Date.now() : ts)) >= 0;
 
-const rotinaDoDia = (ts) => S.rotina.filter((i) => valeNoDia(i, ts));
+/* Com hora primeiro, na ordem do relógio; sem hora depois, na ordem em que
+   foram criados. A mesma regra da lista de tarefas — quem lê as duas telas não
+   deveria precisar aprender duas ordens. */
+const rotinaDoDia = (ts) => S.rotina.filter((i) => valeNoDia(i, ts)).sort((a, b) => {
+  if (!!a.hora !== !!b.hora) return a.hora ? -1 : 1;
+  if (a.hora && b.hora && a.hora !== b.hora) return a.hora < b.hora ? -1 : 1;
+  return a.criado - b.criado;
+});
 
 const rotinaFeitos = (ts) => rotinaDoDia(ts).filter((i) => feitoNoDia(i, ts)).length;
 
@@ -1273,10 +1282,92 @@ function novaTarefa(dados) {
 
 const getTarefa = (id) => S.tarefas.find((t) => t.id === id);
 
-/* A grade da semana saiu do app, e com ela `faixaDeHoras`, `blocosDoDia`,
-   `inicioSemanaSeg` e a conversão de hora para minutos — tudo isso existia só
-   para desenhar retângulo. A hora de término continua, porque a lista mostra
-   "06:30 – 08:00", mas ela é texto e não precisa virar número. */
+/* ---------- a semana desenhada como grade ----------
+
+   Isto já tinha saído do app uma vez, e voltou por um bom motivo: a grade
+   mostrando só tarefas avulsas era um calendário quase sempre vazio. Com a
+   rotina em horários fixos, ela passa a mostrar a semana de verdade — é a
+   diferença entre "o que marquei" e "como meus dias são".
+
+   Por isso a grade não desenha tarefa: desenha **compromisso**, que é o que
+   rotina e tarefa viram quando têm hora. As duas fontes chegam com o mesmo
+   formato e o desenho não precisa saber de onde vieram. */
+
+const BLOCO_PADRAO_MIN = 60;
+
+/* 'HH:MM' em minutos desde a meia-noite, ou null quando não há hora. */
+function minutosDaHora(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return null;
+  const min = Number(m[1]) * 60 + Number(m[2]);
+  return min >= 0 && min <= 1440 ? min : null;
+}
+
+const horaDeMinutos = (min) => pad2(Math.floor(min / 60) % 24) + ':' + pad2(Math.round(min) % 60);
+
+/* Começo e fim em minutos. Sem fim marcado o bloco vale uma hora: é o palpite
+   que menos erra, e a grade não pode ter bloco de altura zero. */
+function faixaDeHora(hora, fim) {
+  const ini = minutosDaHora(hora);
+  if (ini == null) return null;
+  let f = minutosDaHora(fim);
+  if (f == null || f <= ini) f = ini + BLOCO_PADRAO_MIN;
+  return { ini, fim: Math.min(1440, f) };
+}
+
+/* Segunda-feira da semana de `ts`. A academia conta a semana do domingo, porque
+   é assim que a meta semanal fecha; a grade abre na segunda, como o calendário
+   de parede que ela imita. */
+function inicioSemanaSeg(ts) {
+  const d = new Date(ts == null ? Date.now() : ts);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+const DIAS_SEMANA_SEG = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+
+/* Tudo o que ocupa um dia, de qualquer fonte, no formato que a grade desenha.
+   `ref` é o objeto original, para o toque saber o que abrir. */
+function agendaDoDia(ts) {
+  const quando = ts == null ? Date.now() : ts;
+  const itens = [];
+
+  rotinaDoDia(quando).forEach((i) => itens.push({
+    fonte: 'rotina', ref: i, titulo: i.titulo,
+    hora: i.hora, fim: i.fim, cor: corDe(i), feito: feitoNoDia(i, quando),
+  }));
+
+  tarefasDoDia(quando).forEach((t) => itens.push({
+    fonte: 'tarefa', ref: t, titulo: t.titulo,
+    hora: t.hora, fim: t.fim, cor: corDe(t), feito: !!t.feito,
+  }));
+
+  const comHora = [];
+  const semHora = [];
+  itens.forEach((x) => (minutosDaHora(x.hora) == null ? semHora : comHora).push(x));
+  comHora.sort((a, b) => minutosDaHora(a.hora) - minutosDaHora(b.hora));
+  return { comHora, semHora };
+}
+
+/* Faixa de horas que a grade precisa mostrar. Sem nada marcado ela abre das 7
+   às 21 — mostrar as 24 horas faria o dia inteiro caber na tela e nenhum bloco
+   ficar legível. Com algo fora dessa janela, ela cresce só o necessário. */
+function faixaDeHoras(itens) {
+  let min = 7 * 60;
+  let max = 21 * 60;
+  (itens || []).forEach((x) => {
+    const f = faixaDeHora(x.hora, x.fim);
+    if (!f) return;
+    min = Math.min(min, f.ini);
+    max = Math.max(max, f.fim);
+  });
+  return {
+    ini: Math.max(0, Math.floor(min / 60) - 1),
+    fim: Math.min(24, Math.ceil(max / 60) + 1),
+  };
+}
+
 
 /* Quem tem hora vem primeiro, na ordem do relógio; depois o que é só tarefa;
    o que já foi feito desce para o fim em vez de sumir. */
