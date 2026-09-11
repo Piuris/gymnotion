@@ -337,20 +337,28 @@ function gradeCronograma(screen, modo) {
   tab.appendChild(cab);
 
   /* faixa de dia inteiro: o que não tem hora não some da grade */
-  if (dias.some((d) => d.semHora.length)) {
-    const linha = h('<div class="gc-todo-dia"><div class="gc-canto"><span>dia inteiro</span></div></div>');
-    dias.forEach((d) => {
-      const cel = h('<div class="gc-avulsos"></div>');
-      d.semHora.forEach((x) => {
-        const chip = h(`<button class="gc-chip${x.feito ? ' feito' : ''}${x.fonte === 'rotina' ? ' rotina' : ''}">${esc(x.titulo)}</button>`);
-        setAccent(x.cor, chip);
-        chip.addEventListener('click', () => abrirDaGrade(x, d.ts, screen));
-        cel.appendChild(chip);
-      });
-      linha.appendChild(cel);
+  /* O que a grade precisa saber para um arrasto achar o alvo: as colunas com
+     o dia de cada uma, e as células da faixa de dia inteiro. */
+  const alvos = { faixa, cols: [], banda: [] };
+
+  /* A faixa existe sempre que a grade existe, mesmo vazia: é para onde se
+     arrasta um bloco para tirar a hora dele, e um alvo que só aparece quando
+     já tem coisa dentro não serve de alvo. */
+  const linha = h('<div class="gc-todo-dia"><div class="gc-canto"><span>dia inteiro</span></div></div>');
+  dias.forEach((d) => {
+    const cel = h('<div class="gc-avulsos"></div>');
+    d.semHora.forEach((x) => {
+      const chip = h(`<button class="gc-chip${x.feito ? ' feito' : ''}${x.fonte === 'rotina' ? ' rotina' : ''}"><i class="gc-ok">${icon('check')}</i>${esc(x.titulo)}</button>`);
+      setAccent(x.cor, chip);
+      chip.addEventListener('click', () => abrirDaGrade(x, d.ts, screen));
+      checkNaGrade(chip, x, d.ts, screen);
+      arrastavel(chip, x, d.ts, screen, alvos);
+      cel.appendChild(chip);
     });
-    tab.appendChild(linha);
-  }
+    alvos.banda.push({ ts: d.ts, el: cel });
+    linha.appendChild(cel);
+  });
+  tab.appendChild(linha);
 
   /* corpo: régua de horas à esquerda e uma coluna por dia */
   const corpo = h('<div class="gc-corpo"></div>');
@@ -370,11 +378,15 @@ function gradeCronograma(screen, modo) {
         style="top:${topo.toFixed(1)}px;height:${alto.toFixed(1)}px">
         <b>${esc(x.titulo)}</b>
         <span>${esc(x.fim ? x.hora + ' – ' + x.fim : x.hora)}</span>
+        <i class="gc-ok">${icon('check')}</i>
       </button>`);
       setAccent(x.cor, bl);
       bl.addEventListener('click', (e) => { e.stopPropagation(); abrirDaGrade(x, d.ts, screen); });
+      checkNaGrade(bl, x, d.ts, screen);
+      arrastavel(bl, x, d.ts, screen, alvos);
       col.appendChild(bl);
     });
+    alvos.cols.push({ ts: d.ts, el: col });
 
     /* tocar no vazio cria tarefa, e não item de rotina: rotina é decisão de
        "isso se repete", que se toma na tela dela e não num toque de passagem */
@@ -388,6 +400,14 @@ function gradeCronograma(screen, modo) {
     corpo.appendChild(col);
   });
   tab.appendChild(corpo);
+
+  /* No toque, o navegador decide na primeira mexida se aquilo é rolagem — e
+     decidido, não volta atrás. Impedir o padrão aqui, só enquanto um arrasto
+     está de pé, é o que deixa o dedo levar o bloco em vez da página. */
+  box.addEventListener('touchmove', (e) => { if (ARRASTO.ativo) e.preventDefault(); }, { passive: false });
+  box.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.gc-bloco, .gc-chip')) e.preventDefault();
+  });
   return box;
 }
 
@@ -396,6 +416,160 @@ function gradeCronograma(screen, modo) {
 function abrirDaGrade(x, ts, screen) {
   if (x.fonte === 'tarefa') editorTarefa(x.ref, x.ref.data, screen);
   else menuItemRotina(x.ref, screen, ts);
+}
+
+/* Marcar feito sem abrir nada: o círculo no canto do bloco é o mesmo gesto da
+   lista, e a grade do dia vira um checklist com as horas desenhadas. */
+function checkNaGrade(el, x, ts, screen) {
+  el.querySelector('.gc-ok').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (x.fonte === 'tarefa') alternarTarefa(x.ref.id);
+    else alternarItemRotina(x.ref.id, ts);
+    haptic();
+    screen.refresh();
+  });
+}
+
+/* ---------- arrastar na grade ----------
+
+   Um calendário promete isto só por existir: pegar o bloco e levá-lo para a
+   hora certa. E é o gesto que resolve a rotina de quem faz a mesma coisa todo
+   dia em horários diferentes — cada arrasto vale só para aquele dia, o item
+   continua sendo um só.
+
+   No mouse, mover já é arrastar. No dedo, mover é rolar a grade — então o
+   arrasto começa segurando por um instante, e antes disso a rolagem continua
+   sendo dela. A hora anda de quinze em quinze minutos: é o que se lê na régua
+   e o que ninguém marca de outro jeito.
+
+   Tarefa muda de dia e de hora; item de rotina só de hora, porque o dia em que
+   ele vale se decide na Rotina, não num arrasto. Soltar na faixa de dia inteiro
+   tira a hora — é o caminho de volta, dentro do mesmo gesto. */
+
+const PASSO_ARRASTO = 15;
+const SEGURAR_NO_TOQUE = 300;
+const ARRASTO = { ativo: false, fim: 0 };
+
+/* O clique que o navegador dispara depois de soltar abriria o editor por cima
+   do que acabou de ser movido. */
+window.addEventListener('click', (e) => {
+  if (Date.now() - ARRASTO.fim < 400) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
+function arrastavel(el, x, tsOrigem, screen, alvos) {
+  const f = faixaDeHora(x.hora, x.fim);
+  const dur = f ? f.fim - f.ini : BLOCO_PADRAO_MIN;
+  const temFim = !!x.fim;
+  let inicio = null;      // { x, y, id, offMin }
+  let timer = 0;
+  let fantasma = null;
+  let alvo = null;        // { col, ts, min } | { banda, ts }
+
+  const colunaEm = (cx) => {
+    if (x.fonte === 'rotina') return alvos.cols.find((c) => c.ts === tsOrigem) || alvos.cols[0];
+    return alvos.cols.find((c) => {
+      const r = c.el.getBoundingClientRect();
+      return cx >= r.left && cx < r.right;
+    });
+  };
+  const bandaEm = (cx, cy) => alvos.banda.find((b) => {
+    const r = b.el.getBoundingClientRect();
+    const naColuna = x.fonte === 'rotina' ? b.ts === tsOrigem : (cx >= r.left && cx < r.right);
+    return naColuna && cy >= r.top && cy < r.bottom;
+  });
+
+  const limpar = () => {
+    clearTimeout(timer);
+    timer = 0;
+    if (fantasma) fantasma.remove();
+    fantasma = null;
+    alvos.banda.forEach((b) => b.el.classList.remove('alvo'));
+    el.classList.remove('arrastando');
+    if (ARRASTO.ativo) ARRASTO.fim = Date.now();
+    ARRASTO.ativo = false;
+    inicio = null;
+    alvo = null;
+  };
+
+  const ativar = () => {
+    ARRASTO.ativo = true;
+    el.classList.add('arrastando');
+    try { el.setPointerCapture(inicio.id); } catch (e) { /* já solto */ }
+    fantasma = h(`<div class="gc-bloco fantasma"><b>${esc(x.titulo)}</b><span></span></div>`);
+    setAccent(x.cor, fantasma);
+    fantasma.style.height = Math.max(24, (dur / 60) * ALTURA_HORA).toFixed(1) + 'px';
+    haptic();
+  };
+
+  const mover = (cx, cy) => {
+    const banda = bandaEm(cx, cy);
+    alvos.banda.forEach((b) => b.el.classList.toggle('alvo', b === banda));
+    if (banda) {
+      alvo = { banda: true, ts: banda.ts };
+      fantasma.remove();
+      return;
+    }
+    const col = colunaEm(cx);
+    if (!col) { alvo = null; fantasma.remove(); return; }
+    const r = col.el.getBoundingClientRect();
+    const bruto = alvos.faixa.ini * 60 + ((cy - r.top) / ALTURA_HORA) * 60 - inicio.offMin;
+    const maximo = Math.min(1440, alvos.faixa.fim * 60) - dur;
+    const min = Math.max(alvos.faixa.ini * 60, Math.min(maximo, Math.round(bruto / PASSO_ARRASTO) * PASSO_ARRASTO));
+    alvo = { col, ts: col.ts, min };
+    fantasma.style.top = (((min - alvos.faixa.ini * 60) / 60) * ALTURA_HORA).toFixed(1) + 'px';
+    fantasma.querySelector('span').textContent = temFim
+      ? horaDeMinutos(min) + ' – ' + horaDeMinutos(min + dur)
+      : horaDeMinutos(min);
+    if (fantasma.parentNode !== col.el) col.el.appendChild(fantasma);
+  };
+
+  const soltar = () => {
+    const onde = alvo;
+    const ativo = ARRASTO.ativo;
+    limpar();
+    if (!ativo || !onde) return;
+    if (onde.banda) {
+      if (!x.hora && dayKey(onde.ts) === dayKey(tsOrigem)) return;   // já estava ali
+      if (x.fonte === 'tarefa') moverTarefa(x.ref.id, dayKey(onde.ts), '', '');
+      else definirHorarioNoDia(x.ref.id, onde.ts, '', '');
+      toast('Sem horário' + (x.fonte === 'rotina' ? ' só neste dia' : ''));
+    } else {
+      const hora = horaDeMinutos(onde.min);
+      const fim = temFim ? horaDeMinutos(onde.min + dur) : '';
+      if (x.fonte === 'tarefa') moverTarefa(x.ref.id, dayKey(onde.ts), hora, fim);
+      else {
+        definirHorarioNoDia(x.ref.id, onde.ts, hora, fim);
+        toast(hora + ' só ' + (dayKey(onde.ts) === dayKey(Date.now()) ? 'hoje' : 'em ' + diaCurto(onde.ts)));
+      }
+    }
+    haptic();
+    screen.refresh();
+  };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button && e.button !== 0) return;
+    if (e.target.closest('.gc-ok')) return;
+    const r = el.getBoundingClientRect();
+    inicio = {
+      x: e.clientX, y: e.clientY, id: e.pointerId,
+      offMin: el.classList.contains('gc-bloco') ? ((e.clientY - r.top) / ALTURA_HORA) * 60 : 0,
+    };
+    if (e.pointerType === 'touch') {
+      timer = setTimeout(() => { if (inicio) { ativar(); mover(inicio.x, inicio.y); } }, SEGURAR_NO_TOQUE);
+    }
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!inicio) return;
+    if (!ARRASTO.ativo) {
+      const longe = Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y);
+      if (e.pointerType === 'touch') { if (longe > 8) limpar(); return; }   // rolagem, não arrasto
+      if (longe < 4) return;
+      ativar();
+    }
+    mover(e.clientX, e.clientY);
+  });
+  el.addEventListener('pointerup', () => { if (inicio) soltar(); });
+  el.addEventListener('pointercancel', limpar);
 }
 
 /* =========================================================
@@ -521,11 +695,16 @@ function toquesDeDia(i, screen) {
    marcar coisa feita ser sempre o mesmo gesto no app inteiro. */
 function linhaRotina(i, screen, apagada) {
   const feito = feitoNoDia(i);
+  /* A linha de hoje mostra a hora de hoje; a de um item que não vale hoje, a
+     de sempre. Quando hoje foi mexido, a linha diz — senão amanhã a hora
+     "voltaria" sem explicação. */
+  const hd = apagada ? { hora: i.hora || '', fim: i.fim || '' } : horarioNoDia(i);
+  const soHoje = !apagada && temHorarioProprio(i);
   const row = h(`<div class="tarefa${feito ? ' feito' : ''}${apagada ? ' fora' : ''}">
     <button class="check sm${feito ? ' on' : ''}" data-act="ok"${apagada ? ' disabled' : ''}>${icon('check')}</button>
     <div class="tarefa-txt">
       <b>${esc(i.titulo)}</b>
-      <span class="rot-sub">${i.hora ? `<i>${esc(i.fim ? i.hora + ' – ' + i.fim : i.hora)}</i>` : ''}</span>
+      <span class="rot-sub">${hd.hora ? `<i>${esc(hd.fim ? hd.hora + ' – ' + hd.fim : hd.hora)}</i>` : ''}${soHoje ? '<em>só hoje</em>' : ''}</span>
     </div>
     <button class="kebab" data-act="menu">${icon('dots')}</button>
   </div>`);
@@ -547,10 +726,20 @@ function linhaRotina(i, screen, apagada) {
    menu: o item é o mesmo, e ter dois jeitos de mexer nele seria ter dois. */
 function menuItemRotina(i, screen, ts) {
   const feito = feitoNoDia(i, ts);
+  const dia = ts == null ? Date.now() : ts;
+  const hoje = dayKey(dia) === dayKey(Date.now());
+  /* Dois horários: o de sempre e o só deste dia. Da grade, o dia vem primeiro,
+     porque foi num dia que se tocou; da lista, o de sempre. */
+  const horarios = [
+    { label: 'Horário de sempre', icon: 'clock', onClick: () => horaDaRotina(i, screen) },
+    { label: hoje ? 'Horário só hoje' : 'Horário só em ' + diaCurto(dia), icon: 'clock',
+      onClick: () => horaDaRotina(i, screen, dia) },
+  ];
+  if (ts != null) horarios.reverse();
   actionSheet(i.titulo, [
     { label: feito ? 'Desmarcar' : 'Marcar como feito', icon: 'check',
       onClick: () => { alternarItemRotina(i.id, ts); haptic(); screen.refresh(); } },
-    { label: 'Horário', icon: 'clock', onClick: () => horaDaRotina(i, screen) },
+    ...horarios,
     /* Os dias ficam na própria linha da Rotina; aqui o menu serve à grade do
        cronograma, onde não há linha para tocar. */
     { label: 'Dias da semana', icon: 'calendario', onClick: () => diasDaRotina(i, screen) },
@@ -565,19 +754,30 @@ function menuItemRotina(i, screen, ts) {
 }
 
 /* Início e fim. Limpar os dois devolve o item ao dia inteiro — é a saída de
-   quem marcou hora por engano, e ela precisa existir dentro da mesma folha. */
-function horaDaRotina(i, screen) {
+   quem marcou hora por engano, e ela precisa existir dentro da mesma folha.
+
+   Com `ts`, a folha escreve o horário só daquele dia: é o jeito à mão de fazer
+   o que o arrasto faz na grade, para quem prefere digitar — ou está no
+   celular, onde arrastar é segurar antes. "Como sempre" apaga o do dia. */
+function horaDaRotina(i, screen, ts) {
+  const soDia = ts != null;
+  const atual = soDia ? horarioNoDia(i, ts) : { hora: i.hora || '', fim: i.fim || '' };
+  const hoje = soDia && dayKey(ts) === dayKey(Date.now());
+  const sempre = i.hora ? (i.fim ? i.hora + ' – ' + i.fim : i.hora) : 'sem horário';
   const box = h(`<div class="form">
-    <h3>Horário</h3>
-    <p class="desc">Sem horário, o item vale o dia inteiro e não aparece na grade do cronograma.</p>
+    <h3>${soDia ? (hoje ? 'Horário só hoje' : 'Horário em ' + esc(diaCurto(ts))) : 'Horário'}</h3>
+    <p class="desc">${soDia
+      ? 'Vale só para este dia. Os outros seguem o horário de sempre: ' + esc(sempre) + '.'
+      : 'Sem horário, o item vale o dia inteiro e não aparece na grade do cronograma.'}</p>
     <div class="form-corpo">
       <div class="form-linha">
-        <label>Início<input class="text-input" type="time" data-c="hora" value="${esc(i.hora || '')}"/></label>
-        <label>Fim<input class="text-input" type="time" data-c="fim" value="${esc(i.fim || '')}"/></label>
+        <label>Início<input class="text-input" type="time" data-c="hora" value="${esc(atual.hora)}"/></label>
+        <label>Fim<input class="text-input" type="time" data-c="fim" value="${esc(atual.fim)}"/></label>
       </div>
     </div>
     <div class="sheet-actions">
       <button class="pill-btn grey" data-x="limpar">Sem horário</button>
+      ${soDia && temHorarioProprio(i, ts) ? '<button class="pill-btn grey" data-x="sempre">Como sempre</button>' : ''}
       <button class="pill-btn" data-x="ok">Pronto</button>
     </div>
   </div>`);
@@ -586,13 +786,18 @@ function horaDaRotina(i, screen) {
   setAccent(corDe(i), box);
 
   const guardar = (hora, fim) => {
-    i.hora = hora;
-    i.fim = fim;
-    saveNow();
+    if (soDia) definirHorarioNoDia(i.id, ts, hora, fim);
+    else {
+      i.hora = hora;
+      i.fim = fim;
+      saveNow();
+    }
     r.close();
     setTimeout(() => screen.refresh(), 120);
   };
   box.querySelector('[data-x="limpar"]').addEventListener('click', () => guardar('', ''));
+  const comoSempre = box.querySelector('[data-x="sempre"]');
+  if (comoSempre) comoSempre.addEventListener('click', () => guardar(i.hora || '', i.fim || ''));
   box.querySelector('[data-x="ok"]').addEventListener('click', () => guardar(
     box.querySelector('[data-c="hora"]').value || '',
     box.querySelector('[data-c="fim"]').value || ''));

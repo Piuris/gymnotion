@@ -1114,6 +1114,7 @@ function novoItemRotina(titulo, dias, cor, hora, fim) {
     dias: Array.isArray(dias) ? dias.slice().sort() : [],   // vazio = todo dia
     hora: hora || '',   // 'HH:MM'; vazio = sem hora marcada, some da grade
     fim: fim || '',
+    horarios: {},       // 'AAAA-MM-DD' → { hora, fim }: o horário só daquele dia
     cor: cor || '',
     criado: Date.now(),
     feitos: [],
@@ -1122,6 +1123,41 @@ function novoItemRotina(titulo, dias, cor, hora, fim) {
   save();
   return i;
 }
+
+/* ---------- horário por dia ----------
+
+   "Estudar" é uma coisa só, mas hoje cabe às 14 e amanhã às 19. Um item por
+   horário multiplicaria a rotina por sete e ainda erraria: a hora muda com a
+   semana, não com o dia da semana. Então o item tem um horário de sempre e,
+   por cima dele, o horário de cada data em que foi mexido — arrastando na
+   grade ou escrevendo à mão. Os outros dias não sabem que isso aconteceu. */
+
+const horarioNoDia = (i, ts) => {
+  const k = dayKey(ts == null ? Date.now() : ts);
+  const proprio = i.horarios && i.horarios[k];
+  return proprio ? { hora: proprio.hora || '', fim: proprio.fim || '' } : { hora: i.hora || '', fim: i.fim || '' };
+};
+
+/* Igual ao de sempre é o mesmo que não ter nada anotado — e apagar em vez de
+   guardar um "igual" evita que mudar o de sempre depois deixe este dia preso
+   no valor velho. Datas mais velhas que a memória vão junto com a poeira. */
+function definirHorarioNoDia(id, ts, hora, fim) {
+  const i = getItemRotina(id);
+  if (!i) return null;
+  const k = dayKey(ts == null ? Date.now() : ts);
+  if (!i.horarios) i.horarios = {};
+  const h1 = hora || '';
+  const f1 = h1 ? (fim || '') : '';
+  if (h1 === (i.hora || '') && f1 === (i.fim || '')) delete i.horarios[k];
+  else i.horarios[k] = { hora: h1, fim: f1 };
+
+  const limite = dayKey(Date.now() - MEMORIA_ROTINA * 86400000);
+  Object.keys(i.horarios).forEach((d) => { if (d < limite) delete i.horarios[d]; });
+  saveNow();
+  return i;
+}
+
+const temHorarioProprio = (i, ts) => !!(i.horarios && i.horarios[dayKey(ts == null ? Date.now() : ts)]);
 
 const getItemRotina = (id) => S.rotina.find((i) => i.id === id);
 
@@ -1140,8 +1176,10 @@ const feitoNoDia = (i, ts) => i.feitos.indexOf(dayKey(ts == null ? Date.now() : 
    foram criados. A mesma regra da lista de tarefas — quem lê as duas telas não
    deveria precisar aprender duas ordens. */
 const rotinaDoDia = (ts) => S.rotina.filter((i) => valeNoDia(i, ts)).sort((a, b) => {
-  if (!!a.hora !== !!b.hora) return a.hora ? -1 : 1;
-  if (a.hora && b.hora && a.hora !== b.hora) return a.hora < b.hora ? -1 : 1;
+  const ha = horarioNoDia(a, ts).hora;
+  const hb = horarioNoDia(b, ts).hora;
+  if (!!ha !== !!hb) return ha ? -1 : 1;
+  if (ha && hb && ha !== hb) return ha < hb ? -1 : 1;
   return a.criado - b.criado;
 });
 
@@ -1333,10 +1371,13 @@ function agendaDoDia(ts) {
   const quando = ts == null ? Date.now() : ts;
   const itens = [];
 
-  rotinaDoDia(quando).forEach((i) => itens.push({
-    fonte: 'rotina', ref: i, titulo: i.titulo,
-    hora: i.hora, fim: i.fim, cor: corDe(i), feito: feitoNoDia(i, quando),
-  }));
+  rotinaDoDia(quando).forEach((i) => {
+    const hd = horarioNoDia(i, quando);
+    itens.push({
+      fonte: 'rotina', ref: i, titulo: i.titulo,
+      hora: hd.hora, fim: hd.fim, cor: corDe(i), feito: feitoNoDia(i, quando),
+    });
+  });
 
   tarefasDoDia(quando).forEach((t) => itens.push({
     fonte: 'tarefa', ref: t, titulo: t.titulo,
@@ -1409,6 +1450,18 @@ function alternarTarefa(id) {
   if (!t) return null;
   t.feito = !t.feito;
   t.feitoEm = t.feito ? Date.now() : 0;
+  saveNow();
+  return t;
+}
+
+/* Reposicionar no tempo: outro dia, outra hora, ou hora nenhuma. O fim só se
+   mantém se havia um — arrastar não inventa duração. */
+function moverTarefa(id, data, hora, fim) {
+  const t = getTarefa(id);
+  if (!t) return null;
+  if (data) t.data = data;
+  t.hora = hora || '';
+  t.fim = t.hora ? (fim || '') : '';
   saveNow();
   return t;
 }

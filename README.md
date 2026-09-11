@@ -1035,6 +1035,47 @@ Na lista, a hora vem antes dos dias — "06:30 – 08:00 · seg · ter · qua" �
 ordem do relógio. Quem lê as duas telas não deveria precisar aprender duas
 ordens.
 
+### Um horário por dia, por cima do de sempre
+
+"Estudar" é uma coisa só, mas hoje cabe às 14 e amanhã às 19. Um item por
+horário multiplicaria a rotina por sete e ainda erraria: a hora muda com a
+semana, não com o dia da semana. Então o item tem um **horário de sempre** e,
+por cima dele, o horário de cada data em que foi mexido (`horarios`, chaveado
+por `AAAA-MM-DD`). `horarioNoDia(item, ts)` responde o que vale naquele dia; os
+outros dias não sabem que aconteceu algo.
+
+Escrever no dia o mesmo horário de sempre **apaga** a anotação em vez de guardar
+um "igual": senão mudar o de sempre depois deixaria aquele dia preso no valor
+velho. Datas mais velhas que a memória da rotina (120 dias) vão embora junto.
+
+Dois caminhos escrevem isso:
+
+- **Arrastar na grade.** No mouse, mover já é arrastar. No dedo, mover é rolar a
+  grade — então o arrasto começa segurando por 300 ms, e antes disso a rolagem
+  continua sendo dela (um `touchmove` não-passivo impede o padrão só enquanto
+  um arrasto está de pé; é o que deixa o dedo levar o bloco em vez da página).
+  A hora anda de quinze em quinze minutos e o fantasma mostra para onde vai,
+  o que é o que dispensa confirmação. Tarefa muda de dia e de hora; item de
+  rotina só de hora, porque o dia em que ele vale se decide na Rotina. Soltar
+  na **faixa de dia inteiro** tira a hora — o caminho de volta, dentro do mesmo
+  gesto — e por isso a faixa existe mesmo vazia. Arrastar um chip da faixa
+  para dentro dá hora a ele, sem fim inventado. O clique que o navegador
+  dispara ao soltar é engolido por 400 ms; sem isso, soltar abriria o editor
+  por cima do que acabou de ser movido.
+- **A folha do dia.** O menu do item ganhou "Horário só hoje" (ou "só em 14 de
+  set.", na grade) ao lado de "Horário de sempre". A folha diz qual é o de
+  sempre e traz "Como sempre" quando há anotação para apagar.
+
+Na lista, a linha de hoje mostra a hora de hoje com um selo **só hoje** quando
+ela difere da de sempre — senão amanhã a hora "voltaria" sem explicação.
+
+### O check no bloco
+
+O círculo no canto de cada bloco (e de cada chip) marca feito sem abrir nada. É
+o mesmo gesto da lista, e com ele a grade do dia vira um checklist com as horas
+desenhadas — o que o cronograma prometia e não entregava enquanto marcar exigia
+kebab e menu.
+
 ## O campo de data centralizado
 
 Os controles nativos de data e hora desenham um bloco de largura fixa

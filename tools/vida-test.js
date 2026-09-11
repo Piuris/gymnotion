@@ -397,6 +397,147 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     'e a rotina se repete pelos dias em que vale, que é o que faz a grade valer a pena');
   await ev("S.rotina = []; S.tarefas = []; saveNow();");
 
+  console.log('\nhorário por dia:');
+  await ev(`(function () {
+    S.rotina = []; S.tarefas = [];
+    novoItemRotina('Estudar', [], '', '19:00', '20:00');
+    novaTarefa({ titulo: 'Dentista', data: dayKey(Date.now()), hora: '09:00', fim: '10:00' });
+    novaTarefa({ titulo: 'Mercado', data: dayKey(Date.now()) });
+    saveNow(); popToRoot(); definirModoCronograma('dia'); abrirModulo('cronograma');
+    return 'ok';
+  })()`);
+  await sleep(900);
+  const estudar = "S.rotina.find(function (i) { return i.titulo === 'Estudar'; })";
+  const amanha = 'Date.now() + 86400000';
+
+  /* o modelo: um item, um horário por dia por cima do de sempre */
+  await ev(`definirHorarioNoDia(${estudar}.id, Date.now(), '14:00', '15:00')`);
+  ck(await ev(`horarioNoDia(${estudar}).hora === '14:00' && horarioNoDia(${estudar}, ${amanha}).hora === '19:00'`),
+    'o horário de um dia não mexe nos outros: hoje 14:00, amanhã continua 19:00');
+  ck(await ev(`${estudar}.hora === '19:00'`), 'e o de sempre fica como estava');
+  await ev(`definirHorarioNoDia(${estudar}.id, Date.now(), '19:00', '20:00')`);
+  ck(await ev(`!temHorarioProprio(${estudar})`),
+    'escrever o mesmo horário de sempre apaga a anotação do dia em vez de guardar um "igual"');
+
+  /* arrastar: mouse, duas horas para baixo */
+  const arrastar = (achar, dx, dy) => ev(`(function () {
+    var el = ${achar};
+    if (!el) return 'não achei';
+    var r = el.getBoundingClientRect();
+    var x0 = r.left + r.width / 2, y0 = r.top + 8;
+    var opts = function (x, y) { return { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 }; };
+    el.dispatchEvent(new PointerEvent('pointerdown', opts(x0, y0)));
+    el.dispatchEvent(new PointerEvent('pointermove', opts(x0 + 2, y0 + 2)));
+    el.dispatchEvent(new PointerEvent('pointermove', opts(x0 + (${dx}), y0 + (${dy}))));
+    var fantasma = currentScreen().el.querySelector('.gc-bloco.fantasma');
+    var rotulo = fantasma ? fantasma.querySelector('span').textContent : '(sem fantasma)';
+    el.dispatchEvent(new PointerEvent('pointerup', opts(x0 + (${dx}), y0 + (${dy}))));
+    return rotulo;
+  })()`);
+  const bloco = (nome) => `Array.from(currentScreen().el.querySelectorAll('.gc-bloco')).find(function (b) { return b.querySelector('b').textContent === '${nome}'; })`;
+
+  const rotulo = await arrastar(bloco('Estudar'), 0, 2 * 54);
+  await sleep(800);
+  ck(rotulo === '21:00 – 22:00', 'enquanto arrasta, o fantasma mostra a hora para onde vai (' + rotulo + ')');
+  ck(await ev(`horarioNoDia(${estudar}).hora === '21:00' && horarioNoDia(${estudar}).fim === '22:00'`),
+    'soltar duas horas abaixo grava 21:00 – 22:00 — e a duração vai junto');
+  ck(await ev(`${estudar}.hora === '19:00' && horarioNoDia(${estudar}, ${amanha}).hora === '19:00'`),
+    'só para hoje: o item continua sendo um só e amanhã segue às 19:00');
+  ck(await ev(`(function () { var b = ${bloco('Estudar')}; return b && b.querySelector('span').textContent; })() === '21:00 – 22:00'`),
+    'a grade redesenha o bloco na hora nova');
+  ck(await ev("!document.querySelector('.sheet')"), 'e o clique que sobra do arrasto não abre o menu por cima');
+
+  /* a tarefa também, para cima e de quinze em quinze */
+  await arrastar(bloco('Dentista'), 0, -54 - 10);
+  await sleep(800);
+  const dent = "S.tarefas.find(function (t) { return t.titulo === 'Dentista'; })";
+  ck(await ev(`${dent}.hora === '07:45' && ${dent}.fim === '08:45'`),
+    'a tarefa anda de quinze em quinze: 64px acima de 09:00 dá 07:45 (' + await ev(`${dent}.hora`) + ')');
+
+  /* para a faixa de dia inteiro: a hora sai */
+  await ev(`(function () {
+    var b = ${bloco('Estudar')}; var banda = currentScreen().el.querySelector('.gc-avulsos');
+    window.__dyBanda = (banda.getBoundingClientRect().top + 10) - (b.getBoundingClientRect().top + 8);
+    return window.__dyBanda;
+  })()`);
+  await arrastar(bloco('Estudar'), 0, 'window.__dyBanda');
+  await sleep(800);
+  ck(await ev(`horarioNoDia(${estudar}).hora === ''`), 'soltar na faixa de dia inteiro tira a hora só de hoje');
+  ck(await ev(`${estudar}.hora === '19:00'`), 'sem mexer no horário de sempre');
+  const chips2 = await ev(`Array.from(currentScreen().el.querySelectorAll('.gc-chip')).map(function (c) { return c.textContent; }).join(' | ')`);
+  ck(chips2.indexOf('Estudar') >= 0, 'e ele aparece como chip lá em cima (' + chips2 + ')');
+
+  /* e de volta: o chip desce para a grade */
+  const chip = `Array.from(currentScreen().el.querySelectorAll('.gc-chip')).find(function (c) { return c.textContent === 'Estudar'; })`;
+  await ev(`(function () {
+    var c = ${chip}; var col = currentScreen().el.querySelector('.gc-col');
+    var rc = c.getBoundingClientRect(), rcol = col.getBoundingClientRect();
+    window.__dy = (rcol.top + 3 * 54 + 2) - (rc.top + 8);
+    return window.__dy;
+  })()`);
+  await arrastar(chip, 0, 'window.__dy');
+  await sleep(800);
+  const horaChip = await ev(`horarioNoDia(${estudar}).hora`);
+  ck(/^\d\d:00$/.test(horaChip) || /^\d\d:15$/.test(horaChip),
+    'o chip arrastado para dentro ganha a hora onde caiu (' + horaChip + ')');
+  ck(await ev(`horarioNoDia(${estudar}).fim === ''`), 'e não ganha um fim inventado');
+
+  /* o check no bloco */
+  await ev(`(function () { var b = ${bloco('Dentista')}; b.querySelector('.gc-ok').click(); return 'ok'; })()`);
+  await sleep(700);
+  ck(await ev(`${dent}.feito === true`), 'o círculo no canto do bloco marca feito sem abrir nada');
+  ck(await ev(`${bloco('Dentista')}.classList.contains('feito')`), 'e o bloco se apaga');
+  ck(await ev("!document.querySelector('.sheet')"), 'sem folha nenhuma');
+  await ev(`(function () { var b = ${bloco('Estudar')}; b.querySelector('.gc-ok').click(); return 'ok'; })()`);
+  await sleep(700);
+  ck(await ev(`feitoNoDia(${estudar})`), 'na rotina também, para o dia da coluna');
+  await shot('v13b-arrasto');
+
+  /* o caminho à mão: a folha do dia */
+  await ev(`horaDaRotina(${estudar}, currentScreen(), Date.now())`);
+  await sleep(700);
+  ck(await ev("!!document.querySelector('.sheet') && document.querySelector('.sheet h3').textContent === 'Horário só hoje'"),
+    'a folha do dia se apresenta como do dia');
+  ck(await ev("!!document.querySelector('.sheet [data-x=sempre]')"), 'e oferece voltar ao de sempre');
+  await ev("document.querySelector('.sheet [data-x=sempre]').click()"); await sleep(700);
+  ck(await ev(`!temHorarioProprio(${estudar}) && horarioNoDia(${estudar}).hora === '19:00'`),
+    '"Como sempre" apaga a anotação de hoje');
+  await ev(`horaDaRotina(${estudar}, currentScreen(), Date.now())`);
+  await sleep(700);
+  await ev(`(function () {
+    document.querySelector('.sheet [data-c="hora"]').value = '06:00';
+    document.querySelector('.sheet [data-c="fim"]').value = '';
+    document.querySelector('.sheet [data-x=ok]').click();
+  })()`);
+  await sleep(700);
+  ck(await ev(`horarioNoDia(${estudar}).hora === '06:00' && ${estudar}.hora === '19:00'`),
+    'digitar na folha do dia grava só o dia');
+
+  /* a lista diz que hoje é diferente */
+  await ev("popToRoot(); abrirModulo('rotina');"); await sleep(800);
+  const subRot = await ev(`(function () {
+    var l = Array.from(currentScreen().el.querySelectorAll('.tarefa')).find(function (x) { return x.textContent.indexOf('Estudar') >= 0; });
+    return l.querySelector('.rot-sub i').textContent + ' ' + (l.querySelector('.rot-sub em') ? l.querySelector('.rot-sub em').textContent : '');
+  })()`);
+  ck(subRot === '06:00 só hoje', 'a linha da rotina mostra a hora de hoje e avisa que é só hoje (' + subRot + ')');
+
+  /* na semana, a tarefa muda de dia */
+  await ev("popToRoot(); definirModoCronograma('semana'); abrirModulo('cronograma');"); await sleep(900);
+  await ev(`(function () {
+    var b = ${bloco('Dentista')}; var cols = currentScreen().el.querySelectorAll('.gc-col');
+    var i = Array.prototype.indexOf.call(cols, b.parentNode);
+    var alvo = cols[i === 6 ? 5 : i + 1];
+    window.__dx = alvo.getBoundingClientRect().left - b.getBoundingClientRect().left;
+    window.__dia = i === 6 ? -1 : 1;
+    return i;
+  })()`);
+  await arrastar(bloco('Dentista'), 'window.__dx', 0);
+  await sleep(800);
+  ck(await ev(`${dent}.data === dayKey(Date.now() + window.__dia * 86400000)`),
+    'na semana, a tarefa arrastada para a coluna do lado muda de dia');
+  ck(await ev(`${dent}.hora === '07:45'`), 'e mantém a hora');
+  await ev("S.rotina = []; S.tarefas = []; saveNow();");
+
   console.log('\ntarefas:');
   await ev("popToRoot(); abrirModulo('tarefas');"); await sleep(700);
   ck(await ev("currentScreen().name === 'tarefas'"), 'o módulo se chama tarefas');

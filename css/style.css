@@ -2927,3 +2927,53 @@ body.arrastando-algo .scroll { overflow: hidden; }
    diriam. */
 .dia-toque.todo { background: var(--fill-1); color: var(--txt-2); }
 .tarefa.feito .dia-toque { opacity: .6; }
+
+/* ---------- a grade se arrasta ----------
+
+   O bloco que está sendo levado fica onde estava, apagado; o que anda com o
+   dedo é um fantasma com a hora escrita. Ver a hora mudar de quinze em quinze
+   enquanto se arrasta é o que faz o gesto dispensar confirmação. */
+.gc-bloco, .gc-chip {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+.gc-bloco.arrastando, .gc-chip.arrastando { opacity: .3; }
+.gc-bloco.fantasma {
+  pointer-events: none; z-index: 5;
+  background: var(--a35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  outline: 1px solid var(--accent); outline-offset: -1px;
+}
+.gc-bloco.fantasma b, .gc-bloco.fantasma span { display: block; }
+.gc-avulsos { min-height: 30px; transition: background .12s; }
+.gc-avulsos.alvo { background: var(--a10); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* O check no canto do bloco: marcar sem abrir nada. Pequeno porque divide o
+   bloco com o nome, mas o círculo inteiro é o alvo. */
+.gc-ok {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--a35);
+  display: flex; align-items: center; justify-content: center;
+  font-style: normal; cursor: pointer;
+  transition: background .12s, transform .12s;
+}
+.gc-ok svg { width: 10px; height: 10px; fill: none; stroke: transparent; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.gc-ok:active { transform: scale(.85); }
+.gc-bloco.feito .gc-ok, .gc-chip.feito .gc-ok { background: var(--accent); border-color: var(--accent); }
+.gc-bloco.feito .gc-ok svg, .gc-chip.feito .gc-ok svg { stroke: var(--on-accent, #000); }
+.gc-bloco.feito { opacity: .65; }
+.gc-bloco b { padding-right: 20px; }
+.gc-bloco.baixo .gc-ok { top: 50%; transform: translateY(-50%); }
+.gc-bloco.baixo .gc-ok:active { transform: translateY(-50%) scale(.85); }
+.gc-chip { display: inline-flex; align-items: center; gap: 5px; padding-left: 5px; }
+.gc-chip .gc-ok { position: static; width: 14px; height: 14px; flex: 0 0 14px; }
+.gc-chip .gc-ok svg { width: 8px; height: 8px; }
+.gc-chip.feito { opacity: .6; }
+
+.rot-sub em {
+  font-style: normal; font-size: 11px; font-weight: 510;
+  color: var(--txt-3);
+  padding: 1px 6px; border-radius: var(--r-selo);
+  background: var(--fill-1);
+}
