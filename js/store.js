@@ -540,10 +540,13 @@ function sessionStats(exercises, durationSec, bodyweight) {
   return { volume: Math.round(volume), sets, reps, calorias };
 }
 
+/* Teto de duração: treino esquecido aberto não vira um registro de 9 horas. */
+const TREINO_MAX_MS = 2 * 60 * 60 * 1000;
+
 function finishSession() {
   if (!S.active) return null;
   const a = S.active;
-  const durationSec = Math.round(activeElapsedMs() / 1000);
+  const durationSec = Math.round(Math.min(activeElapsedMs(), TREINO_MAX_MS) / 1000);
   const done = a.exercises
     .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done) }))
     .filter((e) => e.sets.length > 0);

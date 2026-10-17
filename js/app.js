@@ -2488,10 +2488,12 @@ function openWorkout(workoutId, mode) {
             const marcar = !all;
             e.sets.forEach((s) => { s.done = marcar; });
             save();
+            if (marcar && e.sets.length) ofereceFinalizar(e, e.sets[e.sets.length - 1]);
           } else if (!S.active && iniciarAoAnotar(workoutId)) {
             const alvo = S.active.exercises.find((x) => x.uid === e.uid);
             if (alvo) alvo.sets.forEach((s) => { s.done = true; });
             saveNow();
+            if (alvo && alvo.sets.length) ofereceFinalizar(alvo, alvo.sets[alvo.sets.length - 1]);
           } else {
             toast('Há outro treino em andamento');
             return;
@@ -2618,22 +2620,53 @@ function finishFlow(screen) {
   box.querySelector('[data-x="no"]').addEventListener('click', r.close);
   box.querySelector('[data-x="yes"]').addEventListener('click', () => {
     r.close();
-    const s = finishSession();
-    REST = null;
-    atualizarBarraDescanso();
-    ajustarTravaTela();
-    cloudEnviarEmSegundoPlano();
-    setTimeout(() => {
-      voltarPara('academia');
-      if (s) openSessionDetail(s.id);
-      setTimeout(lembrarBackup, 900);
-    }, 160);
+    salvarTreinoEAbrir();
   });
+}
+
+function salvarTreinoEAbrir() {
+  const s = finishSession();
+  REST = null;
+  atualizarBarraDescanso();
+  ajustarTravaTela();
+  cloudEnviarEmSegundoPlano();
+  setTimeout(() => {
+    voltarPara('academia');
+    if (s) openSessionDetail(s.id);
+    setTimeout(lembrarBackup, 900);
+  }, 160);
+}
+
+/* Passou de 2h de cronômetro: o treino é encerrado sozinho. Com séries feitas
+   ele vai para o histórico (com a duração travada em 2h); sem nenhuma, some. */
+function encerrarTreinoPorTempo() {
+  const a = S.active;
+  if (!a || activeElapsedMs() < TREINO_MAX_MS) return false;
+  const feitas = a.exercises.some((e) => e.sets.some((s) => s.done));
+  if (!feitas) {
+    cancelSession(); REST = null; atualizarBarraDescanso(); ajustarTravaTela();
+    voltarPara('academia');
+    toast('Treino encerrado após 2h sem séries feitas');
+    return true;
+  }
+  salvarTreinoEAbrir();
+  toast('Treino encerrado automaticamente após 2h');
+  return true;
+}
+
+/* Marcar a última série do último exercício é o fim natural do treino. */
+function ofereceFinalizar(e, set) {
+  const a = S.active;
+  if (!a || !set.done) return;
+  const ultimoEx = a.exercises[a.exercises.length - 1];
+  if (!ultimoEx || ultimoEx.uid !== e.uid || ultimoEx.sets[ultimoEx.sets.length - 1] !== set) return;
+  setTimeout(() => finishFlow(), 250);
 }
 
 /* cronômetro global: atualiza cronômetro e descanso na tela visível */
 function globalTick() {
   const sc = currentScreen();
+  if (S.active && S.active.running && encerrarTreinoPorTempo()) return;
   if (!sc) return;
 
   if (S.active && S.active.running) {
@@ -2821,6 +2854,7 @@ function openExercise(workoutId, uid, inSession) {
             }
           }
           screen.refresh();
+          if (marcado.done) ofereceFinalizar(alvoEx(), marcado);
         },
         tipo: () => escolherTipo(st, () => { save(); screen.refresh(); }),
         menu: () => actionSheet(valida ? 'Série ' + nValida : infoTipo(tipo).nome, [
