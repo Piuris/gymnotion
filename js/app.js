@@ -2455,7 +2455,8 @@ function openWorkout(workoutId, mode) {
       scroll.appendChild(t);
     } else if (MODE === 'view') {
       const totalSets = w.exercises.reduce((a, e) => a + e.sets.length, 0);
-      scroll.appendChild(h(`<div class="hint" style="text-align:center;padding:6px 16px 16px">${w.exercises.length} exercícios • ${totalSets} séries</div>`));
+      const opc = w.exercises.filter((e) => e.opcional).length;
+      scroll.appendChild(h(`<div class="hint" style="text-align:center;padding:6px 16px 16px">${w.exercises.length} exercícios${opc ? ` (${opc} opcional${opc > 1 ? 'is' : ''})` : ''} • ${totalSets} séries</div>`));
     }
 
     /* ---- lista de exercícios ---- */
@@ -2469,12 +2470,13 @@ function openWorkout(workoutId, mode) {
       else if (all) checkCls = ' on';
       else if (some) checkCls = ' partial';
 
-      const row = h(`<div class="ex-item" data-arrastavel>
+      const row = h(`<div class="ex-item${e.opcional ? ' opc' : ''}" data-arrastavel>
         ${MODE === 'edit'
           ? `<button class="alca" data-alca>${icon('arrastar')}</button>`
           : `<button class="check${checkCls}" data-act="check">${icon('check')}</button>`}
         ${exThumb(e.exId, e.grupo, e.equip, 'round')}
         <div class="name">${esc(e.nome)}${e.equip && e.equip !== 'Sem equipamento' ? ` <span style="color:var(--txt-2)">(${esc(e.equip)})</span>` : ''}</div>
+        ${e.opcional ? '<span class="tag-opc">Opcional</span>' : ''}
         ${MODE === 'edit' ? '' : `<button class="kebab" data-act="menu">${icon('dots')}</button>`}
         ${icon('chev').replace('<svg', '<svg class="chev"')}
       </div>`);
@@ -2503,6 +2505,7 @@ function openWorkout(workoutId, mode) {
         menu: () => actionSheet(e.nome, [
           { label: 'Abrir séries', icon: 'chart', onClick: () => openExercise(workoutId, e.uid, inSession) },
           { label: 'Trocar equipamento', icon: 'copy', onClick: () => trocarEquipamento(e, () => { saveNow(); screen.refresh(); }) },
+          { label: e.opcional ? 'Tornar obrigatório' : 'Marcar como opcional', icon: 'clock', onClick: () => { alternarOpcional(workoutId, e.uid); screen.refresh(); } },
           { label: 'Substituir exercício', icon: 'repeat', onClick: () => openLibrary(workoutId, () => screen.refresh(), { substituirUid: e.uid, nomeAtual: e.nome }) },
           { label: 'Mover para cima', icon: 'upload', onClick: () => { moveEx(src, idx, -1); save(); screen.refresh(); } },
           { label: 'Mover para baixo', icon: 'download', onClick: () => { moveEx(src, idx, 1); save(); screen.refresh(); } },
@@ -2589,6 +2592,17 @@ function moveEx(arr, idx, dir) {
   arr.splice(j, 0, x);
 }
 
+/* Opcional é exercício que só entra se sobrar tempo. A marca vale para o molde
+   e para a sessão em andamento, senão concluir o treino a perderia. */
+function alternarOpcional(workoutId, uid) {
+  const w = getWorkout(workoutId);
+  const molde = w && w.exercises.find((e) => e.uid === uid);
+  const ativo = S.active && S.active.workoutId === workoutId && S.active.exercises.find((e) => e.uid === uid);
+  const valor = !((ativo || molde || {}).opcional);
+  [molde, ativo].forEach((e) => { if (e) e.opcional = valor; });
+  haptic(); saveNow();
+}
+
 function removeEx(workoutId, uid) {
   const w = getWorkout(workoutId);
   if (w) w.exercises = w.exercises.filter((e) => e.uid !== uid);
@@ -2654,12 +2668,15 @@ function encerrarTreinoPorTempo() {
   return true;
 }
 
-/* Marcar a última série do último exercício é o fim natural do treino. */
+/* Marcar a última série do último exercício é o fim natural do treino. Os
+   opcionais do fim não contam: terminado o último obrigatório, já pergunta, e
+   pergunta de novo se a pessoa ficar e fizer os opcionais até o fim. */
 function ofereceFinalizar(e, set) {
   const a = S.active;
   if (!a || !set.done) return;
-  const ultimoEx = a.exercises[a.exercises.length - 1];
-  if (!ultimoEx || ultimoEx.uid !== e.uid || ultimoEx.sets[ultimoEx.sets.length - 1] !== set) return;
+  const obrigatorios = a.exercises.filter((x) => !x.opcional);
+  const gatilhos = [obrigatorios[obrigatorios.length - 1], a.exercises[a.exercises.length - 1]];
+  if (!gatilhos.some((x) => x && x.uid === e.uid && x.sets[x.sets.length - 1] === set)) return;
   setTimeout(() => finishFlow(), 250);
 }
 

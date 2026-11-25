@@ -913,6 +913,15 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .set-row.aux .field { background: var(--input-bg); }
 .ex-item.aux .name { color: var(--txt-2); }
 
+/* exercício opcional: só se sobrar tempo */
+.tag-opc {
+  flex: 0 0 auto;
+  padding: 3px 8px; border-radius: 99px;
+  background: var(--fill-2); color: var(--txt-2);
+  font-size: 11.5px; font-weight: 510; letter-spacing: .1px;
+}
+.ex-item.opc .name { color: var(--txt-2); }
+
 /* ---------- o que foi feito da última vez ---------- */
 
 .prev-bar {
