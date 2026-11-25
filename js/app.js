@@ -3137,6 +3137,9 @@ function novoExercicio(screen) {
 
 function openSessionDetail(id) {
   let editando = false;
+  /* A correção mexe numa cópia: só o Salvar leva para o registro, e sair pela
+     seta descarta. */
+  let rascunho = null;
 
   pushScreen((el, screen) => {
     const s = S.sessions.find((x) => x.id === id);
@@ -3151,15 +3154,15 @@ function openSessionDetail(id) {
         : `<button class="icon-btn" data-act="menu">${icon('dots')}</button>`}
     </div>`);
     acts(nav, {
-      back: () => { if (editando) { editando = false; screen.refresh(); } else popScreen(); },
+      back: () => { if (editando) { editando = false; rascunho = null; screen.refresh(); } else popScreen(); },
       salvar: () => {
-        s.exercises = s.exercises.filter((e) => e.sets.length);
+        s.exercises = rascunho.filter((e) => e.sets.length);
         recalcSession(s); saveNow();
-        editando = false; screen.refresh();
+        editando = false; rascunho = null; screen.refresh();
         toast('Registro atualizado');
       },
       menu: () => actionSheet(s.name, [
-        { label: 'Corrigir este registro', icon: 'pencil', onClick: () => { editando = true; screen.refresh(); } },
+        { label: 'Corrigir este registro', icon: 'pencil', onClick: () => { editando = true; rascunho = structuredClone(s.exercises); screen.refresh(); } },
         { label: 'Repetir este treino', icon: 'repeat', onClick: () => { const w = getWorkout(s.workoutId); if (!w) { toast('Treino não existe mais'); return; } startSession(w.id); popScreen(); setTimeout(() => openWorkout(w.id, 'session'), 200); } },
         { label: 'Apagar registro', icon: 'trash', danger: true, onClick: () => confirmSheet('Apagar registro?', '', 'Apagar', () => { S.sessions = S.sessions.filter((x) => x.id !== id); saveNow(); popScreen(); }) },
       ]),
@@ -3207,7 +3210,7 @@ function openSessionDetail(id) {
       scroll.appendChild(h('<div class="hint" style="padding:0 16px 12px">Ajuste peso e repetições. As estatísticas são recalculadas ao salvar.</div>'));
     }
 
-    s.exercises.forEach((e) => {
+    (editando ? rascunho : s.exercises).forEach((e) => {
       scroll.appendChild(h(`<div class="section-title" style="color:var(--txt)">${esc(e.nome)}</div>`));
       let nv = 0;
       e.sets.forEach((st, i) => {
@@ -3238,14 +3241,8 @@ function openSessionDetail(id) {
         on(row, 'input[data-f]', 'change', (ev) => {
           st[ev.target.dataset.f] = Number(String(ev.target.value).replace(',', '.')) || 0;
         });
-        on(row, 'input[data-f]', 'focus', (ev) => {
-        ev.target.select();
-        const campo = ev.target.dataset.f;
-        if (live || S.active || (campo !== 'peso' && campo !== 'reps')) return;
-        /* nada é reconstruído aqui: o cursor e o teclado ficam onde estão, e
-           o que for digitado já cai na sessão por causa de alvoSet() */
-        iniciarAoAnotar(workoutId);
-      });
+        /* só seleciona: corrigir um registro não começa treino nenhum */
+        on(row, 'input[data-f]', 'focus', (ev) => ev.target.select());
         acts(row, {
           tipo: () => escolherTipo(st, () => screen.refresh()),
           remover: () => { e.sets.splice(i, 1); screen.refresh(); },
