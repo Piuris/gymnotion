@@ -491,6 +491,7 @@ function startSession(workoutId) {
     name: w.name,
     color: w.color,
     icon: w.icon,
+    inicio: Date.now(),      /* não muda; startedAt recomeça a cada retomada */
     startedAt: Date.now(),
     accumMs: 0,
     running: true,
@@ -543,6 +544,15 @@ function sessionStats(exercises, durationSec, bodyweight) {
 /* Teto de duração: treino esquecido aberto não vira um registro de 9 horas. */
 const TREINO_MAX_MS = 2 * 60 * 60 * 1000;
 
+/* O dia em que o treino conta. Concluído na hora, é agora. Treino esquecido
+   aberto só é encerrado quando o app volta a abrir, às vezes dias depois: aí
+   vale o dia em que ele começou. */
+function dataDoTreino(a) {
+  const agora = Date.now();
+  const inicio = a.inicio || a.startedAt - a.accumMs;   /* sessões antigas não têm inicio */
+  return agora - inicio >= TREINO_MAX_MS ? inicio : agora;
+}
+
 function finishSession() {
   if (!S.active) return null;
   const a = S.active;
@@ -557,12 +567,14 @@ function finishSession() {
     name: a.name,
     color: a.color,
     icon: a.icon,
-    date: Date.now(),
+    date: dataDoTreino(a),
     durationSec,
     exercises: done,
     ...stats,
   };
-  S.sessions.unshift(sess);
+  /* a lista vai do mais novo para o mais velho, e a data pode ser passada */
+  const pos = S.sessions.findIndex((x) => x.date <= sess.date);
+  S.sessions.splice(pos < 0 ? S.sessions.length : pos, 0, sess);
 
   // grava as cargas usadas de volta no molde do treino
   const w = getWorkout(a.workoutId);
